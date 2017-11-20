@@ -1,0 +1,5 @@
+# Words
+
+Word-finding game.
+
+Find words on an infinite hex grid.
