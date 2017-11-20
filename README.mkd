@@ -3,3 +3,9 @@
 Word-finding game.
 
 Find words on an infinite hex grid.
+
+# TODO
+
+- Dictionary addition
+- Resources
+- Typing mode!
