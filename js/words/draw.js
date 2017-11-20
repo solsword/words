@@ -6,6 +6,8 @@ define(["./grid"], function(grid) {
   var HIGHLIGHT_COLOR = "#fff";
   var TRAIL_COLOR = "#bbb";
 
+  /*
+   * TODO: DEBUG
   var PALETTE = {
     "gr": {
       "outline": "#555",
@@ -36,6 +38,40 @@ define(["./grid"], function(grid) {
         "inner": "#131",
           "pad": "#040",
         "glyph": "#0a0"
+    },
+  };
+  */
+
+  var PALETTE = {
+    "gr": {
+      "outline": "#555",
+        "inner": "#888",
+          "pad": "#444",
+        "glyph": "#eee"
+    },
+    "bl": {
+      "outline": "#555",
+        "inner": "#8bf",
+          "pad": "#444",
+        "glyph": "#eee"
+    },
+    "rd": {
+      "outline": "#555",
+        "inner": "#f66",
+          "pad": "#444",
+        "glyph": "#eee"
+    },
+    "yl": {
+      "outline": "#555",
+        "inner": "#ff2",
+          "pad": "#444",
+        "glyph": "#eee"
+    },
+    "gn": {
+      "outline": "#555",
+        "inner": "#6f7",
+          "pad": "#444",
+        "glyph": "#eee"
     },
   };
 

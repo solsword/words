@@ -26,43 +26,55 @@ define([], function() {
     // Analyze glyphs if needed:
     if (!json.hasOwnProperty("glyph_counts")) {
       json.glyph_counts = {};
-      json.entries.forEach(function (entry) {
-        for (var i = 0; i < entry[0].length; ++i) {
-          var g = entry[0][i];
+      for (var i = 0; i < entries.length; ++i) {
+        var entry = entries[i];
+        for (var j = 0; j < entry[0].length; ++j) {
+          var g = entry[0][j];
           if (json.glyph_counts.hasOwnProperty(g)) {
             json.glyph_counts[g] += 1;
           } else {
             json.glyph_counts[g] = 1;
           }
         }
-      });
+      }
     }
 
     // Build an index if needed:
     if (!json.hasOwnProperty("index")) {
-      json.index = create_index(json.entries, 0);
+      // Create an array of indices:
+      var indices = []
+      for (var i = 0; i < json.entries.length; ++i) {
+        indices.push(i);
+      }
+      // Build the index:
+      json.index = create_index(json.entries, indices, 0);
     }
 
     // Add it as a domain:
     DOMAINS[domain] = json;
   }
 
-  function create_index(entries, position) {
+  function create_index(entries, indices, position) {
     // Creates an index on the position-th glyphs from each of the given
-    // entries. Calls itself recursively until INDEX_BIN_SIZE is satisfied or
+    // entries, picked out from the full list by the indices array. Calls
+    // itself recursively until INDEX_BIN_SIZE is satisfied or
     // INDEX_DEPTH_LIMIT is met. Returns an object mapping glyphs to
     // sub-indices or an array for terminal entries.
     result = {};
-    entries.forEach(function (entry) {
+    indices.forEach(function (idx) {
+      var entry = entries[idx];
       if (entry[0].length <= position) {
         // This entry is too short
-        result[""] = entry;
+        if (reuslt.hasOwnProperty("")) {
+          console.log("Internal Error: multiple too-short entry:\n" + entry);
+        }
+        result[""] = idx;
       } else {
         var glyph = entry[0][position]
         if (result.hasOwnProperty(glyph)) {
-          result[glyph].push(entry);
+          result[glyph].push(idx);
         } else {
-          result[glyph] = [ entry ];
+          result[glyph] = [ idx ];
         }
       }
     });
@@ -74,7 +86,7 @@ define([], function() {
        && position < INDEX_DEPTH_LIMIT
         ) {
           // Recurse
-          result[key] = create_index(result[key], position + 1);
+          result[key] = create_index(entries, result[key], position + 1);
         }
       }
     }
@@ -91,7 +103,7 @@ define([], function() {
       if (match != null) {
         entries.push(match);
       }
-    }
+    });
     return entries;
   }
 
@@ -138,18 +150,20 @@ define([], function() {
     var entry = null;
     if (g == null && Array.isArray(index)) {
       for (var i = 0; i < index.length; ++i) {
-        var against = index[i][0];
+        var idx = index[i];
+        var entry = domain.entries[idx];
+        var against = entry[0];
         // TODO: Permit any ordering in domain files for unordered domains?
         if (!domain.cased) {
           against = against.toLowerCase();
         }
         if (against === original) {
-          entry = index[i];
+          entry = entry;
         }
       }
     } else if (g == null) {
       if (index.hasOwnProperty("")) {
-        entry = index[""];
+        entry = domain.entries[index[""]];
       } else {
         // word prefix
         return null;

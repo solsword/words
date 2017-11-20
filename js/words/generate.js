@@ -5,6 +5,15 @@ define([], function() {
 
   var SMOOTHING = 1.5;
 
+  var DOMAIN_COMBOS = {
+    "test_combined": [ "test", "test_combo" ]
+  }
+
+  var DOMAIN_WEIGHTS = {
+    "test": 1,
+    "test_combined": 1
+  }
+
   var GLYPH_SET = {
     "A": 8.2,
     "B": 1.5,
@@ -74,6 +83,39 @@ define([], function() {
     return s1 ^ ((s2 + off/2) * off);
   }
 
+  function sghash(seed, spos) {
+    // Hashes a seed and a supergrid position together into a combined seed
+    // value.
+
+    var smix = mix_seeds(seed, spos[0], 40349);
+    smix = mix_seeds(smix, spos[1], 4839482);
+
+    return smix;
+  }
+
+  function generate_domains(seed, spos) {
+    // Generates the domain list for the given supergrid position according to
+    // the given seed.
+    var smix = sghash(seed, spos);
+
+    // TODO: HERE
+    if (Math.random() < 0.7) {
+      return ["test"];
+    } else {
+      return ["test_combo"];
+    }
+  }
+
+  function color_for_domains(domains) {
+    // Returns a color value for a domain list.
+
+    // TODO: HERE
+    var colors = ["gr", "bl", "rd", "yl", "gn"]
+    var cchoice = colors[Math.floor(Math.random()*colors.length)];
+
+    return cchoice;
+  }
+
   function generate_supertile(seed, spos) {
     // Takes a seed and a supertile position and generates the corresponding
     // supertile.
@@ -81,17 +123,14 @@ define([], function() {
     // TODO: Uses globally-known edge content to generate guaranteed inroads.
     //
     // Note: the '| 0' is a hack to truncate to 32-bit int content.
+    var smix = sghash(seed, spos);
 
-    var smix = mix_seeds(seed, spos[0], 40349);
-    smix = mix_seeds(smix, spos[1], 4839482);
-
-    var colors = ["gr", "bl", "rd", "yl", "gn"]
     var result = {
       "glyphs": Array(49),
-      // TODO: DEBUG
-      "color": colors[((smix % 5) + 5) % 5] // TODO: colors!
-      //"color": colors[(((spos[0] + spos[1]*4) % 5) + 5) % 5] // TODO: colors!
+      "domains": generate_domains(seed, spos)
     };
+
+    result["color"] = color_for_domains(result["domains"]);
 
     for (var x = 0; x < 7; ++x) {
       smix = mix_seeds(smix, x, 950384);
