@@ -40,7 +40,7 @@ define(["./grid"], function(grid) {
     var result = [vpos[0], vpos[1]];
     result[0] -= ctx.middle[0];
     result[1] -= ctx.middle[1];
-    //result[1] = -result[1];
+    result[1] = -result[1];
     result[0] /= ctx.viewport_scale;
     result[1] /= ctx.viewport_scale;
     result[0] += ctx.viewport_center[0];
@@ -52,7 +52,7 @@ define(["./grid"], function(grid) {
     var result = [wpos[0], wpos[1]];
     result[0] -= ctx.viewport_center[0];
     result[1] -= ctx.viewport_center[1];
-    //result[1] = -result[1];
+    result[1] = -result[1];
     result[0] *= ctx.viewport_scale;
     result[1] *= ctx.viewport_scale;
     result[0] += ctx.middle[0];
@@ -62,8 +62,8 @@ define(["./grid"], function(grid) {
 
   function viewport_edges(ctx) {
     // Returns viewport edges (left/top/right/bottom) in world coordinates.
-    var tl = world_pos(ctx, [0, ctx.cheight]);
-    var br = world_pos(ctx, [ctx.cwidth, 0]);
+    var tl = world_pos(ctx, [0, 0]);
+    var br = world_pos(ctx, [ctx.cwidth, ctx.cheight]);
     return [tl[0], tl[1], br[0], br[1]];
   }
 
@@ -73,6 +73,7 @@ define(["./grid"], function(grid) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = "22px asap";
+
     tiles = grid.list_tiles(edges);
     tiles.forEach(function(tile) {
       draw_tile(ctx, tile);
@@ -81,7 +82,7 @@ define(["./grid"], function(grid) {
 
   function draw_tile(ctx, tile) {
     // TODO: Highlight status (or draw highlight separately?)!
-    var wpos = grid.wpos(tile["pos"]);
+    var wpos = grid.world_pos(tile["pos"]);
     var color = tile["color"];
     var glyph = tile["glyph"];
 

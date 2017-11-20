@@ -3,6 +3,8 @@
 
 define([], function() {
 
+  var SMOOTHING = 1.5;
+
   var GLYPH_SET = {
     "A": 8.2,
     "B": 1.5,
@@ -40,7 +42,7 @@ define([], function() {
     GS_TOTAL_WEIGHT = 0;
     for (var g in GLYPH_SET) {
       if (GLYPH_SET.hasOwnProperty(g)) {
-        GS_TOTAL_WEIGHT += GLYPH_SET[g];
+        GS_TOTAL_WEIGHT += GLYPH_SET[g] + SMOOTHING;
       }
     }
   }
@@ -48,13 +50,17 @@ define([], function() {
   // To compute GS_TOTAL_WEIGHT:
   set_glyph_set(GLYPH_SET);
 
+  // TODO: Why are there too many A's?
+  // (because my PRNG is BAD!)
   function sample_glyph(seed) {
     var r = (((seed * 1029830183) % 1e9) / 1e9) * GS_TOTAL_WEIGHT;
+    // TODO: DEBUG
+    //var r = Math.random() * GS_TOTAL_WEIGHT;
     var last = undefined;
     for (var g in GLYPH_SET) {
       if (GLYPH_SET.hasOwnProperty(g)) {
         selected = g;
-        r -= GLYPH_SET[g]
+        r -= GLYPH_SET[g] + SMOOTHING;
         if (r < 0) {
           break;
         }
@@ -82,7 +88,9 @@ define([], function() {
     var colors = ["gr", "bl", "rd", "yl", "gn"]
     var result = {
       "glyphs": Array(49),
+      // TODO: DEBUG
       "color": colors[((smix % 5) + 5) % 5] // TODO: colors!
+      //"color": colors[(((spos[0] + spos[1]*4) % 5) + 5) % 5] // TODO: colors!
     };
 
     for (var x = 0; x < 7; ++x) {

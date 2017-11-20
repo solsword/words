@@ -30,14 +30,14 @@ define(["./generate"], function(generate) {
     SEED = seed;
   }
 
-  function wpos(gp) {
+  function world_pos(gp) {
     // Returns the world position corresponding to the given grid position.
     var x = GRID_SIZE * Math.cos(Math.PI/6) * gp[0];
     var y = GRID_SIZE * (gp[1] - Math.sin(Math.PI/6) * gp[0]);
     return [x, y];
   }
 
-  function gpos(wp) {
+  function grid_pos(wp) {
     // Returns the grid position which includes the given world position.
     //
     // Picture (dotted lines indicate initial rectangular boxes; proportions
@@ -165,45 +165,67 @@ define(["./generate"], function(generate) {
     //                          &       &
     //                              &
     //
+    //
+    // Algebra for our unskew transform:
+    //
+    // Basis vectors of the space:
+    //
+    //  v1 = (7, 4)
+    //  v2 = (3, 7)
+    // 
+    // Coordinate equations:
+    //
+    //  7 c1 + 3 c2 = x
+    //  4 c1 + 7 c2 = y
+    // 
+    // Solved for c2:
+    //
+    //  c2 = 1/3 x - 7/3 c1
+    //  c2 = 1/7 y - 4/7 c1
+    // 
+    // Using c2 = c2 and solving for c1:
+    //
+    //  1/3 x - 7/3 c1 = 1/7 y - 4/7 c1
+    //  (7/3 - 4/7) c1 = 1/3 x - 1/7 y
+    //  c1 = (1/3 x - 1/7 y) / (7/3 - 4/7)
+    //
+    // So we use:
 
-    // row/column selection in original hex grid:
-    var col = Math.floor(gp[0] / 7); // integer division
+    var x = gp[0];
+    var y = gp[1];
 
-    // This measures the height offset in subgrid cells for the bottom-left
-    // (origin) hex of the base row of supergrid hexes. It goes up by 7 every
-    // two supergrid steps to counteract overall skew, goes up by 3 in odd
-    // supergrid cells to further fix grid skew, and then also goes up by one
-    // per supergrid cell to correct supergrid jitter.
-    var base_row_offset = Math.floor(col / 2) * 7 + is_odd(col)*3 + col;
+    var skew_x = (x / 3 - y / 7) / (7/3 - 4/7);
+    var skew_y = (x / 3) - skew_x * (7/3);
 
-    // skewed row
-    var skew_y = (gp[1] - base_row_offset);
-    var skew_row = Math.floor(skew_y / 7);
+    skew_x = Math.round(skew_x);
+    skew_y = Math.round(skew_y);
 
-    // skewed column
-    var skew_x = gp[0] + (3 * skew_row);
-    var skew_col = Math.floor(skew_x / 7);
+    var r_x = gp[0] - 7 * skew_x - 3 * skew_y;
+    var r_y = gp[1] - 4 * skew_x - 7 * skew_y;
 
-    // compute relative x and y
-    var rel_x = skew_x - skew_col * 7;
-    var rel_y = skew_y - skew_row * 7;
-
-    // Fix up edge cases:
-    if (rel_x < 3 && rel_y > 3 + rel_x) {
-      // top-left corner: y+1 x-1
-      skew_col -= 1;
-      skew_row += 1;
-      rel_x += 4;
-      rel_y -= 3;
-    } else if (rel_x > 3 && rel_y < rel_x - 3) {
-      // bottom-right corner: y-1 x+1
-      skew_col += 1;
-      skew_row -= 1;
-      rel_x -= 4;
-      rel_y += 3;
+    if (r_y < -2) {
+      skew_x -= 1;
+      r_x = gp[0] - 7 * skew_x - 3 * skew_y;
+      r_y = gp[1] - 4 * skew_x - 7 * skew_y;
     }
 
-    return [skew_col, skew_row, rel_x, rel_y];
+    if (r_x > 0 && r_y < -2 + r_x) {
+      skew_x += 1;
+      skew_y -= 1;
+      r_x = gp[0] - 7 * skew_x - 3 * skew_y;
+      r_y = gp[1] - 4 * skew_x - 7 * skew_y;
+    }
+
+    if (r_x > 3) {
+      skew_x += 1;
+      r_x = gp[0] - 7 * skew_x - 3 * skew_y;
+      r_y = gp[1] - 4 * skew_x - 7 * skew_y;
+    }
+
+    r_y += 2;
+    r_x += 3;
+
+    return [ skew_x, skew_y, r_x, r_y ];
   }
 
   function supertile_interior() {
@@ -228,6 +250,7 @@ define(["./generate"], function(generate) {
     // following attributes:
     //
     //   pos: the grid-position of this tile.
+    //   spos: the supergrid-position of this tile.
     //   color: the color code (see draw.PALETTE) for this tile.
     //   glyph: the glyph on this title.
     //
@@ -244,6 +267,7 @@ define(["./generate"], function(generate) {
     }
     var result = extract_subtile(st, [sgp[2], sgp[3]]);
     result["pos"] = gp.slice();
+    result["spos"] = [sgp[0], sgp[1]];
     return result;
   }
 
@@ -253,8 +277,8 @@ define(["./generate"], function(generate) {
     // that the relative coordinates should be in-bounds, like those returned
     // from sgpos.
     var result = {};
-    result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*7]
-    result["color"] = supertile["color"]
+    result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*7];
+    result["color"] = supertile["color"];
     return result;
   }
 
@@ -265,12 +289,12 @@ define(["./generate"], function(generate) {
     // coordinates.
 
     // Compute grid coordinates:
-    tl = gpos([ edges[0], edges[1] ])
-    br = gpos([ edges[2], edges[3] ])
+    tl = grid_pos([ edges[0], edges[1] ])
+    br = grid_pos([ edges[2], edges[3] ])
 
     // Compute centers of containing cells:
-    tlc = wpos(tl);
-    brc = wpos(br);
+    tlc = world_pos(tl);
+    brc = world_pos(br);
 
     // Test whether we need to expand the range:
     if (tlc[0] - edges[0] > GRID_EDGE/2) {
@@ -300,7 +324,7 @@ define(["./generate"], function(generate) {
     for (var x = tl[0]; x <= br[0]; ++x) {
       for (
         var y = br[1] - Math.floor((br[0] - x) / 2);
-        y <= tl[1] + Math.floor(x / 2);
+        y <= tl[1] + Math.floor((x - tl[0]) / 2);
         ++y
       ) {
         result.push(tile_at([x, y]));
@@ -314,8 +338,8 @@ define(["./generate"], function(generate) {
     "GRID_SIZE": GRID_SIZE,
     "GRID_EDGE": GRID_EDGE,
     "VERTICES": VERTICES,
-    "wpos": wpos,
-    "gpos": gpos,
+    "world_pos": world_pos,
+    "grid_pos": grid_pos,
     "sgpos": sgpos,
     "set_seed": set_seed,
     "tile_at": tile_at,
