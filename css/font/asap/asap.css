@@ -1,0 +1,45 @@
+/*! Based on Font Squirrel (https://www.fontsquirrel.com) template August 10, 2017 */
+
+@font-face {
+    font-family: 'asap';
+    src: url('Asap-mediumItalic-webfont.eot');
+    src: url('Asap-mediumItalic-webfont.eot?#iefix') format('embedded-opentype'),
+         url('Asap-mediumItalic-webfont.woff2') format('woff2'),
+         url('Asap-mediumItalic-webfont.woff') format('woff'),
+    font-weight: normal;
+    font-style: Italic;
+
+}
+
+@font-face {
+    font-family: 'asap';
+    src: url('Asap-medium-webfont.eot');
+    src: url('Asap-medium-webfont.eot?#iefix') format('embedded-opentype'),
+         url('Asap-medium-webfont.woff2') format('woff2'),
+         url('Asap-medium-webfont.woff') format('woff'),
+    font-weight: normal;
+    font-style: normal;
+
+}
+
+@font-face {
+    font-family: 'asap';
+    src: url('Asap-BoldItalic-webfont.eot');
+    src: url('Asap-BoldItalic-webfont.eot?#iefix') format('embedded-opentype'),
+         url('Asap-BoldItalic-webfont.woff2') format('woff2'),
+         url('Asap-BoldItalic-webfont.woff') format('woff'),
+    font-weight: Bold;
+    font-style: Italic;
+
+}
+
+@font-face {
+    font-family: 'asap';
+    src: url('Asap-Bold-webfont.eot');
+    src: url('Asap-Bold-webfont.eot?#iefix') format('embedded-opentype'),
+         url('Asap-Bold-webfont.woff2') format('woff2'),
+         url('Asap-Bold-webfont.woff') format('woff'),
+    font-weight: Bold;
+    font-style: normal;
+
+}

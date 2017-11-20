@@ -1,0 +1,26 @@
+html {
+  height: 100%;
+}
+
+body {
+  font-family: "asap", "黑体", SimHei, "冬青黑体", "Hiragino Sans GB", sans-serif;
+  font-size: 14pt;
+  color: #aaa;
+  background-color: #444;
+  height: 100%;
+  margin: 0pt;
+  padding: 0pt;
+}
+
+#canvas {
+  position: absolute;
+  left: 2.5%;
+  top: 2.5%;
+  width: 95%;
+  height: 95%;
+	padding: 0; 
+	margin: 0; 
+	border:2pt solid #000;
+  border-radius: 4pt;
+	background-color:#333;
+}

@@ -1,0 +1,22 @@
+{
+  "name": "words",
+  "authors": [
+    "Peter Mawhorter <pmawhorter@gmail.com>"
+  ],
+  "description": "A word-finding game.",
+  "main": "main.js",
+  "keywords": [
+    "game",
+    "words",
+    "letters"
+  ],
+  "license": "GPLv3",
+  "homepage": "",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
