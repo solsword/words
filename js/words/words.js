@@ -1,43 +1,95 @@
 // words.js
 // Word game.
 
-define(["./draw", "./grid"], function(draw, grid) {
+define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
 
   var VIEWPORT_SIZE = 800.0;
   var VIEWPORT_SCALE = 1.0;
 
   var CURRENT_SWIPE = null;
   var CURRENT_GLYPHS = null;
+  var LAST_POSITION = [0, 0];
 
   // Mouse scroll correction factors:
   var PIXELS_PER_LINE = 18;
   var LINES_PER_PAGE = 40;
 
+  var LAST_MOUSE_POSITION = [0, 0];
+
+  var RESIZE_TIMEOUT = 20; // milliseconds
+
+  function home_view() {
+    var wpos = grid.world_pos([0, 0]);
+    CTX.viewport_center[0] = wpos[0];
+    CTX.viewport_center[1] = wpos[1];
+  }
+
+  var COMMANDS = {
+    // spacebar checks current word
+    " ": function (e) {
+      // TODO: HERE
+    },
+    // tab recenters view on current/last swipe head
+    "Tab": function (e) {
+      if (e.preventDefault) { e.preventDefault(); }
+      var wpos = grid.world_pos(LAST_POSITION);
+      CTX.viewport_center[0] = wpos[0];
+      CTX.viewport_center[1] = wpos[1];
+    },
+    // home and 0 reset the view to center 0, 0
+    "0": home_view,
+    "Home": home_view,
+  }
+
   function mouse_position(e) {
+    var client_x = e.clientX - CTX.bounds.left;
+    var client_y = e.clientY - CTX.bounds.top;
     return [
-      e.pageX - CTX.bounds.left,
-      e.pageY - CTX.bounds.top
+      client_x * CTX.cwidth / CTX.bounds.width,
+      client_y * CTX.cheight / CTX.bounds.height
     ];
+  }
+
+  function update_canvas_size() {
+    // Updates the canvas size. Called on resize after a timeout.
+    var bounds = CANVAS.getBoundingClientRect();
+    var car = bounds.width / bounds.height;
+    CANVAS.width = 800 * car;
+    CANVAS.height = 800;
+    CTX.cwidth = CANVAS.width;
+    CTX.cheight = CANVAS.height;
+    CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
+    CTX.bounds = bounds;
   }
 
   function start_game() {
     // set up canvas context
     CANVAS = document.getElementById("canvas");
-    var bounds = CANVAS.getBoundingClientRect();
-    var car = bounds.width / bounds.height;
-    CANVAS.width = 800 * car;
-    CANVAS.height = 800;
     CTX = CANVAS.getContext("2d");
-    CTX.cwidth = CANVAS.width;
-    CTX.cheight = CANVAS.height; // TODO: Update these dynamically
-    CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
-    CTX.bounds = bounds;
+    update_canvas_size();
     CTX.viewport_size = VIEWPORT_SIZE;
     CTX.viewport_center = [0, 0];
     CTX.viewport_scale = VIEWPORT_SCALE;
 
     // kick off animation
     window.requestAnimationFrame(animate);
+
+    // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
+    // consecutive one to do anything.
+    var timer_id = undefined;
+    window.addEventListener("resize", function() {
+      if (timer_id != undefined) {
+        clearTimeout(timer_id);
+        timer_id = undefined;
+      }
+      timer_id = setTimeout(
+        function () {
+          timer_id = undefined;
+          update_canvas_size();
+        },
+        RESIZE_TIMEOUT
+      );
+    });
 
     // set up event handlers
     document.onmousedown = function (e) {
@@ -48,6 +100,7 @@ define(["./draw", "./grid"], function(draw, grid) {
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
       CURRENT_SWIPE.push(gpos);
+      LAST_POSITION = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
     }
 
     document.onmouseup = function(e) {
@@ -69,30 +122,45 @@ define(["./draw", "./grid"], function(draw, grid) {
     }
 
     document.onmousemove = function (e) {
+      LAST_MOUSE_POSITION = mouse_position(e);
       if (e.preventDefault) { e.preventDefault(); }
       if (CURRENT_SWIPE != null) {
         var vpos = mouse_position(e);
         var wpos = draw.world_pos(CTX, vpos);
         var gpos = grid.grid_pos(wpos);
-        if (CURRENT_SWIPE.length >= 1) {
-          var prev = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
-          if ("" + gpos != "" + prev) {
-            if (CURRENT_SWIPE.length >= 2) {
-              var pprev = CURRENT_SWIPE[CURRENT_SWIPE.length - 2];
-              if ("" + gpos == "" + pprev) {
-                // Going backwards undoes selection:
-                CURRENT_SWIPE.pop();
-              } else {
-                // Going onwards:
-                CURRENT_SWIPE.push(gpos);
-              }
-            } else {
-              // Only one location so far: push next
-              CURRENT_SWIPE.push(gpos);
+        var head = null;
+        if (CURRENT_SWIPE.length > 0) {
+          head = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
+        }
+        var is_used = false;
+        var is_prev = false;
+        var is_head = false;
+        CURRENT_SWIPE.forEach(function (prpos, idx) {
+          if ("" + prpos == "" + gpos) {
+            is_used = true;
+            if (idx == CURRENT_SWIPE.length - 1) {
+              is_head = true;
+            } else if (idx == CURRENT_SWIPE.length - 2) {
+              is_prev = true;
             }
-          } // if it's the same as the current head, no change required.
+          }
+        });
+        if (is_used) {
+          if (is_prev) {
+            CURRENT_SWIPE.pop();
+            if (CURRENT_SWIPE.length > 0) {
+              LAST_POSITION = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
+            }
+          }
+          // else do nothing, we're on a tile that's already part of the
+          // current swipe.
         } else {
-          CURRENT_SWIPE.push(gpos);
+          // for tiles that aren't part of the swipe already:
+          if (head == null || grid.is_neighbor(head, gpos)) {
+            // add them if they're a neighbor of the head
+            CURRENT_SWIPE.push(gpos);
+            LAST_POSITION = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
+          }
         }
       }
     }
@@ -115,6 +183,12 @@ define(["./draw", "./grid"], function(draw, grid) {
       CTX.viewport_center[0] += x;
       CTX.viewport_center[1] -= y;
     }
+
+    document.onkeydown = function (e) {
+      if (COMMANDS.hasOwnProperty(e.key)) {
+        COMMANDS[e.key](e);
+      }
+    }
   }
 
   function animate(now) {
@@ -122,11 +196,22 @@ define(["./draw", "./grid"], function(draw, grid) {
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
     draw.draw_tiles(CTX);
     if (CURRENT_SWIPE != null && CURRENT_SWIPE.length > 0) {
-      draw.draw_swipe(CTX, CURRENT_SWIPE);
+      draw.draw_swipe(CTX, CURRENT_SWIPE, LAST_MOUSE_POSITION);
     }
     if (CURRENT_GLYPHS != null) {
       draw.draw_sofar(CTX, CURRENT_GLYPHS);
     }
+
+    // DEBUG: Uncomment this to draw a cursor.
+    //*
+    CTX.strokeStyle = "#fff";
+    CTX.beginPath();
+    CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);
+    CTX.lineTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]+3);
+    CTX.moveTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]-3);
+    CTX.lineTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]+3);
+    CTX.stroke();
+    // */
 
     // reschedule ourselves
     window.requestAnimationFrame(animate);

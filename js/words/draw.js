@@ -4,6 +4,7 @@
 define(["./grid"], function(grid) {
 
   var HIGHLIGHT_COLOR = "#fff";
+  var TRAIL_COLOR = "#bbb";
 
   var PALETTE = {
     "gr": {
@@ -137,30 +138,82 @@ define(["./grid"], function(grid) {
     ctx.fillText(glyph, vpos[0], vpos[1]);
   }
 
-  function draw_swipe(ctx, gplist) {
-    gplist.forEach(function (gp) {
-      draw_highlight(ctx, gp);
-    });
+  function draw_swipe(ctx, gplist, mvp) {
+    // Takes a context, a list of grid positions defining the current swipe,
+    // and the current mouse view position, and draws the swipe.
+    if (gplist.length == 0) {
+      return;
+    }
+
+    // Highlight hexes:
+    for (var i = 0; i < gplist.length - 1; ++i) {
+      draw_highlight(ctx, gplist[i], TRAIL_COLOR);
+    }
+    draw_highlight(ctx, gplist[gplist.length-1], HIGHLIGHT_COLOR);
+
+    // Draw line:
+    var wpos = grid.world_pos(gplist[0]);
+    var vpos = view_pos(ctx, wpos);
+
+    ctx.strokeStyle = TRAIL_COLOR;
+    ctx.beginPath();
+    ctx.moveTo(vpos[0], vpos[1]);
+    if (gplist.length == 1) {
+      // just a straight line to the mouse:
+      ctx.lineTo(mvp[0], mvp[1]);
+    } else if (gplist.length == 2) {
+      // curve to the mouse:
+      wpos = grid.world_pos(gplist[1]);
+      vpos = view_pos(ctx, wpos);
+      ctx.quadraticCurveTo(vpos[0], vpos[1], mvp[0], mvp[1]);
+    } else { // length 3+
+      // curves along the path:
+      for (var i = 1; i < gplist.length - 1; ++i) {
+        var vcp = view_pos(ctx, grid.world_pos(gplist[i]));
+        var vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
+        ctx.quadraticCurveTo(
+          vcp[0],
+          vcp[1],
+          (vcp[0] + vncp[0])/2,
+          (vcp[1] + vncp[1])/2
+        );
+      }
+      // curve to the mouse:
+      wpos = grid.world_pos(gplist[gplist.length - 1]);
+      vpos = view_pos(ctx, wpos);
+      ctx.quadraticCurveTo(vpos[0], vpos[1], mvp[0], mvp[1]);
+    }
+    ctx.stroke();
   }
 
-  function draw_highlight(ctx, gpos) {
+  function draw_highlight(ctx, gpos, color) {
+    // Takes a context, a grid position, and a color, and highlights that grid
+    // cell using that color.
     var wpos = grid.world_pos(gpos);
     var vpos = view_pos(ctx, wpos);
 
     ctx.lineWidth=2;
 
     // Outer hexagon
-    ctx.strokeStyle = HIGHLIGHT_COLOR;
+    ctx.strokeStyle = color;
 
     vertices = grid.VERTICES.slice();
 
     ctx.beginPath();
     once = true;
     vertices.forEach(function (vertex) {
+      // copy the vertex
       vertex = vertex.slice();
+
+      // bring things in just a touch
+      vertex[0] *= 0.95;
+      vertex[1] *= 0.95;
+
+      // offset to our current world position
       vertex[0] += wpos[0];
       vertex[1] += wpos[1];
 
+      // compute view position and draw a line
       var vv = view_pos(ctx, vertex);
       if (once) {
         ctx.moveTo(vv[0], vv[1]);
@@ -205,6 +258,23 @@ define(["./grid"], function(grid) {
     ctx.textBaseline = "middle";
     ctx.font = "22px asap";
     var str = glyphs.join("");
+    var twidth = ctx.measureText(str).width;
+    var maxwidth = (
+      ctx.cwidth
+    - CONTEXT_BOX["left"]
+    - CONTEXT_BOX["right"]
+    - CONTEXT_BOX["padding"]*2
+    - 2
+    );
+    if (twidth > maxwidth) {
+      str = str.slice(4);
+      twidth = ctx.measureText("…" + str).width;
+      while (twidth > maxwidth) {
+        str = str.slice(1);
+        twidth = ctx.measureText("…" + str).width;
+      }
+      str = "…" + str;
+    }
     ctx.fillStyle = "#fff";
     ctx.fillText(
       str,

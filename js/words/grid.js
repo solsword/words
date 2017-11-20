@@ -87,8 +87,8 @@ define(["./generate"], function(generate) {
     var row = Math.floor(celly / GRID_SIZE)
 
     // We only need fractional exact positions now:
-    cellx -= col;
-    celly -= row;
+    cellx -= col * GRID_EDGE * 1.5;
+    celly -= row * GRID_SIZE;
 
     // Here we adjust for the x-axis skew relative to the y-axis (they're at
     // 60/120 degrees, not 90)
@@ -111,6 +111,25 @@ define(["./generate"], function(generate) {
     }
 
     return [col, row];
+  }
+
+  function grid_distance(from, to) {
+    // Returns distance between two grid positions. See:
+    // http://keekerdc.com/2011/03/hexagon-grids-coordinate-systems-and-distance-calculations/
+    // Note our formula for z is (-x + y + z = 0  ->  z = x - y) because our
+    // axes are arranged differently.
+    var fz = from[0] - from[1];
+    var tz = to[0] - to[1];
+    var dx = Math.abs(from[0] - to[0]);
+    var dy = Math.abs(from[1] - to[1]);
+    var dz = Math.abs(fz - tz);
+    return Math.max(dx, dy, dz);
+  }
+
+  function is_neighbor(from, to) {
+    // Returns true if the two positions given are neighbors, and false
+    // otherwise (including if they are the same position).
+    return grid_distance(from, to) == 1;
   }
 
   function sgpos(gp) {
@@ -297,23 +316,23 @@ define(["./generate"], function(generate) {
     brc = world_pos(br);
 
     // Test whether we need to expand the range:
-    if (tlc[0] - edges[0] > GRID_EDGE/2) {
+    if (tlc[0] - edges[0] >= GRID_EDGE/2) {
       // left edge is outside of hexagon central square...
       // expand left edge by one so we don't have missing triangles:
       tl[0] -= 1;
     }
-    if (edges[2] - brc[0] > GRID_EDGE/2) {
+    if (edges[2] - brc[0] >= GRID_EDGE/2) {
       // right edge is outside of hexagon central square...
       // expand right edge by one so we don't have missing triangles:
       br[0] += 1;
     }
-    if ((is_odd(tl[0]) == 0) && edges[1] > tlc[1]) {
-      // top edge is above midpoint and column is even...
+    if (edges[1] >= tlc[1]) {
+      // top edge is above midpoint...
       // expand top edge by one so we don't have missing tetrahedra:
       tl[1] += 1;
     }
-    if ((is_odd(br[0]) == 0) && edges[3] < brc[1]) {
-      // bottom edge is below midpoint and column is even...
+    if (edges[3] <= brc[1]) {
+      // bottom edge is below midpoint...
       // expand top edge by one so we don't have missing tetrahedra:
       br[1] -= 1;
     }
@@ -340,6 +359,8 @@ define(["./generate"], function(generate) {
     "VERTICES": VERTICES,
     "world_pos": world_pos,
     "grid_pos": grid_pos,
+    "grid_distance": grid_distance,
+    "is_neighbor": is_neighbor,
     "sgpos": sgpos,
     "set_seed": set_seed,
     "tile_at": tile_at,
