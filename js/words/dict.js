@@ -8,6 +8,16 @@ define([], function() {
   INDEX_DEPTH_LIMIT = 8;
   INDEX_BIN_SIZE = 64;
 
+  function lookup_domain(name) {
+    // Looks up a domain by name.
+    if (DOMAINS.hasOwnProperty(name)) {
+      return DOMAINS[name];
+    } else {
+      console.log("Internal Error: Unknown domain '" + name + "'.");
+      return undefined;
+    }
+  }
+  
   function load_dictionary(domain) {
     // Loads the dictionary for the given domain. Does nothing if that domain
     // is already loaded. Puts the data into the DOMAINS object. Builds an
@@ -182,7 +192,13 @@ define([], function() {
     }
   }
 
+  // Load dictionaries:
+  // TODO: HERE
+  load_dictionary("test");
+  load_dictionary("test_combo");
+
   return {
+    "lookup_domain": lookup_domain,
     "load_dictionary": load_dictionary,
     "check_word": check_word,
     "find_word_in_domain": find_word_in_domain,

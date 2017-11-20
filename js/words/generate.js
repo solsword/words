@@ -1,7 +1,7 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
 
-define([], function() {
+define(["./dict"], function(dict) {
 
   var SMOOTHING = 1.5;
 
@@ -14,62 +14,24 @@ define([], function() {
     "test_combined": 1
   }
 
-  var GLYPH_SET = {
-    "A": 8.2,
-    "B": 1.5,
-    "C": 2.8,
-    "D": 4.3,
-    "E": 12.7,
-    "F": 2.2,
-    "G": 2.0,
-    "H": 6.1,
-    "I": 7.0,
-    "J": 0.2,
-    "K": 0.8,
-    "L": 4.0,
-    "M": 2.4,
-    "N": 6.8,
-    "O": 7.5,
-    "P": 1.9,
-    "Q": 0.1,
-    "R": 6.0,
-    "S": 6.3,
-    "T": 9.0,
-    "U": 2.8,
-    "V": 1.0,
-    "W": 2.4,
-    "X": 0.2,
-    "Y": 2.0,
-    "Z": 0.1
-  }
-  // TODO: Derive this from a dictionary.
-
-  var GS_TOTAL_WEIGHT = 0;
-
-  function set_glyph_set(gs) {
-    GLYPH_SET = gs;
-    GS_TOTAL_WEIGHT = 0;
-    for (var g in GLYPH_SET) {
-      if (GLYPH_SET.hasOwnProperty(g)) {
-        GS_TOTAL_WEIGHT += GLYPH_SET[g] + SMOOTHING;
-      }
-    }
-  }
-
-  // To compute GS_TOTAL_WEIGHT:
-  set_glyph_set(GLYPH_SET);
-
   // TODO: Why are there too many A's?
   // (because my PRNG is BAD!)
-  function sample_glyph(seed) {
-    var r = (((seed * 1029830183) % 1e9) / 1e9) * GS_TOTAL_WEIGHT;
+  function sample_glyph(gcounts, seed) {
+    // Sample a glyph from a counts dictionary, using the counts as weights.
+    var total_weight = 0;
+    for (var g in gcounts) {
+      if (gcounts.hasOwnProperty(g)) {
+        total_weight += gcounts[g] + SMOOTHING;
+      }
+    }
+    var r = (((seed * 1029830183) % 1e9) / 1e9) * total_weight;
     // TODO: DEBUG
     //var r = Math.random() * GS_TOTAL_WEIGHT;
     var last = undefined;
-    for (var g in GLYPH_SET) {
-      if (GLYPH_SET.hasOwnProperty(g)) {
+    for (var g in gcounts) {
+      if (gcounts.hasOwnProperty(g)) {
         selected = g;
-        r -= GLYPH_SET[g] + SMOOTHING;
+        r -= gcounts[g] + SMOOTHING;
         if (r < 0) {
           break;
         }
@@ -116,6 +78,35 @@ define([], function() {
     return cchoice;
   }
 
+  function merge_glyph_counts(gs1, gs2) {
+    // Merges two glyph counts, returning a new object.
+    var result = {};
+    for (var g in gs1) {
+      if (gs1.hasOwnProperty(g)) {
+        result[g] = gs1[g];
+      }
+    }
+    for (var g in gs2) {
+      if (gs2.hasOwnProperty(g)) {
+        if (result.hasOwnProperty(g)) {
+          result[g] += gs2[g];
+        } else {
+          result[g] = gs2[g];
+        }
+      }
+    }
+    return result;
+  }
+
+  function combined_counts(domains) {
+    var result = {};
+    domains.forEach(function (d) {
+      var dom = dict.lookup_domain(d);
+      result = merge_glyph_counts(result, d.glyph_counts);
+    });
+    return result;
+  }
+
   function generate_supertile(seed, spos) {
     // Takes a seed and a supertile position and generates the corresponding
     // supertile.
@@ -132,6 +123,8 @@ define([], function() {
 
     result["color"] = color_for_domains(result["domains"]);
 
+    var gcounts = combined_counts(result["domains"]);
+
     for (var x = 0; x < 7; ++x) {
       smix = mix_seeds(smix, x, 950384);
       for (var y = 0; y < 7; ++y) {
@@ -144,7 +137,7 @@ define([], function() {
         }
         // Mix the seed and sample a glyph: 
         smix = mix_seeds(smix, y, 3264615);
-        result["glyphs"][x + y*7] = sample_glyph(smix);
+        result["glyphs"][x + y*7] = sample_glyph(gcounts, smix);
       }
     }
 
@@ -152,7 +145,6 @@ define([], function() {
   }
 
   return {
-    "set_glyph_set": set_glyph_set,
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
