@@ -7,10 +7,18 @@ define(["./draw", "./grid"], function(draw, grid) {
   var VIEWPORT_SCALE = 1.0;
 
   var CURRENT_SWIPE = null;
+  var CURRENT_GLYPHS = null;
 
   // Mouse scroll correction factors:
   var PIXELS_PER_LINE = 18;
   var LINES_PER_PAGE = 40;
+
+  function mouse_position(e) {
+    return [
+      e.pageX - CTX.bounds.left,
+      e.pageY - CTX.bounds.top
+    ];
+  }
 
   function start_game() {
     // set up canvas context
@@ -34,24 +42,27 @@ define(["./draw", "./grid"], function(draw, grid) {
     // set up event handlers
     document.onmousedown = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
+      // TODO: Something if CURRENT_SWIPE is not null?
       CURRENT_SWIPE = [];
-      var vpos = [
-        e.pageX - CTX.bounds.left,
-        e.pageY - CTX.bounds.top
-      ];
+      var vpos = mouse_position(e);
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
       CURRENT_SWIPE.push(gpos);
     }
 
     document.onmouseup = function(e) {
+      // TODO: Menus
       if (e.preventDefault) { e.preventDefault(); }
       if (CURRENT_SWIPE != null && CURRENT_SWIPE.length > 0) {
         // A non-empty swipe motion.
         glyphs = []
-        CURRENT_SWIPE.foreach(function(gp) {
+        CURRENT_SWIPE.forEach(function (gp) {
           glyphs.push(grid.tile_at(gp)["glyph"])
         });
+        if (CURRENT_GLYPHS == null) {
+          CURRENT_GLYPHS = [];
+        }
+        glyphs.forEach(function (g) { CURRENT_GLYPHS.push(g); });
       }
       // either way reset CURRENT_SWIPE
       CURRENT_SWIPE = null;
@@ -59,6 +70,31 @@ define(["./draw", "./grid"], function(draw, grid) {
 
     document.onmousemove = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
+      if (CURRENT_SWIPE != null) {
+        var vpos = mouse_position(e);
+        var wpos = draw.world_pos(CTX, vpos);
+        var gpos = grid.grid_pos(wpos);
+        if (CURRENT_SWIPE.length >= 1) {
+          var prev = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
+          if ("" + gpos != "" + prev) {
+            if (CURRENT_SWIPE.length >= 2) {
+              var pprev = CURRENT_SWIPE[CURRENT_SWIPE.length - 2];
+              if ("" + gpos == "" + pprev) {
+                // Going backwards undoes selection:
+                CURRENT_SWIPE.pop();
+              } else {
+                // Going onwards:
+                CURRENT_SWIPE.push(gpos);
+              }
+            } else {
+              // Only one location so far: push next
+              CURRENT_SWIPE.push(gpos);
+            }
+          } // if it's the same as the current head, no change required.
+        } else {
+          CURRENT_SWIPE.push(gpos);
+        }
+      }
     }
 
     document.onwheel = function (e) {
@@ -84,7 +120,13 @@ define(["./draw", "./grid"], function(draw, grid) {
   function animate(now) {
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
-    draw.draw(CTX);
+    draw.draw_tiles(CTX);
+    if (CURRENT_SWIPE != null && CURRENT_SWIPE.length > 0) {
+      draw.draw_swipe(CTX, CURRENT_SWIPE);
+    }
+    if (CURRENT_GLYPHS != null) {
+      draw.draw_sofar(CTX, CURRENT_GLYPHS);
+    }
 
     // reschedule ourselves
     window.requestAnimationFrame(animate);
