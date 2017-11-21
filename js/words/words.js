@@ -6,7 +6,8 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
   var VIEWPORT_SIZE = 800.0;
   var VIEWPORT_SCALE = 1.0;
 
-  var CURRENT_SWIPE = null;
+  var SWIPING = false;
+  var CURRENT_SWIPES = [];
   var CURRENT_GLYPHS = null;
   var LAST_POSITION = [0, 0];
 
@@ -18,15 +19,26 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
 
   var RESIZE_TIMEOUT = 20; // milliseconds
 
+  // Do we need to redraw the screen?
+  var DO_REDRAW = false;
+
+  var SOFAR_BORDER = "#555";
+  var SOFAR_HIGHLIGHT = "#ccc";
+  var SOFAR_FADE = 0.0;
+
   function home_view() {
     var wpos = grid.world_pos([0, 0]);
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];
+    DO_REDRAW = true;
   }
 
   var COMMANDS = {
     // spacebar checks current word
     " ": function (e) {
+      CURRENT_SWIPES = [];
+      SOFAR_FADE = 1.0;
+      DO_REDRAW = true;
       // TODO: HERE
     },
     // tab recenters view on current/last swipe head
@@ -35,10 +47,33 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
       var wpos = grid.world_pos(LAST_POSITION);
       CTX.viewport_center[0] = wpos[0];
       CTX.viewport_center[1] = wpos[1];
+      DO_REDRAW = true;
     },
     // home and 0 reset the view to center 0, 0
     "0": home_view,
     "Home": home_view,
+    "Backspace": function (e) {
+      if (e.preventDefault) { e.preventDefault(); }
+      if (CURRENT_SWIPES.length > 0) {
+        last_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
+        last_swipe.pop();
+        if (last_swipe.length == 0) {
+          CURRENT_SWIPES.pop();
+        }
+        CURRENT_GLYPHS.pop();
+      }
+      DO_REDRAW = true;
+    }
+  }
+
+  function combine_arrays(deep) {
+    // Flattens an array of arrays (just once).
+    var result = [];
+    var n = deep.length;
+    for (var i = 0; i < n; ++i) {
+      result.push.apply(result, deep[i]);
+    }
+    return result;
   }
 
   function mouse_position(e) {
@@ -60,6 +95,7 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
     CTX.cheight = CANVAS.height;
     CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
     CTX.bounds = bounds;
+    DO_REDRAW = true;
   }
 
   function start_game() {
@@ -70,6 +106,7 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
     CTX.viewport_size = VIEWPORT_SIZE;
     CTX.viewport_center = [0, 0];
     CTX.viewport_scale = VIEWPORT_SCALE;
+    DO_REDRAW = true;
 
     // kick off animation
     window.requestAnimationFrame(animate);
@@ -94,73 +131,98 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
     // set up event handlers
     document.onmousedown = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
-      // TODO: Something if CURRENT_SWIPE is not null?
-      CURRENT_SWIPE = [];
       var vpos = mouse_position(e);
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
-      CURRENT_SWIPE.push(gpos);
-      LAST_POSITION = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
+      var head = null;
+      if (CURRENT_SWIPES.length > 0) {
+        var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
+        head = latest_swipe[latest_swipe.length - 1];
+      }
+      if (head == null || grid.is_neighbor(head, gpos)) {
+        CURRENT_SWIPES.push([gpos]);
+        LAST_POSITION = gpos;
+      } else {
+        CURRENT_SWIPES.push([]);
+      }
+      SWIPING = true;
+      DO_REDRAW = true;
     }
 
     document.onmouseup = function(e) {
       // TODO: Menus
       if (e.preventDefault) { e.preventDefault(); }
-      if (CURRENT_SWIPE != null && CURRENT_SWIPE.length > 0) {
+      SWIPING = false;
+      if (CURRENT_SWIPES.length == 0) {
+        return;
+      }
+      var latest_swipe = CURRENT_SWIPES.pop();
+      if (latest_swipe.length > 0) {
         // A non-empty swipe motion.
         glyphs = []
-        CURRENT_SWIPE.forEach(function (gp) {
+        latest_swipe.forEach(function (gp) {
           glyphs.push(grid.tile_at(gp)["glyph"])
         });
         if (CURRENT_GLYPHS == null) {
           CURRENT_GLYPHS = [];
         }
         glyphs.forEach(function (g) { CURRENT_GLYPHS.push(g); });
+        // push it back on:
+        CURRENT_SWIPES.push(latest_swipe);
       }
-      // either way reset CURRENT_SWIPE
-      CURRENT_SWIPE = null;
+      DO_REDRAW = true;
     }
 
     document.onmousemove = function (e) {
       LAST_MOUSE_POSITION = mouse_position(e);
       if (e.preventDefault) { e.preventDefault(); }
-      if (CURRENT_SWIPE != null) {
-        var vpos = mouse_position(e);
-        var wpos = draw.world_pos(CTX, vpos);
-        var gpos = grid.grid_pos(wpos);
-        var head = null;
-        if (CURRENT_SWIPE.length > 0) {
-          head = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
+      if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
+        return;
+      }
+      var combined_swipe = combine_arrays(CURRENT_SWIPES);
+      var vpos = mouse_position(e);
+      var wpos = draw.world_pos(CTX, vpos);
+      var gpos = grid.grid_pos(wpos);
+      var head = null;
+      if (combined_swipe.length > 0) {
+        head = combined_swipe[combined_swipe.length - 1];
+      }
+      var is_used = false;
+      var is_prev = false;
+      var is_head = false;
+      combined_swipe.forEach(function (prpos, idx) {
+        if ("" + prpos == "" + gpos) {
+          is_used = true;
+          if (idx == combined_swipe.length - 1) {
+            is_head = true;
+          } else if (idx == combined_swipe.length - 2) {
+            is_prev = true;
+          }
         }
-        var is_used = false;
-        var is_prev = false;
-        var is_head = false;
-        CURRENT_SWIPE.forEach(function (prpos, idx) {
-          if ("" + prpos == "" + gpos) {
-            is_used = true;
-            if (idx == CURRENT_SWIPE.length - 1) {
-              is_head = true;
-            } else if (idx == CURRENT_SWIPE.length - 2) {
-              is_prev = true;
+      });
+      var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length -1];
+      if (is_used) {
+        if (is_prev) {
+          if (latest_swipe.length > 0) {
+            // only pop from an active swipe
+            latest_swipe.pop();
+            if (latest_swipe.length > 0) {
+              LAST_POSITION = latest_swipe[latest_swipe.length - 1];
+            } else if (combined_swipe.length > 1) {
+              LAST_POSITION = combined_swipe[combined_swipe.length - 2];
             }
+            DO_REDRAW = true;
           }
-        });
-        if (is_used) {
-          if (is_prev) {
-            CURRENT_SWIPE.pop();
-            if (CURRENT_SWIPE.length > 0) {
-              LAST_POSITION = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
-            }
-          }
-          // else do nothing, we're on a tile that's already part of the
-          // current swipe.
-        } else {
-          // for tiles that aren't part of the swipe already:
-          if (head == null || grid.is_neighbor(head, gpos)) {
-            // add them if they're a neighbor of the head
-            CURRENT_SWIPE.push(gpos);
-            LAST_POSITION = CURRENT_SWIPE[CURRENT_SWIPE.length - 1];
-          }
+        }
+        // else do nothing, we're on a tile that's already part of the
+        // current swipe.
+      } else {
+        // for tiles that aren't part of the swipe already:
+        if (head == null || grid.is_neighbor(head, gpos)) {
+          // add them if they're a neighbor of the head
+          latest_swipe.push(gpos);
+          LAST_POSITION = gpos;
+          DO_REDRAW = true;
         }
       }
     }
@@ -182,6 +244,7 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
 
       CTX.viewport_center[0] += x;
       CTX.viewport_center[1] -= y;
+      DO_REDRAW = true;
     }
 
     document.onkeydown = function (e) {
@@ -192,18 +255,39 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
   }
 
   function animate(now) {
+    if (!DO_REDRAW) {
+      window.requestAnimationFrame(animate);
+      return;
+    }
+    DO_REDRAW = false;
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
     draw.draw_tiles(CTX);
-    if (CURRENT_SWIPE != null && CURRENT_SWIPE.length > 0) {
-      draw.draw_swipe(CTX, CURRENT_SWIPE, LAST_MOUSE_POSITION);
+    if (CURRENT_SWIPES.length > 0) {
+      CURRENT_SWIPES.forEach(function (swipe, index) {
+        if (index == CURRENT_SWIPES.length - 1) {
+          draw.draw_swipe(CTX, swipe, true);
+        } else {
+          draw.draw_swipe(CTX, swipe, false);
+        }
+      });
     }
     if (CURRENT_GLYPHS != null) {
-      draw.draw_sofar(CTX, CURRENT_GLYPHS);
+      if (SOFAR_FADE > 0) {
+        DO_REDRAW = true;
+        SOFAR_FADE *= 0.75;
+        if (SOFAR_FADE < 0.1) {
+          SOFAR_FADE = 0;
+        }
+      }
+      var c = draw.interp_color(SOFAR_BORDER, SOFAR_FADE, SOFAR_HIGHLIGHT);
+      draw.draw_sofar(CTX, CURRENT_GLYPHS, c);
     }
 
-    // DEBUG: Uncomment this to draw a cursor.
-    //*
+    // DEBUG: Uncomment this to draw a cursor; causes animation every frame
+    // while the mouse is moving.
+    /*
+    DO_REDRAW = true;
     CTX.strokeStyle = "#fff";
     CTX.beginPath();
     CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);
