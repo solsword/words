@@ -28,6 +28,7 @@ define(["./dict"], function(dict) {
     // TODO: DEBUG
     //var r = Math.random() * GS_TOTAL_WEIGHT;
     var last = undefined;
+    var selected = null;
     for (var g in gcounts) {
       if (gcounts.hasOwnProperty(g)) {
         selected = g;
@@ -68,14 +69,16 @@ define(["./dict"], function(dict) {
     }
   }
 
-  function color_for_domains(domains) {
+  function colors_for_domains(domains) {
     // Returns a color value for a domain list.
-
-    // TODO: HERE
-    var colors = ["gr", "bl", "rd", "yl", "gn"]
-    var cchoice = colors[Math.floor(Math.random()*colors.length)];
-
-    return cchoice;
+    var result = [];
+    domains.forEach(function (d) {
+      var dom = dict.lookup_domain(d);
+      dom.colors.forEach(function (c) {
+        result.push(c);
+      });
+    });
+    return result.slice(0,6);
   }
 
   function merge_glyph_counts(gs1, gs2) {
@@ -102,7 +105,7 @@ define(["./dict"], function(dict) {
     var result = {};
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
-      result = merge_glyph_counts(result, d.glyph_counts);
+      result = merge_glyph_counts(result, dom.glyph_counts);
     });
     return result;
   }
@@ -121,7 +124,7 @@ define(["./dict"], function(dict) {
       "domains": generate_domains(seed, spos)
     };
 
-    result["color"] = color_for_domains(result["domains"]);
+    result["colors"] = colors_for_domains(result["domains"]);
 
     var gcounts = combined_counts(result["domains"]);
 

@@ -270,7 +270,7 @@ define(["./generate"], function(generate) {
     //
     //   pos: the grid-position of this tile.
     //   spos: the supergrid-position of this tile.
-    //   color: the color code (see draw.PALETTE) for this tile.
+    //   colors: a list of up to 6 draw.PALETTE codes for this tile.
     //   glyph: the glyph on this title.
     //
     // If the appropriate supergrid tile is not yet loaded, it will be
@@ -297,7 +297,7 @@ define(["./generate"], function(generate) {
     // from sgpos.
     var result = {};
     result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*7];
-    result["color"] = supertile["color"];
+    result["colors"] = supertile["colors"].slice();
     return result;
   }
 

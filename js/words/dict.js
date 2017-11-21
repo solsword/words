@@ -5,7 +5,7 @@ define([], function() {
 
   DOMAINS = {}
 
-  INDEX_DEPTH_LIMIT = 8;
+  INDEX_DEPTH_LIMIT = 6;
   INDEX_BIN_SIZE = 64;
 
   function lookup_domain(name) {
@@ -14,32 +14,37 @@ define([], function() {
       return DOMAINS[name];
     } else {
       console.log("Internal Error: Unknown domain '" + name + "'.");
+      console.log("Known domains are:");
+      for (var d in DOMAINS) {
+        if (DOMAINS.hasOwnProperty(d)) {
+          console.log("  " + d);
+        }
+      }
+      console.log("---");
       return undefined;
     }
   }
-  
-  function load_dictionary(domain) {
-    // Loads the dictionary for the given domain. Does nothing if that domain
-    // is already loaded. Puts the data into the DOMAINS object. Builds an
-    // index if the loaded domain doesn't have one, which may take some time.
-    if (DOMAINS.hasOwnProperty(domain)) {
-      return;
-    }
 
-    // Load our JSON:
-    var json = require("./domains/" + domain + ".json");
+  function finish_loading(name, json) {
+    // Takes a JSON object from a domain file and augments it before adding it
+    // to DOMAINS.
 
     // Default properties:
     if (!json.hasOwnProperty("ordered")) { json.ordered = true; }
     if (!json.hasOwnProperty("cased")) { json.cased = false; }
+    if (!json.hasOwnProperty("colors")) { json.colors = []; }
 
     // Analyze glyphs if needed:
     if (!json.hasOwnProperty("glyph_counts")) {
       json.glyph_counts = {};
-      for (var i = 0; i < entries.length; ++i) {
-        var entry = entries[i];
+      for (var i = 0; i < json.entries.length; ++i) {
+        var entry = json.entries[i];
         for (var j = 0; j < entry[0].length; ++j) {
           var g = entry[0][j];
+          // This because glyph counts are used for generation:
+          if (!json.cased) {
+            g = g.toUpperCase();
+          }
           if (json.glyph_counts.hasOwnProperty(g)) {
             json.glyph_counts[g] += 1;
           } else {
@@ -61,7 +66,33 @@ define([], function() {
     }
 
     // Add it as a domain:
-    DOMAINS[domain] = json;
+    DOMAINS[name] = json;
+  }
+
+  function load_dictionary(domain) {
+    // Loads the dictionary for the given domain. Does nothing if that domain
+    // is already loaded. Puts the data into the DOMAINS object. Builds an
+    // index if the loaded domain doesn't have one, which may take some time.
+    if (DOMAINS.hasOwnProperty(domain)) {
+      return;
+    }
+
+    // From:
+    // https://codepen.io/KryptoniteDove/post/load-json-file-locally-using-pure-javascript
+    // Use with Chrome and --allow-file-access-from-files to run locally.
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("application/json");
+    var url = window.location.href;
+    var path = url.substr(0, url.lastIndexOf('/'));
+    var dpath = path + "/js/words/domains/" + domain + ".json";
+
+    // Load synchronously
+    xobj.open("GET", dpath, false);
+    xobj.onload = function () {
+      var json = JSON.parse(xobj.responseText);
+      finish_loading(domain, json);
+    };
+    xobj.send(null);
   }
 
   function create_index(entries, indices, position) {

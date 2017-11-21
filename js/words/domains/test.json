@@ -1,6 +1,7 @@
 {
 "ordered": true,
 "cased": false,
+"colors": ["gr"],
 "entries":[
 ["test", "A method for determining something."],
 ["example", "An instance used to represent qualities common among a group."],

@@ -6,73 +6,19 @@ define(["./grid"], function(grid) {
   var HIGHLIGHT_COLOR = "#fff";
   var TRAIL_COLOR = "#bbb";
 
-  /*
-   * TODO: DEBUG
-  var PALETTE = {
-    "gr": {
-      "outline": "#555",
-        "inner": "#333",
-          "pad": "#444",
-        "glyph": "#aaa"
-    },
-    "bl": {
-      "outline": "#125",
-        "inner": "#113",
-          "pad": "#014",
-        "glyph": "#34a"
-    },
-    "rd": {
-      "outline": "#500",
-        "inner": "#311",
-          "pad": "#400",
-        "glyph": "#a00"
-    },
-    "yl": {
-      "outline": "#cc0",
-        "inner": "#aa2",
-          "pad": "#bb4",
-        "glyph": "#ff8"
-    },
-    "gn": {
-      "outline": "#050",
-        "inner": "#131",
-          "pad": "#040",
-        "glyph": "#0a0"
-    },
+  var TILE_COLORS = {
+    "outline": "#555",
+      "inner": "#333",
+        "pad": "#444",
+      "glyph": "#bbb"
   };
-  */
 
   var PALETTE = {
-    "gr": {
-      "outline": "#555",
-        "inner": "#888",
-          "pad": "#444",
-        "glyph": "#eee"
-    },
-    "bl": {
-      "outline": "#555",
-        "inner": "#8bf",
-          "pad": "#444",
-        "glyph": "#eee"
-    },
-    "rd": {
-      "outline": "#555",
-        "inner": "#f66",
-          "pad": "#444",
-        "glyph": "#eee"
-    },
-    "yl": {
-      "outline": "#555",
-        "inner": "#ff2",
-          "pad": "#444",
-        "glyph": "#eee"
-    },
-    "gn": {
-      "outline": "#555",
-        "inner": "#6f7",
-          "pad": "#444",
-        "glyph": "#eee"
-    },
+    "gr": "#888",
+    "bl": "#8bf",
+    "rd": "#f66",
+    "yl": "#ff2",
+    "gn": "#6f6",
   };
 
   var CONTEXT_BOX = {
@@ -130,7 +76,7 @@ define(["./grid"], function(grid) {
   function draw_tile(ctx, tile) {
     // TODO: Highlight status (or draw highlight separately?)!
     var wpos = grid.world_pos(tile["pos"]);
-    var color = tile["color"];
+    var colors = tile["colors"];
     var glyph = tile["glyph"];
 
     ctx.lineWidth=2;
@@ -138,8 +84,8 @@ define(["./grid"], function(grid) {
     var vpos = view_pos(ctx, wpos);
 
     // Outer hexagon
-    ctx.strokeStyle = PALETTE[color]["outline"];
-    ctx.fillStyle = PALETTE[color]["inner"];
+    ctx.strokeStyle = TILE_COLORS["outline"];
+    ctx.fillStyle = TILE_COLORS["inner"];
 
     vertices = grid.VERTICES.slice();
 
@@ -163,14 +109,28 @@ define(["./grid"], function(grid) {
     ctx.stroke();
 
     // Inner circle
-    var r = grid.GRID_EDGE * 0.6 / ctx.viewport_scale;
-    ctx.fillStyle = PALETTE[color]["pad"];
+    var r = grid.GRID_EDGE * 0.63 / ctx.viewport_scale;
+    ctx.fillStyle = TILE_COLORS["pad"];
     ctx.beginPath();
     ctx.arc(vpos[0], vpos[1], r, 0, 2 * Math.PI);
     ctx.fill();
 
+    // Domain colors
+    if (colors.length > 0) {
+      var sweep = (2*Math.PI)/colors.length;
+      var start = 0;
+      colors.forEach(function (c) {
+        ctx.strokeStyle = PALETTE[c];
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(vpos[0], vpos[1], r*0.95, start, start + sweep);
+        ctx.stroke();
+        start += sweep;
+      });
+    }
+
     // Letter
-    ctx.fillStyle = PALETTE[color]["glyph"];
+    ctx.fillStyle = TILE_COLORS["glyph"];
     ctx.fillText(glyph, vpos[0], vpos[1]);
   }
 
@@ -320,6 +280,7 @@ define(["./grid"], function(grid) {
   }
 
   return {
+    "TILE_COLORS": TILE_COLORS,
     "PALETTE": PALETTE,
     "draw_tiles": draw_tiles,
     "view_pos": view_pos,
