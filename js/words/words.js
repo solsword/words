@@ -26,6 +26,8 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
   var SOFAR_HIGHLIGHT = "#ccc";
   var SOFAR_FADE = 0.0;
 
+  var WORDS_FOUND = [];
+
   function home_view() {
     var wpos = grid.world_pos([0, 0]);
     CTX.viewport_center[0] = wpos[0];
@@ -36,7 +38,28 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
   var COMMANDS = {
     // spacebar checks current word
     " ": function (e) {
-      CURRENT_SWIPES = [];
+      var combined_swipe = combine_arrays(CURRENT_SWIPES);
+      var domains = new Set();
+      combined_swipe.forEach(function (gpos) {
+        var st = grid.grid_supertile(gpos);
+        st.domains.forEach(function (d) {
+          domains.add(d);
+        });
+      });
+      var entries = dict.check_word(CURRENT_GLYPHS, domains);
+      if (entries.length > 0) {
+        // Found a match: clear our swipes and glyphs and add to our words found
+        CURRENT_SWIPES = [];
+        CURRENT_GLYPHS = null;
+        entries.forEach(function (e) {
+          WORDS_FOUND.push(e);
+        });
+        // Highlight in white:
+        SOFAR_HIGHLIGHT = "#fff";
+      } else {
+        // No match found: just highlight in red
+        SOFAR_HIGHLIGHT = "#f22";
+      }
       SOFAR_FADE = 1.0;
       DO_REDRAW = true;
       // TODO: HERE
@@ -139,7 +162,7 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
         var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
         head = latest_swipe[latest_swipe.length - 1];
       }
-      if (head == null || grid.is_neighbor(head, gpos)) {
+      if (!is_selected(gpos) && (head == null || grid.is_neighbor(head, gpos))){
         CURRENT_SWIPES.push([gpos]);
         LAST_POSITION = gpos;
       } else {
@@ -252,6 +275,18 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
         COMMANDS[e.key](e);
       }
     }
+  }
+
+  function is_selected(gpos) {
+    // Tests whether the given position is selected by a current swipe.
+    var combined_swipe = combine_arrays(CURRENT_SWIPES);
+    var result = false;
+    combined_swipe.forEach(function (prpos) {
+      if ("" + prpos == "" + gpos) {
+        result = true;
+      }
+    });
+    return result;
   }
 
   function animate(now) {

@@ -159,21 +159,21 @@ define([], function() {
       console.log("Internal Error: unknown domain '" + domain + "'.");
       return null;
     }
-    if (!domain.ordered) {
+    if (!dom.ordered) {
       glyphs.sort();
     }
     // Turn the array into a string:
     glyphs = glyphs.join("");
 
     // For uncased domains, convert the glyph sequence to lower case:
-    if (!domain.cased) {
+    if (!dom.cased) {
       glyphs = glyphs.toLowerCase();
     }
 
     var original = glyphs;
 
     // Now search the domain's index:
-    var index = domain.index;
+    var index = dom.index;
     var g = glyphs[0];
     while (index.hasOwnProperty(g) && glyphs.length > 0) {
       index = index[g];
@@ -188,23 +188,24 @@ define([], function() {
         break
       }
     }
+
     var entry = null;
-    if (g == null && Array.isArray(index)) {
+    if (Array.isArray(index)) {
       for (var i = 0; i < index.length; ++i) {
         var idx = index[i];
-        var entry = domain.entries[idx];
-        var against = entry[0];
+        var test_entry = dom.entries[idx];
+        var against = test_entry[0];
         // TODO: Permit any ordering in domain files for unordered domains?
-        if (!domain.cased) {
+        if (!dom.cased) {
           against = against.toLowerCase();
         }
         if (against === original) {
-          entry = entry;
+          entry = test_entry;
         }
       }
     } else if (g == null) {
       if (index.hasOwnProperty("")) {
-        entry = domain.entries[index[""]];
+        entry = dom.entries[index[""]];
       } else {
         // word prefix
         return null;

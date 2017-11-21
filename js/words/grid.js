@@ -247,21 +247,18 @@ define(["./generate"], function(generate) {
     return [ skew_x, skew_y, r_x, r_y ];
   }
 
-  function supertile_interior() {
-    // Fix up edge cases:
-    if (rel_x < 3 && rel_y > 3 + rel_x) {
-      // top-left corner: y+1 x-1
-      skew_col -= 1;
-      skew_row += 1;
-      rel_x += 4;
-      rel_y -= 3;
-    } else if (rel_x > 3 && rel_y < rel_x - 3) {
-      // bottom-right corner: y-1 x+1
-      skew_col += 1;
-      skew_row -= 1;
-      rel_x -= 4;
-      rel_y += 3;
+  function grid_supertile(gpos) {
+    // Takes a grid pos and returns the corresponding supertile.
+    var sgp = sgpos(gpos);
+    sgk = "" + sgp[0] + "," + sgp[1];
+    if (SUPERTILES.hasOwnProperty(sgk)) {
+      st = SUPERTILES[sgk];
+    } else {
+      st = generate.generate_supertile(SEED, [sgp[0], sgp[1]]);
+      SUPERTILES[sgk] = st;
+      // TODO: Permanent storage?
     }
+    return st;
   }
 
   function tile_at(gp) {
@@ -277,13 +274,7 @@ define(["./generate"], function(generate) {
     // generated.
 
     var sgp = sgpos(gp);
-    sgk = "" + sgp[0] + "," + sgp[1];
-    if (SUPERTILES.hasOwnProperty(sgk)) {
-      st = SUPERTILES[sgk];
-    } else {
-      st = generate.generate_supertile(SEED, [sgp[0], sgp[1]]);
-      SUPERTILES[sgk] = st;
-    }
+    var st = grid_supertile(gp);
     var result = extract_subtile(st, [sgp[2], sgp[3]]);
     result["pos"] = gp.slice();
     result["spos"] = [sgp[0], sgp[1]];
@@ -357,12 +348,13 @@ define(["./generate"], function(generate) {
     "GRID_SIZE": GRID_SIZE,
     "GRID_EDGE": GRID_EDGE,
     "VERTICES": VERTICES,
+    "set_seed": set_seed,
     "world_pos": world_pos,
     "grid_pos": grid_pos,
     "grid_distance": grid_distance,
     "is_neighbor": is_neighbor,
     "sgpos": sgpos,
-    "set_seed": set_seed,
+    "grid_supertile": grid_supertile,
     "tile_at": tile_at,
     "list_tiles": list_tiles,
   };
