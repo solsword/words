@@ -1,7 +1,9 @@
 // words.js
 // Word game.
 
-define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
+define(
+["./draw", "./grid", "./dict", "./menu"],
+function(draw, grid, dict, menu) {
 
   var VIEWPORT_SIZE = 800.0;
   var VIEWPORT_SCALE = 1.0;
@@ -155,6 +157,8 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
     document.onmousedown = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
       var vpos = mouse_position(e);
+      // dispatch to menu system first:
+      if (menu.mousedown(vpos)) { return; }
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
       var head = null;
@@ -175,6 +179,8 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
     document.onmouseup = function(e) {
       // TODO: Menus
       if (e.preventDefault) { e.preventDefault(); }
+      // dispatch to menu system first:
+      if (menu.mouseup(vpos)) { return; }
       SWIPING = false;
       if (CURRENT_SWIPES.length == 0) {
         return;
@@ -199,6 +205,8 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
     document.onmousemove = function (e) {
       LAST_MOUSE_POSITION = mouse_position(e);
       if (e.preventDefault) { e.preventDefault(); }
+      // dispatch to menu system first:
+      if (menu.mousemove(vpos)) { return; }
       if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
         return;
       }
@@ -338,5 +346,5 @@ define(["./draw", "./grid", "./dict"], function(draw, grid, dict) {
 
   return {
     "start_game": start_game
-  }
+  };
 });
