@@ -115,9 +115,10 @@ define(["./draw"], function(draw) {
       if (th / nw <= NARROW_MAX_RATIO && th < CANVAS_SIZE[1]) {
         // fits
         if (narrow.length == 1) {
+          var tw = ctx.measureText(narrow[0]).width;
           return {
             "lines": narrow,
-            "width": ctx.measureText(narrow[0]).width,
+            "width": tw,
             "height": th,
             "line_height": line_height
           };
@@ -192,25 +193,25 @@ define(["./draw"], function(draw) {
     this.pos = pos || [ -1, -1 ];
     this.shape = shape || [ 0, 0 ];
     this.style = style;
-    this.style.padding = this.style.padding || 6;
+    this.style.padding = this.style.padding || 12;
     this.style.background_color = this.style.background_color || "#333";
     this.style.border_color = this.style.border_color || "#777";
     this.style.border_width = this.style.border_width || 1;
     this.style.text_color = this.style.text_color || "#ddd";
     this.style.font = this.style.font || "18px asap";
-    this.style.line_height = this.style.line_height || 34;
+    this.style.line_height = this.style.line_height || 24;
     this.style.button_color = this.style.button_color || "#555";
     this.style.selected_button_color = (
       this.style.selected_button_color || "#444"
     );
     this.style.button_border_color = this.style.button_border_color || "#ddd";
     this.style.button_border_width = this.style.button_border_width || 1;
-    this.style.button_text_color = this.style.button__text_color || "#ddd";
+    this.style.button_text_color = this.style.button__text_color || "#aaa";
     this.style.button_text_outline_color = (
-      this.style.button_text_outline_color || "#bbb"
+      this.style.button_text_outline_color || "#ddd"
     );
     this.style.button_text_outline_width = (
-      this.style.button_text_outline_width || 1
+      this.style.button_text_outline_width || 0
     );
     this.modal = false;
   }
@@ -228,13 +229,13 @@ define(["./draw"], function(draw) {
     return [ pos[0] - this.pos[0], pos[1] - this.pos[1] ];
   }
 
-  BaseMenu.prototype.draw = function () {
+  BaseMenu.prototype.draw = function (ctx) {
     // Draws the menu background and edges
-    this.ctx.fillStyle = this.background_color;
-    this.ctx.fillRect(this.pos[0], this.pos[1], this.shape[0], this.shape[1]);
-    this.ctx.strokeStyle = this.border_color;
-    this.ctx.lineWidth = this.border_width;
-    this.ctx.strokeRect(this.pos[0], this.pos[1], this.shape[0], this.shape[1]);
+    ctx.fillStyle = this.style.background_color;
+    ctx.fillRect(this.pos[0], this.pos[1], this.shape[0], this.shape[1]);
+    ctx.strokeStyle = this.style.border_color;
+    ctx.lineWidth = this.style.border_width;
+    ctx.strokeRect(this.pos[0], this.pos[1], this.shape[0], this.shape[1]);
     return false;
   }
 
@@ -329,6 +330,7 @@ define(["./draw"], function(draw) {
     ) { // horizontal miss within button compartment
       return undefined;
     }
+    // If we get here, it's a hit!
     if (buttons[bwhich].action) {
       buttons[bwhich].action();
     }
@@ -345,15 +347,14 @@ define(["./draw"], function(draw) {
   function Dialog(ctx, pos, shape, style, text, buttons) {
     ModalMenu.call(this, ctx, pos, shape, style);
     this.style = style;
-    this.style.buttons_height = this.style.buttons_height || 30;
-    this.style.buttons_padding = this.style.buttons_padding || 6;
+    this.style.buttons_height = this.style.buttons_height || 58;
+    this.style.buttons_padding = this.style.buttons_padding || 12;
     this.style.button_width = this.style.button_width || 0.7;
     var twidth = undefined;
-    if (this.shape == undefined) {
-      this.shape = [0, 0];
-    } else {
+    if (this.shape[0] != 0) {
       twidth = this.shape[0] - this.style.padding*2;
     }
+    ctx.font = this.style.font;
     this.text = auto_text_layout(
       ctx,
       text,
@@ -390,53 +391,53 @@ define(["./draw"], function(draw) {
     var rpos = this.rel_pos(pos);
     var bpos = [
       rpos[0],
-      rpos[1] - this.text.height - this.style.buttons_padding
+      rpos[1] - (this.shape[1] - this.style.buttons_height)
     ];
-    if (
-      trigger_horizontal_buttons(
-        bpos,
-        this.buttons,
-        this.buttons_height,
-        this.shape[0],
-        this.buttons_padding,
-        this.button_width
-      )
-    ) {
+    var sel = trigger_horizontal_buttons(
+      bpos,
+      this.buttons,
+      this.style.buttons_height,
+      this.shape[0],
+      this.style.buttons_padding,
+      this.style.button_width
+    );
+    if (sel != undefined) {
       // Set up menu death:
-      this.selected = bwhich;
+      this.selected = sel;
       this.fade = 1.0;
     }
   }
 
-  Dialog.prototype.draw = function () {
-    if (this.fade != undefined) {
-      this.fade *= 0.8;
-      if (this.fade < 0.1) {
-        remove_menu(this)
-      }
-      return true;
-    }
+  Dialog.prototype.draw = function (ctx) {
     // draw a box (w/ border)
-    BaseMenu.prototype.draw.apply(this);
+    BaseMenu.prototype.draw.apply(this, [ctx]);
     // draw the text
-    this.ctx.font = this.style.font;
+    ctx.font = this.style.font;
+    ctx.fillStyle = this.style.text_color;
     draw_text(
-      this.ctx,
+      ctx,
       [ this.pos[0] + this.style.padding, this.pos[1] + this.style.padding ],
       this.text
     );
     // draw the buttons (w/ borders, highlight, and text)
     draw_horizontal_buttons(
-      this.ctx,
-      [ this.pos[0], this.pos[1] + this.shape[1] - this.buttons_height ],
+      ctx,
+      [ this.pos[0], this.pos[1] + this.shape[1] - this.style.buttons_height ],
       this.style,
       this.buttons,
-      this.buttons_height,
+      this.style.buttons_height,
       this.shape[0],
-      this.buttons_padding,
-      this.button_width,
+      this.style.buttons_padding,
+      this.style.button_width,
       this.selected
     );
+    if (this.fade != undefined) {
+      this.fade -= 0.5;
+      if (this.fade < 0.1) {
+        remove_menu(this)
+      }
+      return true;
+    }
     return false;
   }
 
@@ -471,10 +472,7 @@ define(["./draw"], function(draw) {
 
   function add_menu(menu) {
     // Adds the given menu to the top of the active menus list.
-    console.log("AM");
-    console.log(menu);
     MENUS.push(menu);
-    console.log(MENUS);
   }
 
   function remove_menu(menu) {
@@ -659,12 +657,12 @@ define(["./draw"], function(draw) {
     return false;
   }
 
-  function draw_active() {
+  function draw_active(ctx) {
     // Draws all active menus. Returns true if any menu is animating and needs
     // continued screen updates, and false if menus are stable.
     var result = false;
     MENUS.forEach( function (m) {
-      result = result || m.draw();
+      result = result || m.draw(ctx);
     });
     return result;
   }

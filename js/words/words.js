@@ -198,7 +198,10 @@ function(draw, grid, dict, menu) {
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
       var vpos = mouse_position(e);
-      if (menu.mouseup(vpos)) { return; }
+      if (menu.mouseup(vpos)) {
+        DO_REDRAW = true;
+        return;
+      }
       SWIPING = false;
       if (CURRENT_SWIPES.length == 0) {
         return;
@@ -347,7 +350,7 @@ function(draw, grid, dict, menu) {
     }
 
     // Draw menus:
-    if (menu.draw_active()) {
+    if (menu.draw_active(CTX)) {
       DO_REDRAW = true;
     }
 
