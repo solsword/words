@@ -74,9 +74,25 @@ function(draw, grid, dict, menu) {
       CTX.viewport_center[1] = wpos[1];
       DO_REDRAW = true;
     },
+    // shows 'about' dialog
+    "a": function (e) {
+      // TODO: prevent multiple pop-ups at once?
+      menu.add_menu(
+        new menu.Dialog(
+          CTX,
+          undefined,
+          undefined,
+          {}, 
+          "This is Words, version 0.0.1.",
+          [ { "text": "OK" } ]
+        )
+      );
+      DO_REDRAW = true;
+    },
     // home and 0 reset the view to center 0, 0
     "0": home_view,
     "Home": home_view,
+    // Pops a letter from the current swipe set
     "Backspace": function (e) {
       if (e.preventDefault) { e.preventDefault(); }
       if (CURRENT_SWIPES.length > 0) {
@@ -121,6 +137,7 @@ function(draw, grid, dict, menu) {
     CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
     CTX.bounds = bounds;
     DO_REDRAW = true;
+    menu.set_canvas_size([CANVAS.width, CANVAS.height]);
   }
 
   function start_game() {
@@ -180,6 +197,7 @@ function(draw, grid, dict, menu) {
       // TODO: Menus
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
+      var vpos = mouse_position(e);
       if (menu.mouseup(vpos)) { return; }
       SWIPING = false;
       if (CURRENT_SWIPES.length == 0) {
@@ -206,12 +224,12 @@ function(draw, grid, dict, menu) {
       LAST_MOUSE_POSITION = mouse_position(e);
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
+      var vpos = mouse_position(e);
       if (menu.mousemove(vpos)) { return; }
       if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
         return;
       }
       var combined_swipe = combine_arrays(CURRENT_SWIPES);
-      var vpos = mouse_position(e);
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
       var head = null;
@@ -315,6 +333,7 @@ function(draw, grid, dict, menu) {
         }
       });
     }
+    // Draw current glyphs (TODO: Change this into a menu?)
     if (CURRENT_GLYPHS != null) {
       if (SOFAR_FADE > 0) {
         DO_REDRAW = true;
@@ -325,6 +344,11 @@ function(draw, grid, dict, menu) {
       }
       var c = draw.interp_color(SOFAR_BORDER, SOFAR_FADE, SOFAR_HIGHLIGHT);
       draw.draw_sofar(CTX, CURRENT_GLYPHS, c);
+    }
+
+    // Draw menus:
+    if (menu.draw_active()) {
+      DO_REDRAW = true;
     }
 
     // DEBUG: Uncomment this to draw a cursor; causes animation every frame
