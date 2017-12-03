@@ -25,6 +25,9 @@ define(["./generate"], function(generate) {
     [-GRID_EDGE, 0],
   ];
 
+  // How big are ultragrid units?
+  var ULTRAGRID_SIZE = 10;
+
   function set_seed(seed) {
     // Sets the grid's generation seed
     SEED = seed;
@@ -143,7 +146,7 @@ define(["./generate"], function(generate) {
     // Note that this returns 4 numbers: the column and row in supergrid terms,
     // plus the within-cell relative x and y.
     //
-    // Superhexes are encoded as an array of 47 values, 12 of which are nulls,
+    // Superhexes are encoded as an array of 49 values, 12 of which are nulls,
     // which allows quick 2-dimensional indexing (see picture below).
     //
     // Picture (dots indicate coordinate system extent for middle super-hex):
@@ -247,9 +250,29 @@ define(["./generate"], function(generate) {
     return [ skew_x, skew_y, r_x, r_y ];
   }
 
-  function grid_supertile(gpos) {
+  function ugpos(sgp) {
+    // Extracts an ultra-grid position from a super-grid position. Just uses
+    // modulus math. Returns x, y, sub_x, sub_y.
+    return [
+      Math.floor(sgp[0]/ULTRAGRID_SIZE),
+      Math.floor(sgp[1]/ULTRAGRID_SIZE),
+      ((sgp[0] % ULTRAGRID_SIZE) + ULTRAGRID_SIZE) % ULTRAGRID_SIZE,
+      ((sgp[1] % ULTRAGRID_SIZE) + ULTRAGRID_SIZE) % ULTRAGRID_SIZE,
+    ];
+  }
+
+  function sub_ultra(ugp, rsgp) {
+    // Takes an ultragrid position along with a supergrid relative position and
+    // returns an absolute supergrid position.
+    return [
+      ugp[0] * ULTRAGRID_SIZE + rsgp[0],
+      ugp[1] * ULTRAGRID_SIZE + rsgp[1]
+    ];
+  }
+
+  function grid_supertile(gp) {
     // Takes a grid pos and returns the corresponding supertile.
-    var sgp = sgpos(gpos);
+    var sgp = sgpos(gp);
     sgk = "" + sgp[0] + "," + sgp[1];
     if (SUPERTILES.hasOwnProperty(sgk)) {
       st = SUPERTILES[sgk];
@@ -261,6 +284,32 @@ define(["./generate"], function(generate) {
     return st;
   }
 
+  function is_unlocked(gp) {
+    // Checks whether the given grid position is unlocked or not
+    var st = grid_supertile(gp);
+    var sgp = sgpos(gp);
+    var ord = sgp[2] + sgp[3]*7;
+    if (ord >= 32) {
+      ord -= 32;
+      return (1 << ord) & st["unlocked"][1];
+    } else {
+      return (1 << ord) & st["unlocked"][0];
+    }
+  }
+
+  function unlock_tile(gp) {
+    // Unlocks the given grid position
+    var st = grid_supertile(gp);
+    var sgp = sgpos(gp);
+    var ord = sgp[2] + sgp[3]*7;
+    if (ord >= 32) {
+      ord -= 32;
+      st["unlocked"][1] |= (1 << ord);
+    } else {
+      st["unlocked"][0] |= (1 << ord);
+    }
+  }
+
   function tile_at(gp) {
     // Returns a tile object for the given location. A tile object has the
     // following attributes:
@@ -269,6 +318,7 @@ define(["./generate"], function(generate) {
     //   spos: the supergrid-position of this tile.
     //   colors: a list of up to 6 draw.PALETTE codes for this tile.
     //   glyph: the glyph on this title.
+    //   unlocked: true or false whether this tile is unlocked.
     //
     // If the appropriate supergrid tile is not yet loaded, it will be
     // generated.
@@ -289,6 +339,13 @@ define(["./generate"], function(generate) {
     var result = {};
     result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*7];
     result["colors"] = supertile["colors"].slice();
+    var ord = rxy[0] + 7 * rxy[1];
+    if (ord >= 32) {
+      ord -= 32;
+      result["unlocked"] = supertile["unlocked"][1] & (1 << ord);
+    } else {
+      result["unlocked"] = supertile["unlocked"][0] & (1 << ord);
+    }
     return result;
   }
 
@@ -346,6 +403,7 @@ define(["./generate"], function(generate) {
 
   return {
     "GRID_SIZE": GRID_SIZE,
+    "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
     "GRID_EDGE": GRID_EDGE,
     "VERTICES": VERTICES,
     "set_seed": set_seed,
@@ -357,5 +415,7 @@ define(["./generate"], function(generate) {
     "grid_supertile": grid_supertile,
     "tile_at": tile_at,
     "list_tiles": list_tiles,
+    "is_unlocked": is_unlocked,
+    "unlock_tile": unlock_tile,
   };
 });

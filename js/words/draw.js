@@ -4,13 +4,16 @@
 define(["./grid"], function(grid) {
 
   var HIGHLIGHT_COLOR = "#fff";
-  var TRAIL_COLOR = "#bbb";
+  var TRAIL_COLOR = "#ddd";
 
   var TILE_COLORS = {
-    "outline": "#555",
-      "inner": "#333",
-        "pad": "#444",
-      "glyph": "#bbb"
+           "outline": "#555",
+             "inner": "#333",
+            "circle": "#555",
+               "pad": "#444",
+             "glyph": "#bbb",
+      "unlocked-pad": "#555",
+   "unlocked-circle": "#999"
   };
 
   var PALETTE = {
@@ -116,19 +119,17 @@ define(["./grid"], function(grid) {
     var colors = tile["colors"];
     var glyph = tile["glyph"];
 
-    ctx.lineWidth=2;
-
     var vpos = view_pos(ctx, wpos);
 
     // Outer hexagon
     ctx.strokeStyle = TILE_COLORS["outline"];
     ctx.fillStyle = TILE_COLORS["inner"];
 
-    vertices = grid.VERTICES.slice();
+    ctx.lineWidth=2;
 
     ctx.beginPath();
     once = true;
-    vertices.forEach(function (vertex) {
+    grid.VERTICES.forEach(function (vertex) {
       vertex = vertex.slice();
       vertex[0] += wpos[0];
       vertex[1] += wpos[1];
@@ -145,26 +146,85 @@ define(["./grid"], function(grid) {
     ctx.fill();
     ctx.stroke();
 
+    // Hexagon highlight
+    if (colors.length > 0) {
+      var side_colors = [];
+      if (colors.length <= 3 || colors.length >= 6) {
+        colors.forEach(function (c) {
+          side_colors.push(PALETTE[c]);
+        });
+      } else if (colors.length == 4) {
+        side_colors = [
+          TILE_COLORS["inner"], // invisible
+          PALETTE[colors[0]],
+          PALETTE[colors[1]],
+          TILE_COLORS["inner"], // invisible
+          PALETTE[colors[2]],
+          PALETTE[colors[3]],
+        ];
+      } else if (colors.length == 5) {
+        side_colors = [
+          TILE_COLORS["inner"], // invisible
+          PALETTE[colors[0]],
+          PALETTE[colors[1]],
+          PALETTE[colors[2]],
+          PALETTE[colors[3]],
+          PALETTE[colors[4]],
+        ];
+      } else {
+        // Should be impossible
+        console.log("Internal Error: invalid colors length: " + colors.length);
+      }
+
+      ctx.lineWidth=1;
+
+      for (var i = 0; i < grid.VERTICES.length; ++i) {
+        tv = grid.VERTICES[i].slice();
+        tv[0] *= 0.9;
+        tv[1] *= 0.9;
+        tv[0] += wpos[0];
+        tv[1] += wpos[1];
+
+        var ni = (i + 1) % grid.VERTICES.length;
+        nv = grid.VERTICES[ni].slice();
+        nv[0] *= 0.9;
+        nv[1] *= 0.9;
+        nv[0] += wpos[0];
+        nv[1] += wpos[1];
+
+        var tvv = view_pos(ctx, tv);
+        var nvv = view_pos(ctx, nv);
+
+        ctx.strokeStyle = side_colors[i % side_colors.length];
+
+        ctx.beginPath();
+        ctx.moveTo(tvv[0], tvv[1]);
+        ctx.lineTo(nvv[0], nvv[1]);
+        ctx.stroke();
+      }
+    }
+
     // Inner circle
     var r = grid.GRID_EDGE * 0.63 / ctx.viewport_scale;
-    ctx.fillStyle = TILE_COLORS["pad"];
+    if (tile["unlocked"]) {
+      ctx.fillStyle = TILE_COLORS["unlocked-pad"];
+    } else {
+      ctx.fillStyle = TILE_COLORS["pad"];
+    }
     ctx.beginPath();
     ctx.arc(vpos[0], vpos[1], r, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Domain colors
-    if (colors.length > 0) {
-      var sweep = (2*Math.PI)/colors.length;
-      var start = 0;
-      colors.forEach(function (c) {
-        ctx.strokeStyle = PALETTE[c];
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(vpos[0], vpos[1], r*0.95, start, start + sweep);
-        ctx.stroke();
-        start += sweep;
-      });
+    // Circle edge
+    if (tile["unlocked"]) {
+      ctx.strokeStyle = TILE_COLORS["unlocked-circle"];
+    } else {
+      ctx.strokeStyle = TILE_COLORS["circle"];
     }
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(vpos[0], vpos[1], r*0.95, 0, 2*Math.PI);
+    ctx.stroke();
 
     // Letter
     ctx.fillStyle = TILE_COLORS["glyph"];
@@ -226,11 +286,9 @@ define(["./grid"], function(grid) {
     // Outer hexagon
     ctx.strokeStyle = color;
 
-    vertices = grid.VERTICES.slice();
-
     ctx.beginPath();
     once = true;
-    vertices.forEach(function (vertex) {
+    grid.VERTICES.forEach(function (vertex) {
       // copy the vertex
       vertex = vertex.slice();
 

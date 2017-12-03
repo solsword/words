@@ -42,29 +42,52 @@ function(draw, grid, dict, menu) {
     " ": function (e) {
       var combined_swipe = combine_arrays(CURRENT_SWIPES);
       var domains = new Set();
-      combined_swipe.forEach(function (gpos) {
-        var st = grid.grid_supertile(gpos);
+      combined_swipe.forEach(function (gp) {
+        var st = grid.grid_supertile(gp);
         st.domains.forEach(function (d) {
           domains.add(d);
         });
       });
       var entries = dict.check_word(CURRENT_GLYPHS, domains);
       if (entries.length > 0) {
-        // Found a match: clear our swipes and glyphs and add to our words found
-        CURRENT_SWIPES = [];
-        CURRENT_GLYPHS = null;
-        entries.forEach(function (e) {
-          WORDS_FOUND.push(e);
+        // Found a match:
+        var connected = false;
+        combined_swipe.forEach(function (gp) {
+          if (grid.is_unlocked(gp)) {
+            connected = true;
+          }
         });
-        // Highlight in white:
-        SOFAR_HIGHLIGHT = "#fff";
+        if (connected) {
+          // Match is connected:
+          // clear our swipes and glyphs and add to our words found
+          combined_swipe.forEach(function (gp) {
+            grid.unlock_tile(gp);
+          });
+          CURRENT_SWIPES = [];
+          CURRENT_GLYPHS = null;
+          entries.forEach(function (e) {
+            WORDS_FOUND.push(e);
+          });
+          // Highlight in white:
+          SOFAR_HIGHLIGHT = "#fff";
+        } else {
+          // Highlight in yellow:
+          SOFAR_HIGHLIGHT = "#ff2";
+        }
       } else {
         // No match found: just highlight in red
         SOFAR_HIGHLIGHT = "#f22";
       }
       SOFAR_FADE = 1.0;
       DO_REDRAW = true;
-      // TODO: HERE
+    },
+    // escape removes all current selections
+    "Escape": function (e) {
+      CURRENT_SWIPES = [];
+      CURRENT_GLYPHS = null;
+      SOFAR_HIGHLIGHT = "#f22";
+      SOFAR_FADE = 1.0;
+      DO_REDRAW = true;
     },
     // tab recenters view on current/last swipe head
     "Tab": function (e) {

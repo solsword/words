@@ -6,39 +6,99 @@ define(["./dict"], function(dict) {
   var SMOOTHING = 1.5;
 
   var DOMAIN_COMBOS = {
-    "test_combined": [ "test", "test_combo" ]
+    "base": [ "adj", "adv", "noun", "verb" ],
+    "all_mammals": [ "mammals", "monotremes" ],
+    "all_plants": [ "us_plants", "plants" ],
+    "all_bugs": [
+      "insects",
+      "spiders",
+      "au_ants",
+      "gb_ants",
+      "gb_bees",
+      "gb_wasps",
+      "ca_butterflies"
+    ],
+    "big_animals": [
+      "fish",
+      "birds",
+      "mammals",
+      "monotremes",
+      "amphibians",
+      "reptiles"
+    ],
+    "all_animals": [
+      "animals",
+      "fish",
+      "birds",
+      "mammals",
+      "monotremes",
+      "amphibians",
+      "reptiles",
+      "all_bugs"
+    ],
   }
 
   var DOMAIN_WEIGHTS = {
-    "test": 1,
-    "test_combined": 1
+    "big_animals": 3,
+    "all_bugs": 3,
+    "all_plants": 3,
+    "base": 20
   }
 
-  // TODO: Why are there too many A's?
-  // (because my PRNG is BAD!)
-  function sample_glyph(gcounts, seed) {
-    // Sample a glyph from a counts dictionary, using the counts as weights.
+  var MAX_UNLOCKED = 8;
+  var MIN_UNLOCKED = 5; // but they can miss and collide, of course
+
+  function domains_list(domain_or_combo) {
+    // Returns an array of all domains in the given group or combo.
+    if (DOMAIN_COMBOS.hasOwnProperty(domain_or_combo)) {
+      result = [];
+      DOMAIN_COMBOS[domain_or_combo].forEach(function (d) {
+        domains_list(d).forEach(function (rd) {
+          result.push(rd);
+        });
+      });
+      return result;
+    } else {
+      return [ domain_or_combo ];
+    }
+  }
+
+  function prng(seed) {
+    // TODO: Better here!
+    var result =  ((((seed * 1029830183) << 5) - seed) % 1e9) / 1e9;
+    if (result < 0) {
+      result = -result;
+    }
+    return result;
+  }
+
+  function sample_table(table, seed) {
+    // Samples a table of weights.
     var total_weight = 0;
-    for (var g in gcounts) {
-      if (gcounts.hasOwnProperty(g)) {
-        total_weight += gcounts[g] + SMOOTHING;
+    for (var e in table) {
+      if (table.hasOwnProperty(e)) {
+        total_weight += table[e] + SMOOTHING;
       }
     }
-    var r = (((seed * 1029830183) % 1e9) / 1e9) * total_weight;
-    // TODO: DEBUG
-    //var r = Math.random() * GS_TOTAL_WEIGHT;
+    var r = prng(seed) * total_weight;
+
     var last = undefined;
     var selected = null;
-    for (var g in gcounts) {
-      if (gcounts.hasOwnProperty(g)) {
-        selected = g;
-        r -= gcounts[g] + SMOOTHING;
+    for (var e in table) {
+      if (table.hasOwnProperty(e)) {
+        selected = e;
+        r -= table[e] + SMOOTHING;
         if (r < 0) {
           break;
         }
       }
     }
     return selected;
+  }
+
+  function sample_glyph(gcounts, seed) {
+    // Sample a glyph from a counts dictionary, using the counts as weights.
+    return sample_table(gcounts, seed);
   }
 
   function mix_seeds(s1, s2, off) {
@@ -61,12 +121,14 @@ define(["./dict"], function(dict) {
     // the given seed.
     var smix = sghash(seed, spos);
 
-    // TODO: HERE
-    if (Math.random() < 0.7) {
-      return ["test"];
-    } else {
-      return ["test_combo"];
-    }
+    var domain = sample_table(DOMAIN_WEIGHTS, smix);
+    result = domains_list(domain);
+    DOMAIN_COMBOS["base"].forEach(function (d) {
+      if (!result.includes(d)) {
+        result.push(d);
+      }
+    });
+    return result;
   }
 
   function colors_for_domains(domains) {
@@ -110,13 +172,29 @@ define(["./dict"], function(dict) {
     return result;
   }
 
+  function generate_unlocked(hash) {
+    // Generates an unlocked bitmask for a fresh supertile using the given hash.
+    var result = [ 0, 0 ];
+    hash = prng(hash);
+    var n_unlocked = MIN_UNLOCKED + (hash % (MAX_UNLOCKED - MIN_UNLOCKED));
+    for (var i = 0; i < n_unlocked; ++i) {
+      hash = prng(hash);
+      var ord = hash % 49;
+      if (ord >= 32) {
+        ord -= 32;
+        result[1] |= 1 << ord;
+      } else {
+        result[0] |= 1 << ord;
+      }
+    }
+    return result;
+  }
+
   function generate_supertile(seed, spos) {
     // Takes a seed and a supertile position and generates the corresponding
     // supertile.
     //
     // TODO: Uses globally-known edge content to generate guaranteed inroads.
-    //
-    // Note: the '| 0' is a hack to truncate to 32-bit int content.
     var smix = sghash(seed, spos);
 
     var result = {
@@ -125,6 +203,8 @@ define(["./dict"], function(dict) {
     };
 
     result["colors"] = colors_for_domains(result["domains"]);
+
+    result["unlocked"] = generate_unlocked(smix);
 
     var gcounts = combined_counts(result["domains"]);
 

@@ -5,8 +5,38 @@ define([], function() {
 
   DOMAINS = {}
 
+  DOMAIN_COLORS = {
+    "us_plants": [ "gn" ],
+    "plants": [ "gn" ],
+
+    "animals": [ "rd" ],
+
+    "birds": [ "bl" ],
+    "fish": [ "bl" ],
+    "mammals": [ "rd" ],
+    "monotremes": [ "rd" ],
+    "reptiles": [ "yl" ],
+    "amphibians": [ "yl" ],
+
+    "insects": [ "gn" ],
+    "spiders": [ "gn" ],
+    "au_ants": [ "gn" ],
+    "gb_ants": [ "gn" ],
+    "gb_bees": [ "gn" ],
+    "gb_wasps": [ "gn" ],
+    "ca_butterflies": [ "gn" ],
+  }
+
   INDEX_DEPTH_LIMIT = 6;
   INDEX_BIN_SIZE = 64;
+
+  function colors_for(domain) {
+    if (DOMAIN_COLORS.hasOwnProperty(domain)) {
+      return DOMAIN_COLORS[domain].slice();
+    } else {
+      return [];
+    }
+  }
 
   function lookup_domain(name) {
     // Looks up a domain by name.
@@ -76,7 +106,10 @@ define([], function() {
     if (DOMAINS.hasOwnProperty(domain)) {
       return;
     }
+    load_json_or_list(domain);
+  }
 
+  function load_json_or_list(name) {
     // From:
     // https://codepen.io/KryptoniteDove/post/load-json-file-locally-using-pure-javascript
     // Use with Chrome and --allow-file-access-from-files to run locally.
@@ -84,13 +117,59 @@ define([], function() {
     xobj.overrideMimeType("application/json");
     var url = window.location.href;
     var path = url.substr(0, url.lastIndexOf('/'));
-    var dpath = path + "/js/words/domains/" + domain + ".json";
+    var dpath = path + "/js/words/domains/" + name + ".json";
 
     // Load synchronously
     xobj.open("GET", dpath, false);
     xobj.onload = function () {
       var json = JSON.parse(xobj.responseText);
-      finish_loading(domain, json);
+      finish_loading(name, json);
+    };
+    try {
+      xobj.send(null);
+    } catch (e) {
+      load_simple_word_list(name);
+    }
+  }
+
+  function name_hash(name) {
+    var h = name.split("").reduce(
+      function (a,b) {
+        a=((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+      },
+      0
+    );
+    if (h < 0) {
+      return -h;
+    } else {
+      return h;
+    }
+  }
+
+  function load_simple_word_list(name) {
+    // Use with Chrome and --allow-file-access-from-files to run locally.
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("text/plain");
+    var url = window.location.href;
+    var path = url.substr(0, url.lastIndexOf('/'));
+    var dpath = path + "/js/words/domains/" + name + ".lst";
+
+    // Load synchronously
+    xobj.open("GET", dpath, false);
+    xobj.onload = function () {
+      var words = xobj.responseText.split("\n");
+      var entries = [];
+      words.forEach(function (w) {
+        entries.push([w, w]);
+      });
+      var json = {
+        "ordered": true,
+        "cased": false,
+        "colors": colors_for(name),
+        "entries": entries
+      }
+      finish_loading(name, json);
     };
     xobj.send(null);
   }
@@ -101,12 +180,12 @@ define([], function() {
     // itself recursively until INDEX_BIN_SIZE is satisfied or
     // INDEX_DEPTH_LIMIT is met. Returns an object mapping glyphs to
     // sub-indices or an array for terminal entries.
-    result = {};
+    var result = {};
     indices.forEach(function (idx) {
       var entry = entries[idx];
       if (entry[0].length <= position) {
         // This entry is too short
-        if (reuslt.hasOwnProperty("")) {
+        if (result.hasOwnProperty("")) {
           console.log("Internal Error: multiple too-short entry:\n" + entry);
         }
         result[""] = idx;
@@ -226,8 +305,40 @@ define([], function() {
 
   // Load dictionaries:
   // TODO: HERE
-  load_dictionary("test");
-  load_dictionary("test_combo");
+  //load_dictionary("test");
+  //load_dictionary("test_combo");
+
+  // Base domains:
+  load_dictionary("adj");
+  load_dictionary("adv");
+  load_dictionary("noun");
+  load_dictionary("verb");
+
+  // Bonus domains:
+  load_dictionary("us_plants");
+  load_dictionary("plants");
+
+  load_dictionary("animals");
+
+  load_dictionary("birds");
+  load_dictionary("fish");
+  load_dictionary("mammals");
+  load_dictionary("monotremes");
+  load_dictionary("reptiles");
+  load_dictionary("amphibians");
+
+  load_dictionary("insects");
+  load_dictionary("spiders");
+  load_dictionary("au_ants");
+  load_dictionary("gb_ants");
+  load_dictionary("gb_bees");
+  load_dictionary("gb_wasps");
+  load_dictionary("ca_butterflies");
+
+  // TODO: Missing animals...
+  // load_dictionary("crustaceans");
+  // load_dictionary("molluscs");
+  // load_dictionary("fungi");
 
   return {
     "lookup_domain": lookup_domain,

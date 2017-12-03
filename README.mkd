@@ -6,6 +6,8 @@ Find words on an infinite hex grid.
 
 # TODO
 
-- Dictionary addition
+- Make domains fun!
 - Resources
 - Typing mode!
+- Communities & requests.
+- Custom words
