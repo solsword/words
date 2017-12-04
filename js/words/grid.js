@@ -132,6 +132,9 @@ define(["./generate"], function(generate) {
   function is_neighbor(from, to) {
     // Returns true if the two positions given are neighbors, and false
     // otherwise (including if they are the same position).
+    if (from == undefined || to == undefined) {
+      return false;
+    }
     return grid_distance(from, to) == 1;
   }
 

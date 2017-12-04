@@ -144,8 +144,6 @@ function(draw, grid, dict, menu) {
     if (e.touches) {
       e = e.touches[0];
     }
-    console.log("MP: " +e.clientX + "," + e.clientY);
-    console.log("CTX: " +CTX.bounds.left+ "," + CTX.bounds.top);
     var client_x = e.clientX - CTX.bounds.left;
     var client_y = e.clientY - CTX.bounds.top;
     return [
@@ -200,20 +198,21 @@ function(draw, grid, dict, menu) {
 
     // set up event handlers
     document.onmousedown = function (e) {
-      console.log("TOUCH");
       if (e.preventDefault) { e.preventDefault(); }
-      console.log(e);
       var vpos = canvas_position_of_event(e);
       // dispatch to menu system first:
       if (menu.mousedown(vpos)) { return; }
-      console.log("NM");
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
-      console.log("v/w/gpos: " + vpos + "  " + wpos + "  " + gpos);
       var head = null;
       if (CURRENT_SWIPES.length > 0) {
-        var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
-        head = latest_swipe[latest_swipe.length - 1];
+        for (var i = CURRENT_SWIPES.length - 1; i > -1; --i) {
+          var latest_swipe = CURRENT_SWIPES[i];
+          if (latest_swipe.length > 0) {
+            head = latest_swipe[latest_swipe.length - 1];
+            break;
+          }
+        }
       }
       if (!is_selected(gpos) && (head == null || grid.is_neighbor(head, gpos))){
         CURRENT_SWIPES.push([gpos]);
