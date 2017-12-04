@@ -140,7 +140,12 @@ function(draw, grid, dict, menu) {
     return result;
   }
 
-  function mouse_position(e) {
+  function canvas_position_of_event(e) {
+    if (e.touches) {
+      e = e.touches[0];
+    }
+    console.log("MP: " +e.clientX + "," + e.clientY);
+    console.log("CTX: " +CTX.bounds.left+ "," + CTX.bounds.top);
     var client_x = e.clientX - CTX.bounds.left;
     var client_y = e.clientY - CTX.bounds.top;
     return [
@@ -195,12 +200,16 @@ function(draw, grid, dict, menu) {
 
     // set up event handlers
     document.onmousedown = function (e) {
+      console.log("TOUCH");
       if (e.preventDefault) { e.preventDefault(); }
-      var vpos = mouse_position(e);
+      console.log(e);
+      var vpos = canvas_position_of_event(e);
       // dispatch to menu system first:
       if (menu.mousedown(vpos)) { return; }
+      console.log("NM");
       var wpos = draw.world_pos(CTX, vpos);
       var gpos = grid.grid_pos(wpos);
+      console.log("v/w/gpos: " + vpos + "  " + wpos + "  " + gpos);
       var head = null;
       if (CURRENT_SWIPES.length > 0) {
         var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
@@ -215,12 +224,13 @@ function(draw, grid, dict, menu) {
       SWIPING = true;
       DO_REDRAW = true;
     }
+    document.ontouchstart = document.onmousedown;
 
     document.onmouseup = function(e) {
       // TODO: Menus
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
-      var vpos = mouse_position(e);
+      var vpos = canvas_position_of_event(e);
       if (menu.mouseup(vpos)) {
         DO_REDRAW = true;
         return;
@@ -245,12 +255,13 @@ function(draw, grid, dict, menu) {
       }
       DO_REDRAW = true;
     }
+    document.ontouchcancel = document.onmouseup
 
     document.onmousemove = function (e) {
-      LAST_MOUSE_POSITION = mouse_position(e);
+      LAST_MOUSE_POSITION = canvas_position_of_event(e);
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
-      var vpos = mouse_position(e);
+      var vpos = canvas_position_of_event(e);
       if (menu.mousemove(vpos)) { return; }
       if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
         return;
@@ -301,6 +312,7 @@ function(draw, grid, dict, menu) {
         }
       }
     }
+    document.ontouchmove = document.onmousemove;
 
     document.onwheel = function (e) {
       if (e.preventDefault) { e.preventDefault(); }

@@ -99,14 +99,20 @@ define([], function() {
     DOMAINS[name] = json;
   }
 
-  function load_dictionary(domain) {
+  function load_dictionary(domain, is_simple=undefined) {
     // Loads the dictionary for the given domain. Does nothing if that domain
     // is already loaded. Puts the data into the DOMAINS object. Builds an
     // index if the loaded domain doesn't have one, which may take some time.
     if (DOMAINS.hasOwnProperty(domain)) {
       return;
     }
-    load_json_or_list(domain);
+    if (is_simple == undefined) {
+      load_json_or_list(domain);
+    } else if (is_simple) {
+      load_simple_word_list(domain);
+    } else {
+      load_json_or_list(domain);
+    }
   }
 
   function load_json_or_list(name) {
@@ -122,8 +128,15 @@ define([], function() {
     // Load synchronously
     xobj.open("GET", dpath, false);
     xobj.onload = function () {
-      var json = JSON.parse(xobj.responseText);
-      finish_loading(name, json);
+      if (xobj.status != 200) {
+        load_simple_word_list(name);
+      }
+      try {
+        var json = JSON.parse(xobj.responseText);
+        finish_loading(name, json);
+      } catch (e) {
+        load_simple_word_list(name);
+      }
     };
     try {
       xobj.send(null);
@@ -315,25 +328,25 @@ define([], function() {
   load_dictionary("verb");
 
   // Bonus domains:
-  load_dictionary("us_plants");
-  load_dictionary("plants");
+  load_dictionary("us_plants", true);
+  load_dictionary("plants", true);
 
-  load_dictionary("animals");
+  load_dictionary("animals", true);
 
-  load_dictionary("birds");
-  load_dictionary("fish");
-  load_dictionary("mammals");
-  load_dictionary("monotremes");
-  load_dictionary("reptiles");
-  load_dictionary("amphibians");
+  load_dictionary("birds", true);
+  load_dictionary("fish", true);
+  load_dictionary("mammals", true);
+  load_dictionary("monotremes", true);
+  load_dictionary("reptiles", true);
+  load_dictionary("amphibians", true);
 
-  load_dictionary("insects");
-  load_dictionary("spiders");
-  load_dictionary("au_ants");
-  load_dictionary("gb_ants");
-  load_dictionary("gb_bees");
-  load_dictionary("gb_wasps");
-  load_dictionary("ca_butterflies");
+  load_dictionary("insects", true);
+  load_dictionary("spiders", true);
+  load_dictionary("au_ants", true);
+  load_dictionary("gb_ants", true);
+  load_dictionary("gb_bees", true);
+  load_dictionary("gb_wasps", true);
+  load_dictionary("ca_butterflies", true);
 
   // TODO: Missing animals...
   // load_dictionary("crustaceans");
