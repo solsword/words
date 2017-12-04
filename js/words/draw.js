@@ -6,6 +6,8 @@ define(["./grid"], function(grid) {
   var HIGHLIGHT_COLOR = "#fff";
   var TRAIL_COLOR = "#ddd";
 
+  var FONT_SIZE = 24;
+
   var TILE_COLORS = {
            "outline": "#555",
              "inner": "#333",
@@ -105,7 +107,7 @@ define(["./grid"], function(grid) {
     edges = viewport_edges(ctx);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "22px asap";
+    ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px asap";
 
     tiles = grid.list_tiles(edges);
     tiles.forEach(function(tile) {
@@ -205,7 +207,7 @@ define(["./grid"], function(grid) {
     }
 
     // Inner circle
-    var r = grid.GRID_EDGE * 0.63 / ctx.viewport_scale;
+    var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
     if (tile["unlocked"]) {
       ctx.fillStyle = TILE_COLORS["unlocked-pad"];
     } else {
@@ -318,7 +320,7 @@ define(["./grid"], function(grid) {
     // TODO: Measure glyphs and use ellipsis when required.
     ctx.textAlign = "middle";
     ctx.textBaseline = "middle";
-    ctx.font = "22px asap";
+    ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px asap";
     var str = glyphs.join("");
     var boxwidth = ctx.measureText(str).width + CONTEXT_BOX["padding"]*2;
     var maxwidth = (

@@ -6,7 +6,6 @@ define(
 function(draw, grid, dict, menu) {
 
   var VIEWPORT_SIZE = 800.0;
-  var VIEWPORT_SCALE = 1.0;
 
   var SWIPING = false;
   var CURRENT_SWIPES = [];
@@ -166,6 +165,15 @@ function(draw, grid, dict, menu) {
     menu.set_canvas_size([CANVAS.width, CANVAS.height]);
   }
 
+  function update_current_glyphs() {
+    CURRENT_GLYPHS = []
+    CURRENT_SWIPES.forEach(function (sw) {
+      sw.forEach(function (gp) {
+        CURRENT_GLYPHS.push(grid.tile_at(gp)["glyph"]);
+      });
+    });
+  }
+
   function start_game() {
     // set up canvas context
     CANVAS = document.getElementById("canvas");
@@ -173,7 +181,13 @@ function(draw, grid, dict, menu) {
     update_canvas_size();
     CTX.viewport_size = VIEWPORT_SIZE;
     CTX.viewport_center = [0, 0];
-    CTX.viewport_scale = VIEWPORT_SCALE;
+    var screensize = Math.min(window.innerWidth, window.innerHeight);
+    if (screensize < 500) {
+      // Smaller devices
+      CTX.viewport_scale = 2.0;
+    } else {
+      CTX.viewport_scale = 1.0;
+    }
     DO_REDRAW = true;
 
     // kick off animation
@@ -216,6 +230,7 @@ function(draw, grid, dict, menu) {
       }
       if (!is_selected(gpos) && (head == null || grid.is_neighbor(head, gpos))){
         CURRENT_SWIPES.push([gpos]);
+        update_current_glyphs();
         LAST_POSITION = gpos;
       } else {
         CURRENT_SWIPES.push([]);
@@ -240,18 +255,10 @@ function(draw, grid, dict, menu) {
       }
       var latest_swipe = CURRENT_SWIPES.pop();
       if (latest_swipe.length > 0) {
-        // A non-empty swipe motion.
-        glyphs = []
-        latest_swipe.forEach(function (gp) {
-          glyphs.push(grid.tile_at(gp)["glyph"])
-        });
-        if (CURRENT_GLYPHS == null) {
-          CURRENT_GLYPHS = [];
-        }
-        glyphs.forEach(function (g) { CURRENT_GLYPHS.push(g); });
-        // push it back on:
+        // A non-empty swipe motion; push it back on:
         CURRENT_SWIPES.push(latest_swipe);
       }
+      update_current_glyphs();
       DO_REDRAW = true;
     }
     document.ontouchcancel = document.onmouseup
@@ -291,6 +298,7 @@ function(draw, grid, dict, menu) {
           if (latest_swipe.length > 0) {
             // only pop from an active swipe
             latest_swipe.pop();
+            update_current_glyphs();
             if (latest_swipe.length > 0) {
               LAST_POSITION = latest_swipe[latest_swipe.length - 1];
             } else if (combined_swipe.length > 1) {
@@ -306,6 +314,7 @@ function(draw, grid, dict, menu) {
         if (head == null || grid.is_neighbor(head, gpos)) {
           // add them if they're a neighbor of the head
           latest_swipe.push(gpos);
+          update_current_glyphs();
           LAST_POSITION = gpos;
           DO_REDRAW = true;
         }

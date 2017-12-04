@@ -322,10 +322,10 @@ define([], function() {
   //load_dictionary("test_combo");
 
   // Base domains:
-  load_dictionary("adj");
-  load_dictionary("adv");
-  load_dictionary("noun");
-  load_dictionary("verb");
+  load_dictionary("adj", true);
+  load_dictionary("adv", true);
+  load_dictionary("noun", true);
+  load_dictionary("verb", true);
 
   // Bonus domains:
   load_dictionary("us_plants", true);

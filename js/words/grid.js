@@ -3,7 +3,7 @@
 
 define(["./generate"], function(generate) {
 
-  var GRID_SIZE = 40;
+  var GRID_SIZE = 45;
 
   var SEED = 173;
 
