@@ -198,7 +198,8 @@ define(["./draw"], function(draw) {
     this.style.border_color = this.style.border_color || "#777";
     this.style.border_width = this.style.border_width || 1;
     this.style.text_color = this.style.text_color || "#ddd";
-    this.style.font = this.style.font || "18px asap";
+    this.style.font_size = this.style.font_size || 18;
+    this.style.font_face = this.style.font_face || "asap";
     this.style.line_height = this.style.line_height || 24;
     this.style.button_color = this.style.button_color || "#555";
     this.style.selected_button_color = (
@@ -227,6 +228,10 @@ define(["./draw"], function(draw) {
 
   BaseMenu.prototype.rel_pos = function (pos) {
     return [ pos[0] - this.pos[0], pos[1] - this.pos[1] ];
+  }
+
+  BaseMenu.prototype.center = function () {
+    return [ this.pos[0] + this.shape[0]/2, this.pos[1] + this.shape[1]/2 ];
   }
 
   BaseMenu.prototype.draw = function (ctx) {
@@ -278,7 +283,8 @@ define(["./draw"], function(draw) {
       ctx.strokeRect(x, y, iw, ih);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = style.font;
+      ctx.font_size = style.font_size;
+      ctx.font_face = style.font_face;
       if (style.button_text_outline_width > 0) {
         ctx.lineWidth = style.button_text_outline_width*2;
         ctx.strokeStyle = style.button_text_outline_color;
@@ -345,6 +351,10 @@ define(["./draw"], function(draw) {
   }
 
   function Dialog(ctx, pos, shape, style, text, buttons) {
+    // A Dialog pops up and shows the given text, disabling all other
+    // interaction until one of its buttons is tapped. The 'buttons' argument
+    // should be a list of objects that have 'text' and 'action' properties.
+    // Only one of the actions will be triggered.
     ModalMenu.call(this, ctx, pos, shape, style);
     this.style = style;
     this.style.buttons_height = this.style.buttons_height || 58;
@@ -354,7 +364,10 @@ define(["./draw"], function(draw) {
     if (this.shape[0] != 0) {
       twidth = this.shape[0] - this.style.padding*2;
     }
-    ctx.font = this.style.font;
+    ctx.font = (
+      (this.style.font_size * ctx.viewport_scale) + "px "
+    + this.style.font_face
+    );
     this.text = auto_text_layout(
       ctx,
       text,
@@ -412,7 +425,10 @@ define(["./draw"], function(draw) {
     // draw a box (w/ border)
     BaseMenu.prototype.draw.apply(this, [ctx]);
     // draw the text
-    ctx.font = this.style.font;
+    ctx.font = (
+      (this.style.font_size * ctx.viewport_scale) + "px "
+    + this.style.font_face
+    );
     ctx.fillStyle = this.style.text_color;
     draw_text(
       ctx,
@@ -441,6 +457,193 @@ define(["./draw"], function(draw) {
     return false;
   }
 
+  function ToggleMenu(ctx, pos, shape, style, text, on_action, off_action) {
+    // A ToggleMenu is a persistent button that can be tapped to toggle between
+    // on and off states, calling the on_action or off_action function each
+    // time it transitions.
+    style.orientation = style.orientation || "horizontal";
+    style.active_background = style.active_background || "#555";
+    style.active_border = style.active_border || "#bbb";
+    BaseMenu.call(this, ctx, pos, shape, style);
+    this.style.inactive_background = this.style.background_color;
+    this.style.inactive_border = this.style.border_color;
+    this.text = text;
+    this.on_action = on_action;
+    this.off_action = off_action;
+    this.is_on = false;
+  }
+
+  ToggleMenu.prototype = Object.create(BaseMenu.prototype);
+  ToggleMenu.prototype.constructor = ToggleMenu;
+
+  ToggleMenu.prototype.tap = function (pos, hit) {
+    if (hit) {
+      if (this.is_on) {
+        this.style.background_color = this.style.inactive_background;
+        this.style.border_color = this.style.inactive_border;
+        this.off_action();
+        this.is_on = false;
+      } else {
+        this.style.background_color = this.style.active_background;
+        this.style.border_color = this.style.active_border;
+        this.on_action();
+        this.is_on = true;
+      }
+    }
+  }
+
+  ToggleMenu.prototype.draw = function (ctx) {
+    // draw a box (w/ border)
+    BaseMenu.prototype.draw.apply(this, [ctx]);
+    // draw the text
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = this.style.text_color;
+    ctx.font = (
+      (this.style.font_size * ctx.viewport_scale) + "px "
+    + this.style.font_face
+    );
+    var center = this.center();
+    ctx.save();
+    ctx.translate(center[0], center[1]);
+    if (this.style.orientation != "horizontal") {
+      ctx.rotate(this.style.orientation);
+    }
+    ctx.fillText(this.text, 0, 0);
+    if (this.style.orientation != "horizontal") {
+      ctx.rotate(-this.style.orientation);
+    }
+    ctx.restore();
+  }
+
+  function WordList(ctx, pos, shape, style, words, base_url) {
+    // A WordList is a scrollable list of words. Tapping on a word opens a
+    // definition link for that word, while swiping scrolls the menu. If
+    // base_url is left undefined or given some false value, tapping won't open
+    // links. base_url should have the string "<word>" in it, which will be
+    // replaced by the selected word. Example:
+    //
+    // "https://en.wiktionary.org/wiki/<word>"
+    //
+    // TODO: Handle too-wide words using an on-press popup?
+    BaseMenu.call(this, ctx, pos, shape, style);
+    this.words = words;
+    this.base_url = base_url;
+    this.scroll_position = -this.style.padding;
+    this.press_last = undefined;
+    this.press_time = 0;
+  }
+
+  WordList.prototype = Object.create(BaseMenu.prototype);
+  WordList.prototype.constructor = WordList;
+
+  WordList.prototype.tap = function (pos, hit) {
+    if (!hit || this.press_time > 3) {
+      // Don't count misses or the end of low-motion scrolling.
+      return;
+    }
+    var rp = this.rel_pos(pos);
+    // list-relative y position:
+    var lry = rp[1] - this.scroll_position;
+    // fractional y position:
+    var fry = lry % this.style.line_height;
+    if (fry > this.style.font_size + 3) {
+      // between-lines hit (text alignment is top)
+      return;
+    }
+    var line = lry / this.style.line_height;
+    if (line < 0 || line >= this.words.length) {
+      // out-of-range selection
+      return;
+    }
+    if (this.base_url) {
+      var target = this.base_url.replace("<word>", this.words[line]);
+      window.open(target);
+    }
+  }
+
+  WordList.prototype.press = function (pos, hit) {
+    if (this.press_last != undefined && hit) {
+      this.scroll_position -= pos[1] - this.press_last[1];
+    }
+    if (this.press_last != undefined || hit) {
+      this.press_time += 1;
+      this.press_last = pos;
+    }
+  }
+
+  WordList.prototype.swipe = function (path, st_hit, ed_hit) {
+    // Reset the scrolling context
+    this.press_time = 0;
+    this.press_last = undefined;
+  }
+
+  WordList.prototype.draw = function(ctx) {
+    // draw a box (w/ border)
+    BaseMenu.prototype.draw.apply(this, [ctx]);
+    // adjust scroll position
+    var min_scroll = -this.style.padding;
+    var max_scroll = (
+      this.words.length * this.line_height
+    - (this.shape[1] - 2 * this.padding)
+    );
+    if (this.scroll_position < min_scroll) {
+      var yd = min_scroll - this.scroll_position;
+      if (yd < 3) {
+        this.scroll_position = min_scroll;
+      } else {
+        this.scroll_position += yd/3;
+      }
+    } else if (this.scroll_position > max_scroll) {
+      var yd = this.scroll_position - max_scroll;
+      if (yd < 3) {
+        this.scroll_position = max_scroll;
+      } else {
+        this.scroll_position -= yd/3;
+      }
+    }
+    // set clip region:
+    ctx.rect(
+      this.pos[0],
+      this.pos[1],
+      this.pos[0] + this.shape[0],
+      this.pos[1] + this.shape[1]
+    );
+    ctx.save()
+    ctx.clip();
+    // style setup:
+    ctx.font = (
+      (this.style.font_size * ctx.viewport_scale) + "px "
+    + this.style.font_face
+    );
+    ctx.fillStyle = this.style.text_color;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    // draw words:
+    var st_line = Math.floor(this.scroll_position / this.style.line_height) - 1;
+    if (st_line < 0) { st_line = 0; }
+    var line = st_line;
+    var ry = line * this.style.line_height - this.scroll_position;
+    var max_width = this.shape[0] - 2 * this.style.padding;
+    while (ry < this.shape[1] + this.style.line_height) {
+      // draw word:
+      var text = this.words[line];
+      var m = ctx.measureText(text);
+      while (m.width > max_width) {
+        if (text.length <= 1) { break; }
+        text = text.slice(0, text.length - 2);
+        text += "…"
+        m = ctx.measureText(text);
+      }
+      ctx.fillText(text, this.pos[0] + this.style.padding, ry);
+      // increment and continue
+      line += 1;
+      ry = line * this.style.line_height - this.scroll_position;
+    }
+    // undo clipping:
+    ctx.restore();
+  }
+
 
   function ButtonMenu(ctx, pos, shape, style, buttons) {
     BaseMenu.call(this, ctx, pos, shape, style);
@@ -451,7 +654,7 @@ define(["./draw"], function(draw) {
 
   // TODO: Implement ButtonMenu
 
-  function SlidingMenu(
+  function CollapsingMenu(
     ctx,
     pos,
     shape,
@@ -464,10 +667,10 @@ define(["./draw"], function(draw) {
     this.direction = direction;
     this.hidden_extent = hidden_extent;
   };
-  SlidingMenu.prototype = Object.create(ButtonMenu.prototype);
-  SlidingMenu.prototype.constructor = SlidingMenu;
+  CollapsingMenu.prototype = Object.create(ButtonMenu.prototype);
+  CollapsingMenu.prototype.constructor = CollapsingMenu;
 
-  // TODO: Implement SlidingMenu
+  // TODO: Implement CollapsingMenu
 
 
   function add_menu(menu) {
@@ -672,7 +875,8 @@ define(["./draw"], function(draw) {
     "set_canvas_size": set_canvas_size,
     "Dialog": Dialog,
     "ButtonMenu": ButtonMenu,
-    "SlidingMenu": SlidingMenu,
+    "ToggleMenu": ToggleMenu,
+    "CollapsingMenu": CollapsingMenu,
     "add_menu": add_menu,
     "remove_menu": remove_menu,
     "mousedown": mousedown,

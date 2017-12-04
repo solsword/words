@@ -210,6 +210,19 @@ function(draw, grid, dict, menu) {
       );
     });
 
+    // set up menus:
+    menu.add_menu(
+      new menu.ToggleMenu(
+        CTX,
+        [ CTX.cwidth - 60*CTX.viewport_scale, 60*CTX.viewport_scale ],
+        [ 40*CTX.viewport_scale, CTX.cheight - (60 + 120)*CTX.viewport_scale ],
+        { "orientation": -Math.PI/2 }, 
+        "WORDS",
+        function () { console.log("ON"); },
+        function () { console.log("OFF"); }
+      )
+    );
+
     // set up event handlers
     document.onmousedown = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
