@@ -327,6 +327,7 @@ define(["./locale"], function(locale) {
   load_dictionary("verb", true);
 
   // Bonus domains:
+  /*
   load_dictionary("us_plants", true);
   load_dictionary("plants", true);
 
@@ -346,6 +347,7 @@ define(["./locale"], function(locale) {
   load_dictionary("gb_bees", true);
   load_dictionary("gb_wasps", true);
   load_dictionary("ca_butterflies", true);
+  */
 
   load_dictionary("türk", true);
 
