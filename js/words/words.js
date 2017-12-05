@@ -9,7 +9,6 @@ function(draw, grid, dict, menu) {
 
   var SWIPING = false;
   var CURRENT_SWIPES = [];
-  var CURRENT_GLYPHS = null;
   var LAST_POSITION = [0, 0];
 
   // Mouse scroll correction factors:
@@ -27,7 +26,28 @@ function(draw, grid, dict, menu) {
   var SOFAR_HIGHLIGHT = "#ccc";
   var SOFAR_FADE = 0.0;
 
-  var WORDS_FOUND = [];
+  // Word tracking:
+  var WORDS_FOUND = {};
+  var WORDS_LIST = [];
+
+  // Menus:
+  var WORDS_LIST_MENU = null;
+  var WORDS_SIDEBAR = null;
+  var ABOUT_TOGGLE = null;
+  var ABOUT_DIALOG = null;
+  var HOME_BUTTON = null;
+  var CLEAR_SELECTION_BUTTON = null;
+  var CURRENT_GLYPHS_BUTTON = null;
+
+  function find_word(word, gp) {
+    DO_REDRAW = true;
+    if (WORDS_FOUND.hasOwnProperty(word)) {
+      WORDS_FOUND[word].push(gp);
+    } else {
+      WORDS_FOUND[word] = [ gp ];
+      WORDS_LIST.push(word);
+    }
+  }
 
   function home_view() {
     var wpos = grid.world_pos([0, 0]);
@@ -37,57 +57,65 @@ function(draw, grid, dict, menu) {
   }
 
   var COMMANDS = {
-    // spacebar checks current word
-    " ": function (e) {
-      var combined_swipe = combine_arrays(CURRENT_SWIPES);
-      var domains = new Set();
-      combined_swipe.forEach(function (gp) {
-        var st = grid.grid_supertile(gp);
-        st.domains.forEach(function (d) {
-          domains.add(d);
-        });
+    // DEBUG:
+    "z": function (e) {
+      [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "x",
+        "y",
+        "z",
+        "aa",
+        "ab",
+        "ac",
+        "ad",
+        "ae",
+        "af",
+        "ag",
+        "ah",
+        "ai",
+        "aj",
+        "ak",
+        "al",
+        "am",
+        "an",
+        "ao",
+        "ap",
+        "aq",
+        "ar",
+        "as",
+        "at",
+        "au",
+        "av",
+        "ax",
+        "ay",
+        "az",
+      ].forEach(function (w) {
+        find_word(w, [0, 0]);
       });
-      var entries = dict.check_word(CURRENT_GLYPHS, domains);
-      if (entries.length > 0) {
-        // Found a match:
-        var connected = false;
-        combined_swipe.forEach(function (gp) {
-          if (grid.is_unlocked(gp)) {
-            connected = true;
-          }
-        });
-        if (connected) {
-          // Match is connected:
-          // clear our swipes and glyphs and add to our words found
-          combined_swipe.forEach(function (gp) {
-            grid.unlock_tile(gp);
-          });
-          CURRENT_SWIPES = [];
-          CURRENT_GLYPHS = null;
-          entries.forEach(function (e) {
-            WORDS_FOUND.push(e);
-          });
-          // Highlight in white:
-          SOFAR_HIGHLIGHT = "#fff";
-        } else {
-          // Highlight in yellow:
-          SOFAR_HIGHLIGHT = "#ff2";
-        }
-      } else {
-        // No match found: just highlight in red
-        SOFAR_HIGHLIGHT = "#f22";
-      }
-      SOFAR_FADE = 1.0;
-      DO_REDRAW = true;
     },
-    // escape removes all current selections
-    "Escape": function (e) {
-      CURRENT_SWIPES = [];
-      CURRENT_GLYPHS = null;
-      SOFAR_HIGHLIGHT = "#f22";
-      SOFAR_FADE = 1.0;
-      DO_REDRAW = true;
-    },
+    " ": test_selection, // spacebar checks current word
+    "Escape": clear_selection, // escape removes all current selections
     // tab recenters view on current/last swipe head
     "Tab": function (e) {
       if (e.preventDefault) { e.preventDefault(); }
@@ -98,17 +126,7 @@ function(draw, grid, dict, menu) {
     },
     // shows 'about' dialog
     "a": function (e) {
-      // TODO: prevent multiple pop-ups at once?
-      menu.add_menu(
-        new menu.Dialog(
-          CTX,
-          undefined,
-          undefined,
-          {}, 
-          "This is Words, version 0.0.1.",
-          [ { "text": "OK" } ]
-        )
-      );
+      ABOUT_TOGGLE.toggle();
       DO_REDRAW = true;
     },
     // home and 0 reset the view to center 0, 0
@@ -123,10 +141,57 @@ function(draw, grid, dict, menu) {
         if (last_swipe.length == 0) {
           CURRENT_SWIPES.pop();
         }
-        CURRENT_GLYPHS.pop();
+        CURRENT_GLYPHS_BUTTON.remove_glyph();
       }
       DO_REDRAW = true;
     }
+  }
+
+  function clear_selection() {
+    CURRENT_SWIPES = [];
+    CURRENT_GLYPHS_BUTTON.set_glyphs([]);
+    DO_REDRAW = true;
+  }
+
+  function test_selection() {
+    var combined_swipe = combine_arrays(CURRENT_SWIPES);
+    var domains = new Set();
+    combined_swipe.forEach(function (gp) {
+      var st = grid.grid_supertile(gp);
+      st.domains.forEach(function (d) {
+        domains.add(d);
+      });
+    });
+    var entries = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
+    if (entries.length > 0) {
+      // Found a match:
+      var connected = false;
+      combined_swipe.forEach(function (gp) {
+        if (grid.is_unlocked(gp)) {
+          connected = true;
+        }
+      });
+      if (connected) {
+        // Match is connected:
+        // clear our swipes and glyphs and add to our words found
+        combined_swipe.forEach(function (gp) {
+          grid.unlock_tile(gp);
+        });
+        entries.forEach(function (e) {
+          find_word(e[e.length-1], combined_swipe[0]);
+        });
+        clear_selection();
+        // Highlight in white:
+        CURRENT_GLYPHS_BUTTON.flash("#fff");
+      } else {
+        // Highlight in yellow:
+        CURRENT_GLYPHS_BUTTON.flash("#ff2");
+      }
+    } else {
+      // No match found: just highlight in red
+      CURRENT_GLYPHS_BUTTON.flash("#f22");
+    }
+    DO_REDRAW = true;
   }
 
   function combine_arrays(deep) {
@@ -166,12 +231,13 @@ function(draw, grid, dict, menu) {
   }
 
   function update_current_glyphs() {
-    CURRENT_GLYPHS = []
+    var glyphs = []
     CURRENT_SWIPES.forEach(function (sw) {
       sw.forEach(function (gp) {
-        CURRENT_GLYPHS.push(grid.tile_at(gp)["glyph"]);
+        glyphs.push(grid.tile_at(gp)["glyph"]);
       });
     });
+    CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
   }
 
   function start_game() {
@@ -211,17 +277,83 @@ function(draw, grid, dict, menu) {
     });
 
     // set up menus:
-    menu.add_menu(
-      new menu.ToggleMenu(
-        CTX,
-        [ CTX.cwidth - 60*CTX.viewport_scale, 60*CTX.viewport_scale ],
-        [ 40*CTX.viewport_scale, CTX.cheight - (60 + 120)*CTX.viewport_scale ],
-        { "orientation": -Math.PI/2 }, 
-        "WORDS",
-        function () { console.log("ON"); },
-        function () { console.log("OFF"); }
-      )
+    WORDS_LIST_MENU = new menu.WordList(
+      CTX,
+      { "right": 40, "top": 30, "bottom": 90 },
+      { "width": undefined, "height": undefined },
+      undefined,
+      WORDS_LIST,
+      "https://en.wiktionary.org/wiki/<word>"
     );
+
+    WORDS_SIDEBAR = new menu.ToggleMenu(
+      CTX,
+      { "right": 0, "top": 20, "bottom": 80 },
+      { "width": 40, "height": undefined },
+      { "orientation": -Math.PI/2 }, 
+      "WORDS",
+      function () { menu.add_menu(WORDS_LIST_MENU); },
+      function () { menu.remove_menu(WORDS_LIST_MENU); }
+    );
+    menu.add_menu(WORDS_SIDEBAR);
+
+    ABOUT_DIALOG = new menu.Dialog(
+      CTX,
+      undefined,
+      undefined,
+      {}, 
+      "This is Words, version 0.0.1.",
+      [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
+    );
+
+    ABOUT_TOGGLE = new menu.ToggleMenu(
+      CTX,
+      { "right": 10, "bottom": 10 },
+      { "width": 40, "height": 40 },
+      {},
+      "?",
+      function () { menu.add_menu(ABOUT_DIALOG); },
+      function () { menu.remove_menu(ABOUT_DIALOG); },
+    );
+    menu.add_menu(ABOUT_TOGGLE);
+
+    HOME_BUTTON = new menu.ButtonMenu(
+      CTX,
+      { "left": 10, "top": 10 },
+      { "width": 40, "height": 40 },
+      {},
+      "🏠",
+      home_view
+    );
+    menu.add_menu(HOME_BUTTON);
+
+    CLEAR_SELECTION_BUTTON = new menu.ButtonMenu(
+      CTX,
+      { "left": 10, "bottom": 10 },
+      { "width": 40, "height": 40 },
+      {
+        "background_color": "#310",
+        "border_color": "#732",
+        "text_color": "#d43"
+      },
+      "⊗",
+      clear_selection
+    );
+    menu.add_menu(CLEAR_SELECTION_BUTTON);
+
+    CURRENT_GLYPHS_BUTTON = new menu.GlyphsMenu(
+      CTX,
+      { "bottom": 10 },
+      { "width": undefined, "height": 40 },
+      {
+        "background_color": "#000",
+        "border_color": "#888",
+        "text_color": "#fff"
+      },
+      "",
+      test_selection
+    );
+    menu.add_menu(CURRENT_GLYPHS_BUTTON);
 
     // set up event handlers
     document.onmousedown = function (e) {
@@ -281,7 +413,7 @@ function(draw, grid, dict, menu) {
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
       var vpos = canvas_position_of_event(e);
-      if (menu.mousemove(vpos)) { return; }
+      if (menu.mousemove(vpos)) { DO_REDRAW = true; return; }
       if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
         return;
       }
@@ -391,18 +523,6 @@ function(draw, grid, dict, menu) {
           draw.draw_swipe(CTX, swipe, false);
         }
       });
-    }
-    // Draw current glyphs (TODO: Change this into a menu?)
-    if (CURRENT_GLYPHS != null) {
-      if (SOFAR_FADE > 0) {
-        DO_REDRAW = true;
-        SOFAR_FADE *= 0.75;
-        if (SOFAR_FADE < 0.1) {
-          SOFAR_FADE = 0;
-        }
-      }
-      var c = draw.interp_color(SOFAR_BORDER, SOFAR_FADE, SOFAR_HIGHLIGHT);
-      draw.draw_sofar(CTX, CURRENT_GLYPHS, c);
     }
 
     // Draw menus:

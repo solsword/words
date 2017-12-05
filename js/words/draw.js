@@ -7,6 +7,8 @@ define(["./grid"], function(grid) {
   var TRAIL_COLOR = "#ddd";
 
   var FONT_SIZE = 24;
+  var FONT_FACE = "asap";
+  //var FONT_FACE = "serif";
 
   var TILE_COLORS = {
            "outline": "#555",
@@ -21,9 +23,11 @@ define(["./grid"], function(grid) {
   var PALETTE = {
     "gr": "#888",
     "bl": "#8bf",
+    "lb": "#bef",
     "rd": "#f66",
     "yl": "#ff2",
     "gn": "#6f6",
+    "lg": "#af7",
   };
 
   var CONTEXT_BOX = {
@@ -107,7 +111,7 @@ define(["./grid"], function(grid) {
     edges = viewport_edges(ctx);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px asap";
+    ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px " + FONT_FACE;
 
     tiles = grid.list_tiles(edges);
     tiles.forEach(function(tile) {
@@ -116,7 +120,6 @@ define(["./grid"], function(grid) {
   }
 
   function draw_tile(ctx, tile) {
-    // TODO: Highlight status (or draw highlight separately?)!
     var wpos = grid.world_pos(tile["pos"]);
     var colors = tile["colors"];
     var glyph = tile["glyph"];
@@ -149,6 +152,7 @@ define(["./grid"], function(grid) {
     ctx.stroke();
 
     // Hexagon highlight
+    ctx.lineWidth=3;
     if (colors.length > 0) {
       var side_colors = [];
       if (colors.length <= 3 || colors.length >= 6) {
@@ -177,8 +181,6 @@ define(["./grid"], function(grid) {
         // Should be impossible
         console.log("Internal Error: invalid colors length: " + colors.length);
       }
-
-      ctx.lineWidth=1;
 
       for (var i = 0; i < grid.VERTICES.length; ++i) {
         tv = grid.VERTICES[i].slice();
@@ -315,71 +317,15 @@ define(["./grid"], function(grid) {
     ctx.stroke();
   }
 
-  function draw_sofar(ctx, glyphs, edge_color) {
-    // Draw the context:
-    // TODO: Measure glyphs and use ellipsis when required.
-    ctx.textAlign = "middle";
-    ctx.textBaseline = "middle";
-    ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px asap";
-    var str = glyphs.join("");
-    var boxwidth = ctx.measureText(str).width + CONTEXT_BOX["padding"]*2;
-    var maxwidth = (
-      ctx.cwidth
-    - CONTEXT_BOX["left"]
-    - CONTEXT_BOX["right"]
-    );
-    if (boxwidth > maxwidth) {
-      str = str.slice(4);
-      boxwidth = ctx.measureText("…" + str).width + CONTEXT_BOX["padding"]*2;
-      while (boxwidth > maxwidth) {
-        str = str.slice(1);
-        boxwidth = ctx.measureText("…" + str).width + CONTEXT_BOX["padding"]*2;
-      }
-      str = "…" + str;
-    }
-
-    // Box for the context to go in:
-    ctx.fillStyle = "#000";
-    ctx.strokeStyle = edge_color;
-    ctx.beginPath();
-    ctx.moveTo(
-      ctx.cwidth/2 - boxwidth/2,
-      ctx.cheight - CONTEXT_BOX["bottom"] - CONTEXT_BOX["height"]
-    );
-    ctx.lineTo(
-      ctx.cwidth/2 + boxwidth/2,
-      ctx.cheight - CONTEXT_BOX["bottom"] - CONTEXT_BOX["height"]
-    );
-    ctx.lineTo(
-      ctx.cwidth/2 + boxwidth/2,
-      ctx.cheight - CONTEXT_BOX["bottom"]
-    );
-    ctx.lineTo(
-      ctx.cwidth/2 - boxwidth/2,
-      ctx.cheight - CONTEXT_BOX["bottom"]
-    );
-    ctx.closePath();
-
-    ctx.fill();
-    ctx.stroke();
-
-    // The text itself:
-    ctx.fillStyle = "#fff";
-    ctx.fillText(
-      str,
-      ctx.cwidth/2,
-      ctx.cheight - CONTEXT_BOX["bottom"] - CONTEXT_BOX["height"]/2
-    );
-  }
-
   return {
     "TILE_COLORS": TILE_COLORS,
     "PALETTE": PALETTE,
+    "FONT_FACE": FONT_FACE,
+    "FONT_SIZE": FONT_SIZE,
     "interp_color": interp_color,
     "draw_tiles": draw_tiles,
     "view_pos": view_pos,
     "world_pos": world_pos,
     "draw_swipe": draw_swipe,
-    "draw_sofar": draw_sofar,
   };
 });

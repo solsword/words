@@ -6,6 +6,7 @@ define(["./dict"], function(dict) {
   var SMOOTHING = 1.5;
 
   var DOMAIN_COMBOS = {
+    //"base": [ "türk" ],
     "base": [ "adj", "adv", "noun", "verb" ],
     "all_mammals": [ "mammals", "monotremes" ],
     "all_plants": [ "us_plants", "plants" ],
@@ -39,9 +40,10 @@ define(["./dict"], function(dict) {
   }
 
   var DOMAIN_WEIGHTS = {
-    "big_animals": 3,
-    "all_bugs": 3,
-    "all_plants": 3,
+    //"big_animals": 3,
+    //"all_bugs": 3,
+    //"all_plants": 3,
+    "türk": 5,
     "base": 20
   }
 

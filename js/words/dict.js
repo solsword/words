@@ -1,42 +1,12 @@
 // dict.js
 // Dictionary implementation.
 
-define([], function() {
+define(["./locale"], function(locale) {
 
   DOMAINS = {}
 
-  DOMAIN_COLORS = {
-    "us_plants": [ "gn" ],
-    "plants": [ "gn" ],
-
-    "animals": [ "rd" ],
-
-    "birds": [ "bl" ],
-    "fish": [ "bl" ],
-    "mammals": [ "rd" ],
-    "monotremes": [ "rd" ],
-    "reptiles": [ "yl" ],
-    "amphibians": [ "yl" ],
-
-    "insects": [ "gn" ],
-    "spiders": [ "gn" ],
-    "au_ants": [ "gn" ],
-    "gb_ants": [ "gn" ],
-    "gb_bees": [ "gn" ],
-    "gb_wasps": [ "gn" ],
-    "ca_butterflies": [ "gn" ],
-  }
-
   INDEX_DEPTH_LIMIT = 6;
   INDEX_BIN_SIZE = 64;
-
-  function colors_for(domain) {
-    if (DOMAIN_COLORS.hasOwnProperty(domain)) {
-      return DOMAIN_COLORS[domain].slice();
-    } else {
-      return [];
-    }
-  }
 
   function lookup_domain(name) {
     // Looks up a domain by name.
@@ -63,6 +33,7 @@ define([], function() {
     if (!json.hasOwnProperty("ordered")) { json.ordered = true; }
     if (!json.hasOwnProperty("cased")) { json.cased = false; }
     if (!json.hasOwnProperty("colors")) { json.colors = []; }
+    if (!json.hasOwnProperty("locale")) { json.locale = locale.DEFAULT_LOCALE; }
 
     // Analyze glyphs if needed:
     if (!json.hasOwnProperty("glyph_counts")) {
@@ -73,7 +44,7 @@ define([], function() {
           var g = entry[0][j];
           // This because glyph counts are used for generation:
           if (!json.cased) {
-            g = g.toUpperCase();
+            g = locale.upper(g, json.locale);
           }
           if (json.glyph_counts.hasOwnProperty(g)) {
             json.glyph_counts[g] += 1;
@@ -172,6 +143,14 @@ define([], function() {
     xobj.open("GET", dpath, false);
     xobj.onload = function () {
       var words = xobj.responseText.split("\n");
+      var i = 0;
+      while (words[i][0] == '#') {
+        i += 1;
+      }
+      if (i > 0) {
+        directives = words.slice(0,i);
+        words = words.slice(i);
+      }
       var entries = [];
       words.forEach(function (w) {
         entries.push([w, w]);
@@ -179,9 +158,29 @@ define([], function() {
       var json = {
         "ordered": true,
         "cased": false,
-        "colors": colors_for(name),
+        "colors": [],
         "entries": entries
       }
+      directives.forEach(function (d) {
+        dbits = d.slice(1).split(":");
+        key = dbits[0].trim()
+        val = dbits[1].trim()
+        if (key == "colors") {
+          var colors = val.split(",");
+          json["colors"] = [];
+          colors.forEach(function (c) {
+            json["colors"].push(c.trim());
+          });
+        } else if (key == "ordered" || key == "cased") {
+          json[key] = [
+            "true", "True", "TRUE",
+            "yes", "Yes", "YES",
+            "y", "Y"
+          ].indexOf(val) >= 0;
+        } else {
+          json[key] = dbits[1].trim();
+        }
+      });
       finish_loading(name, json);
     };
     xobj.send(null);
@@ -259,7 +258,7 @@ define([], function() {
 
     // For uncased domains, convert the glyph sequence to lower case:
     if (!dom.cased) {
-      glyphs = glyphs.toLowerCase();
+      glyphs = locale.lower(glyphs, dom.locale);
     }
 
     var original = glyphs;
@@ -289,7 +288,7 @@ define([], function() {
         var against = test_entry[0];
         // TODO: Permit any ordering in domain files for unordered domains?
         if (!dom.cased) {
-          against = against.toLowerCase();
+          against = locale.lower(against, dom.locale);
         }
         if (against === original) {
           entry = test_entry;
@@ -347,6 +346,8 @@ define([], function() {
   load_dictionary("gb_bees", true);
   load_dictionary("gb_wasps", true);
   load_dictionary("ca_butterflies", true);
+
+  load_dictionary("türk", true);
 
   // TODO: Missing animals...
   // load_dictionary("crustaceans");

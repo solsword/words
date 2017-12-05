@@ -33,12 +33,11 @@ define(["./draw"], function(draw) {
     return (CANVAS_SIZE[0] + CANVAS_SIZE[1])/2;
   }
 
-  function flow_text(ctx, text, max_width, line_height) {
+  function flow_text(ctx, text, max_width) {
     // Takes a context object, some text to flow, and a maximum width for that
     // text and returns a list of lines such that rendering each line after the
-    // other with baselines separated by line_height will fit into the given
-    // width. Uses only awful brute-force hyphenation when a single word is too
-    // long for a line.
+    // other will fit into the given width. Uses only awful brute-force
+    // hyphenation when a single word is too long for a line.
     var words = text.split(' ');
     var line = '';
     words.forEach(function (word, idx) {
@@ -70,8 +69,7 @@ define(["./draw"], function(draw) {
         rest = flow_text(
           ctx,
           test_line.slice(fit+1) + words.slice(idx).join(" "),
-          max_width,
-          line_height
+          max_width
         );
         return [ test_line.slice(0, fit+1) + "-" ].concat(rest);
       } else {
@@ -79,8 +77,7 @@ define(["./draw"], function(draw) {
         rest = flow_text(
           ctx,
           words.slice(idx).join(" "),
-          max_width,
-          line_height
+          max_width
         );
         return [ line ].concat(rest);
       }
@@ -98,20 +95,21 @@ define(["./draw"], function(draw) {
     // Conforms to the given width if one is supplied; otherwise tries
     // NARROW_TEXT_WIDTH first, followed by MEDIUM_TEXT_WIDTH and then
     // WIDE_TEXT_WIDTH if an attempt results in too many lines.
+    var lh = line_height * ctx.viewport_scale;
     if (width != undefined) {
       var gw = width * CANVAS_SIZE[0];
-      var given = flow_text(ctx, text, gw, line_height);
-      var th = given.length * line_height;
+      var given = flow_text(ctx, text, gw);
+      var th = given.length * lh;
       return {
         "lines": given,
         "width": gw,
         "height": th,
-        "line_height": line_height
+        "line_height": lh
       };
     } else {
       var nw = NARROW_TEXT_WIDTH * CANVAS_SIZE[0];
-      var narrow = flow_text(ctx, text, nw, line_height);
-      var th = narrow.length * line_height;
+      var narrow = flow_text(ctx, text, nw);
+      var th = narrow.length * lh;
       if (th / nw <= NARROW_MAX_RATIO && th < CANVAS_SIZE[1]) {
         // fits
         if (narrow.length == 1) {
@@ -120,21 +118,21 @@ define(["./draw"], function(draw) {
             "lines": narrow,
             "width": tw,
             "height": th,
-            "line_height": line_height
+            "line_height": lh
           };
         } else {
           return {
             "lines": narrow,
             "width": nw,
             "height": th,
-            "line_height": line_height
+            "line_height": lh
           };
         }
       }
 
       mw = MEDIUM_TEXT_WIDTH * CANVAS_SIZE[0];
-      var medium = flow_text(ctx, text, mw, line_height);
-      th = medium.length * line_height;
+      var medium = flow_text(ctx, text, mw);
+      th = medium.length * lh;
       if (th / mw <= MEDIUM_MAX_RATIO && th < CANVAS_SIZE[1]) {
         // fits
         if (medium.length == 1) {
@@ -142,35 +140,35 @@ define(["./draw"], function(draw) {
             "lines": medium,
             "width": ctx.measureText(medium[0]).width,
             "height": th,
-            "line_height": line_height
+            "line_height": lh
           };
         } else {
           return {
             "lines": medium,
             "width": mw,
             "height": th,
-            "line_height": line_height
+            "line_height": lh
           };
         }
       }
 
       ww = WIDE_TEXT_WIDTH * CANVAS_SIZE[0];
-      var wide = flow_text(ctx, text, mw, line_height);
-      th = wide.length * line_height;
+      var wide = flow_text(ctx, text, mw);
+      th = wide.length * lh;
       // No other alternatives even if this is too tall
       if (wide.length == 1) {
         return {
           "lines": wide,
           "width": ctx.measureText(wide[0]).width,
           "height": th,
-          "line_height": line_height
+          "line_height": lh
         };
       } else {
         return {
           "lines": wide,
           "width": ww,
           "height": th,
-          "line_height": line_height
+          "line_height": lh
         };
       }
     }
@@ -190,16 +188,16 @@ define(["./draw"], function(draw) {
 
   function BaseMenu(ctx, pos, shape, style) {
     this.ctx = ctx;
-    this.pos = pos || [ -1, -1 ];
-    this.shape = shape || [ 0, 0 ];
-    this.style = style;
+    this.pos = pos || {};
+    this.shape = shape || {};
+    this.style = style || {};
     this.style.padding = this.style.padding || 12;
     this.style.background_color = this.style.background_color || "#333";
     this.style.border_color = this.style.border_color || "#777";
     this.style.border_width = this.style.border_width || 1;
     this.style.text_color = this.style.text_color || "#ddd";
-    this.style.font_size = this.style.font_size || 18;
-    this.style.font_face = this.style.font_face || "asap";
+    this.style.font_size = this.style.font_size || draw.FONT_SIZE;
+    this.style.font_face = this.style.font_face || draw.FONT_FACE;
     this.style.line_height = this.style.line_height || 24;
     this.style.button_color = this.style.button_color || "#555";
     this.style.selected_button_color = (
@@ -217,30 +215,120 @@ define(["./draw"], function(draw) {
     this.modal = false;
   }
 
+  BaseMenu.prototype.set_font = function (ctx) {
+    ctx.font = (
+      (this.style.font_size * ctx.viewport_scale) + "px "
+    + this.style.font_face
+    );
+    ctx.fillStyle = this.style.text_color;
+  }
+
   BaseMenu.prototype.is_hit = function (pos) {
+    var ap = this.abspos();
+    var as = this.absshape();
     return (
-      pos[0] > this.pos[0]
-   && pos[1] > this.pos[1]
-   && pos[0] < this.pos[0] + this.shape[0]
-   && pos[1] < this.pos[1] + this.shape[1]
+      pos[0] > ap[0]
+   && pos[1] > ap[1]
+   && pos[0] < ap[0] + as[0]
+   && pos[1] < ap[1] + as[1]
     );
   }
 
+  BaseMenu.prototype.abspos = function () {
+    // Compute current absolute position in canvas coordinates
+    var result = [ 0, 0 ];
+    if (this.pos.hasOwnProperty("left") && this.pos.left != undefined) {
+      result[0] = this.pos.left;
+    } else if (this.pos.hasOwnProperty("right") && this.pos.right != undefined){
+      if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
+        var w = this.shape.width * this.ctx.viewport_scale;
+        result[0] = this.ctx.cwidth - this.pos.right - w;
+      } else {
+        result[0] = this.pos.right; // auto-width -> symmetrical
+      }
+    } else {
+      if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
+        var w = this.shape.width * this.ctx.viewport_scale;
+        result[0] = (this.ctx.cwidth - w)/2; // centered
+      } else {
+        result[0] = 40; // no info default
+      }
+    }
+    if (this.pos.hasOwnProperty("top") && this.pos.top != undefined) {
+      result[1] = this.pos.top;
+    } else if (
+      this.pos.hasOwnProperty("bottom")
+   && this.pos.bottom != undefined
+    ) {
+      if (
+        this.shape.hasOwnProperty("height")
+     && this.shape.height != undefined
+      ) {
+        var h = this.shape.height * this.ctx.viewport_scale;
+        result[1] = this.ctx.cheight - this.pos.bottom - h;
+      } else {
+        result[1] = this.pos.bottom; // auto-height -> symmetrical
+      }
+    } else {
+      if (
+        this.shape.hasOwnProperty("height")
+     && this.shape.height != undefined
+      ) {
+        var h = this.shape.height * this.ctx.viewport_scale;
+        result[1] = (this.ctx.cwidth - h)/2; // centered
+      } else {
+        result[1] = 40; // no info default
+      }
+    }
+    return result;
+  }
+
+  BaseMenu.prototype.absshape = function () {
+    // Compute current absolute shape in canvas coordinates. Includes scaling
+    // factor.
+    var ap = this.abspos();
+    var result = [ 0, 0 ];
+    if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
+      result[0] = this.shape.width * this.ctx.viewport_scale;
+    } else {
+      if (this.pos.hasOwnProperty("right") && this.pos.right != undefined) {
+        result[0] = (this.ctx.cwidth - this.pos.right) - ap[0];
+      } else {
+        result[0] = this.ctx.cwidth - 2*ap[0]; // symmetric
+      }
+    }
+    if (this.shape.hasOwnProperty("height") && this.shape.height != undefined) {
+      result[1] = this.shape.height * this.ctx.viewport_scale;
+    } else {
+      if (this.pos.hasOwnProperty("bottom") && this.pos.bottom != undefined) {
+        result[1] = (this.ctx.cheight - this.pos.bottom) - ap[1];
+      } else {
+        result[1] = this.ctx.cheight - 2*ap[1]; // symmetric
+      }
+    }
+    return result;
+  }
+
   BaseMenu.prototype.rel_pos = function (pos) {
-    return [ pos[0] - this.pos[0], pos[1] - this.pos[1] ];
+    var ap = this.abspos();
+    return [ pos[0] - ap[0], pos[1] - ap[1] ];
   }
 
   BaseMenu.prototype.center = function () {
-    return [ this.pos[0] + this.shape[0]/2, this.pos[1] + this.shape[1]/2 ];
+    var ap = this.abspos();
+    var as = this.absshape();
+    return [ ap[0] + as[0]/2, ap[1] + as[1]/2 ];
   }
 
   BaseMenu.prototype.draw = function (ctx) {
+    var ap = this.abspos();
+    var as = this.absshape();
     // Draws the menu background and edges
     ctx.fillStyle = this.style.background_color;
-    ctx.fillRect(this.pos[0], this.pos[1], this.shape[0], this.shape[1]);
+    ctx.fillRect(ap[0], ap[1], as[0], as[1]);
     ctx.strokeStyle = this.style.border_color;
     ctx.lineWidth = this.style.border_width;
-    ctx.strokeRect(this.pos[0], this.pos[1], this.shape[0], this.shape[1]);
+    ctx.strokeRect(ap[0], ap[1], as[0], as[1]);
     return false;
   }
 
@@ -361,34 +449,29 @@ define(["./draw"], function(draw) {
     this.style.buttons_padding = this.style.buttons_padding || 12;
     this.style.button_width = this.style.button_width || 0.7;
     var twidth = undefined;
-    if (this.shape[0] != 0) {
-      twidth = this.shape[0] - this.style.padding*2;
+    if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
+      twidth = this.shape.width - this.style.padding*2;
     }
-    ctx.font = (
-      (this.style.font_size * ctx.viewport_scale) + "px "
-    + this.style.font_face
-    );
+    this.set_font(ctx);
     this.text = auto_text_layout(
       ctx,
       text,
       this.style.line_height,
       twidth
     );
-    if (this.shape[0] == 0) {
-      this.shape[0] = this.text.width + 2*this.style.padding;
-    }
-    if (this.shape[1] == 0) {
-      this.shape[1] = (
-        this.text.height
+    if (this.shape.width == undefined) {
+      this.shape.width = (
+        this.text.width
       + 2*this.style.padding
-      + this.style.buttons_height
       );
     }
-    if (this.pos[0] == -1) {
-      this.pos[0] = (this.ctx.cwidth / 2) - (this.shape[0] / 2);
-    }
-    if (this.pos[1] == -1) {
-      this.pos[1] = (this.ctx.cheight / 2) - (this.shape[1] / 2);
+    if (this.shape.height == undefined) {
+      this.shape.height = (
+        this.text.height
+      + 2 * this.style.padding
+      + this.style.buttons_height * this.ctx.viewport_scale
+      // TODO: Correct button scaling!
+      );
     }
     this.buttons = buttons;
     this.selected = undefined;
@@ -401,16 +484,18 @@ define(["./draw"], function(draw) {
     if (!hit) {
       return;
     }
+    var as = this.absshape();
     var rpos = this.rel_pos(pos);
     var bpos = [
       rpos[0],
-      rpos[1] - (this.shape[1] - this.style.buttons_height)
+      rpos[1] - (as[1] - this.style.buttons_height * this.ctx.viewport_scale
+      )
     ];
     var sel = trigger_horizontal_buttons(
       bpos,
       this.buttons,
-      this.style.buttons_height,
-      this.shape[0],
+      this.style.buttons_height * this.ctx.viewport_scale,
+      as[0],
       this.style.buttons_padding,
       this.style.button_width
     );
@@ -422,27 +507,25 @@ define(["./draw"], function(draw) {
   }
 
   Dialog.prototype.draw = function (ctx) {
+    var ap = this.abspos();
+    var as = this.absshape();
     // draw a box (w/ border)
     BaseMenu.prototype.draw.apply(this, [ctx]);
     // draw the text
-    ctx.font = (
-      (this.style.font_size * ctx.viewport_scale) + "px "
-    + this.style.font_face
-    );
-    ctx.fillStyle = this.style.text_color;
+    this.set_font(ctx);
     draw_text(
       ctx,
-      [ this.pos[0] + this.style.padding, this.pos[1] + this.style.padding ],
+      [ ap[0] + this.style.padding, ap[1] + this.style.padding ],
       this.text
     );
     // draw the buttons (w/ borders, highlight, and text)
     draw_horizontal_buttons(
       ctx,
-      [ this.pos[0], this.pos[1] + this.shape[1] - this.style.buttons_height ],
+      [ ap[0], ap[1] + as[1] - this.style.buttons_height ],
       this.style,
       this.buttons,
-      this.style.buttons_height,
-      this.shape[0],
+      this.style.buttons_height * this.ctx.viewport_scale,
+      as[0],
       this.style.buttons_padding,
       this.style.button_width,
       this.selected
@@ -457,14 +540,18 @@ define(["./draw"], function(draw) {
     return false;
   }
 
+  Dialog.prototype.removed = function () {
+    this.fade = undefined;
+  }
+
   function ToggleMenu(ctx, pos, shape, style, text, on_action, off_action) {
     // A ToggleMenu is a persistent button that can be tapped to toggle between
     // on and off states, calling the on_action or off_action function each
     // time it transitions.
-    style.orientation = style.orientation || "horizontal";
-    style.active_background = style.active_background || "#555";
-    style.active_border = style.active_border || "#bbb";
     BaseMenu.call(this, ctx, pos, shape, style);
+    this.style.orientation = this.style.orientation || "horizontal";
+    this.style.active_background = this.style.active_background || "#555";
+    this.style.active_border = this.style.active_border || "#bbb";
     this.style.inactive_background = this.style.background_color;
     this.style.inactive_border = this.style.border_color;
     this.text = text;
@@ -476,19 +563,44 @@ define(["./draw"], function(draw) {
   ToggleMenu.prototype = Object.create(BaseMenu.prototype);
   ToggleMenu.prototype.constructor = ToggleMenu;
 
+  ToggleMenu.prototype.on = function () {
+    // Used to manually turn the toggle on.
+    this.on_();
+    this.on_action();
+  }
+
+  ToggleMenu.prototype.off = function () {
+    // Used to manually turn the toggle off.
+    this.off_();
+    this.off_action();
+  }
+
+  ToggleMenu.prototype.on_ = function () {
+    // Turn on without triggering the toggle action.
+    this.style.background_color = this.style.active_background;
+    this.style.border_color = this.style.active_border;
+    this.is_on = true;
+  }
+
+  ToggleMenu.prototype.off_ = function () {
+    // Turn off without triggering the toggle action.
+    this.style.background_color = this.style.inactive_background;
+    this.style.border_color = this.style.inactive_border;
+    this.is_on = false;
+  }
+
+  ToggleMenu.prototype.toggle = function () {
+    // Used to manually toggle the button (via e.g., a keyboard shortcut).
+    if (this.is_on) {
+      this.off();
+    } else {
+      this.on();
+    }
+  }
+
   ToggleMenu.prototype.tap = function (pos, hit) {
     if (hit) {
-      if (this.is_on) {
-        this.style.background_color = this.style.inactive_background;
-        this.style.border_color = this.style.inactive_border;
-        this.off_action();
-        this.is_on = false;
-      } else {
-        this.style.background_color = this.style.active_background;
-        this.style.border_color = this.style.active_border;
-        this.on_action();
-        this.is_on = true;
-      }
+      this.toggle();
     }
   }
 
@@ -514,6 +626,7 @@ define(["./draw"], function(draw) {
       ctx.rotate(-this.style.orientation);
     }
     ctx.restore();
+    return false;
   }
 
   function WordList(ctx, pos, shape, style, words, base_url) {
@@ -525,12 +638,15 @@ define(["./draw"], function(draw) {
     //
     // "https://en.wiktionary.org/wiki/<word>"
     //
-    // TODO: Handle too-wide words using an on-press popup?
+    // TODO: Handle too-wide words using a hover popup?
     BaseMenu.call(this, ctx, pos, shape, style);
+    this.style.prefix = this.style.prefix || "⚿ ";
+    this.style.scrollbar_width = this.style.scrollbar_width || 24;
     this.words = words;
     this.base_url = base_url;
     this.scroll_position = -this.style.padding;
     this.press_last = undefined;
+    this.scroll_drag = false;
     this.press_time = 0;
   }
 
@@ -538,37 +654,81 @@ define(["./draw"], function(draw) {
   WordList.prototype.constructor = WordList;
 
   WordList.prototype.tap = function (pos, hit) {
+    var as = this.absshape();
+
+    var rp = this.rel_pos(pos);
     if (!hit || this.press_time > 3) {
       // Don't count misses or the end of low-motion scrolling.
       return;
     }
-    var rp = this.rel_pos(pos);
-    // list-relative y position:
-    var lry = rp[1] - this.scroll_position;
-    // fractional y position:
-    var fry = lry % this.style.line_height;
-    if (fry > this.style.font_size + 3) {
-      // between-lines hit (text alignment is top)
-      return;
-    }
-    var line = lry / this.style.line_height;
-    if (line < 0 || line >= this.words.length) {
-      // out-of-range selection
-      return;
-    }
-    if (this.base_url) {
-      var target = this.base_url.replace("<word>", this.words[line]);
-      window.open(target);
+
+    this.set_font(this.ctx);
+    var m = this.ctx.measureText(this.style.prefix);
+    var link_min = this.style.padding;
+    var link_max = link_min + m.width;
+    var sb_min = as[0] - this.style.scrollbar_width * this.ctx.viewport_scale;
+    var sb_max = as[0];
+    if (rp[0] >= link_min && rp[0] <= link_max) { // hit on a word arrow
+      var lh = this.style.line_height * this.ctx.viewport_scale;
+      // list-relative y position:
+      var lry = rp[1] + this.scroll_position;
+      // fractional y position:
+      var fry = lry % lh;
+      if (fry > (this.style.font_size * this.ctx.viewport_scale) + 3) {
+        // between-lines hit (text alignment is top)
+        return;
+      }
+      var line = Math.floor(lry / lh);
+      if (line < 0 || line >= this.words.length) {
+        // out-of-range selection
+        return;
+      }
+      if (this.base_url) {
+        var target = this.base_url.replace("<word>", this.words[line]);
+        window.open(target);
+      }
+    } else if (rp[0] >= sb_min && rp[0] <= sb_max) {
+      // hit on the scrollbar
+      var lh = this.style.line_height * this.ctx.viewport_scale;
+      var sl = this.scroll_limits();
+      this.scroll_position =  sl[0] + (sl[1] - sl[0]) * (rp[1] / as[1]);
     }
   }
 
-  WordList.prototype.press = function (pos, hit) {
-    if (this.press_last != undefined && hit) {
-      this.scroll_position -= pos[1] - this.press_last[1];
+  WordList.prototype.scroll_limits = function() {
+    var as = this.absshape();
+    var lh = this.style.line_height * this.ctx.viewport_scale;
+    var min_scroll = -this.style.padding;
+    var max_scroll = this.words.length * lh - (as[1] - 2 * this.style.padding);
+    return [ min_scroll, max_scroll ];
+  }
+
+  WordList.prototype.hover = function (path, hit) {
+    if (path.length < 1) {
+      return;
     }
-    if (this.press_last != undefined || hit) {
-      this.press_time += 1;
-      this.press_last = pos;
+    var pos = path[path.length - 1];
+    var rp = this.rel_pos(pos);
+    var as = this.absshape();
+
+    var sb_min = as[0] - this.style.scrollbar_width * this.ctx.viewport_scale;
+    var sb_max = as[0];
+    if (
+      this.scroll_drag
+   || (this.press_last == undefined && rp[0] >= sb_min && rp[0] <= sb_max)
+    ) { // hit on the scrollbar
+      this.scroll_drag = true;
+      var lh = this.style.line_height * this.ctx.viewport_scale;
+      var sl = this.scroll_limits();
+      this.scroll_position =  sl[0] + (sl[1] - sl[0]) * (rp[1] / as[1]);
+    } else { // hit elsewhere in the window
+      if (this.press_last != undefined && hit) {
+        this.scroll_position -= rp[1] - this.press_last[1];
+      }
+      if (this.press_last != undefined || hit) {
+        this.press_time += 1;
+        this.press_last = rp;
+      }
     }
   }
 
@@ -576,18 +736,25 @@ define(["./draw"], function(draw) {
     // Reset the scrolling context
     this.press_time = 0;
     this.press_last = undefined;
+    this.scroll_drag = false;
   }
 
   WordList.prototype.draw = function(ctx) {
+    var needs_update = false;
     // draw a box (w/ border)
     BaseMenu.prototype.draw.apply(this, [ctx]);
+
+    // absolute position/size:
+    var ap = this.abspos();
+    var as = this.absshape();
+    var lh = this.style.line_height * ctx.viewport_scale;
+
     // adjust scroll position
     var min_scroll = -this.style.padding;
-    var max_scroll = (
-      this.words.length * this.line_height
-    - (this.shape[1] - 2 * this.padding)
-    );
+    var max_scroll = this.words.length * lh - (as[1] - 2 * this.style.padding);
+    if (max_scroll < 0) { max_scroll = 0; }
     if (this.scroll_position < min_scroll) {
+      needs_update = true;
       var yd = min_scroll - this.scroll_position;
       if (yd < 3) {
         this.scroll_position = min_scroll;
@@ -595,6 +762,7 @@ define(["./draw"], function(draw) {
         this.scroll_position += yd/3;
       }
     } else if (this.scroll_position > max_scroll) {
+      needs_update = true;
       var yd = this.scroll_position - max_scroll;
       if (yd < 3) {
         this.scroll_position = max_scroll;
@@ -602,32 +770,55 @@ define(["./draw"], function(draw) {
         this.scroll_position -= yd/3;
       }
     }
+
+    // draw scrollbar:
+    var sbw = this.style.scrollbar_width * ctx.viewport_scale;
+    ctx.fillStyle = this.style.button_color;
+    ctx.strokeStyle = this.style.button_border_color;
+    ctx.rect(ap[0] + as[0] - sbw, ap[1], sbw, as[1]);
+    ctx.stroke();
+    ctx.fill();
+    ctx.fillStyle = this.style.button_text_color;
+    if (this.words.length > 1) {
+      var tsh = max_scroll - min_scroll;
+      var twh = lh * this.words.length;
+      var sb_st = (this.scroll_position - min_scroll) / twh;
+      var sb_ed = ((this.scroll_position + as[1]) - min_scroll) / twh;
+      if (sb_st < 0) { sb_st = 0; }
+      if (sb_ed > 1) { sb_ed = 1; }
+      sb_st *= as[1];
+      sb_ed *= as[1];
+      ctx.beginPath();
+      ctx.rect(ap[0] + as[0] - sbw, ap[1] + sb_st, sbw, sb_ed - sb_st);
+      ctx.fill();
+    } else {
+      // fill whole scrollbar rect
+      ctx.fill();
+    }
+
     // set clip region:
-    ctx.rect(
-      this.pos[0],
-      this.pos[1],
-      this.pos[0] + this.shape[0],
-      this.pos[1] + this.shape[1]
-    );
+    ctx.rect(ap[0], ap[1], as[0], as[1]);
     ctx.save()
     ctx.clip();
     // style setup:
-    ctx.font = (
-      (this.style.font_size * ctx.viewport_scale) + "px "
-    + this.style.font_face
-    );
-    ctx.fillStyle = this.style.text_color;
+    this.set_font(ctx);
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     // draw words:
-    var st_line = Math.floor(this.scroll_position / this.style.line_height) - 1;
+    var words = this.words;
+    var prefix = this.style.prefix;
+    if (!words || words.length == 0) {
+      words = [ "<no words found yet>" ];
+      prefix = ""
+    }
+    var st_line = Math.floor(this.scroll_position / lh) - 1;
     if (st_line < 0) { st_line = 0; }
     var line = st_line;
-    var ry = line * this.style.line_height - this.scroll_position;
-    var max_width = this.shape[0] - 2 * this.style.padding;
-    while (ry < this.shape[1] + this.style.line_height) {
+    var ry = line * lh - this.scroll_position;
+    var max_width = as[0] - 2 * this.style.padding;
+    while (ry < as[1] + lh && line < words.length) {
       // draw word:
-      var text = this.words[line];
+      var text = prefix + words[line];
       var m = ctx.measureText(text);
       while (m.width > max_width) {
         if (text.length <= 1) { break; }
@@ -635,47 +826,137 @@ define(["./draw"], function(draw) {
         text += "…"
         m = ctx.measureText(text);
       }
-      ctx.fillText(text, this.pos[0] + this.style.padding, ry);
+      ctx.fillText(text, ap[0] + this.style.padding, ap[1] + ry);
       // increment and continue
       line += 1;
-      ry = line * this.style.line_height - this.scroll_position;
+      ry = line * lh - this.scroll_position;
     }
     // undo clipping:
     ctx.restore();
+    return needs_update;
   }
 
-
-  function ButtonMenu(ctx, pos, shape, style, buttons) {
+  function ButtonMenu(ctx, pos, shape, style, text, action) {
     BaseMenu.call(this, ctx, pos, shape, style);
-    this.buttons = buttons;
+    this.style.active_background = this.style.active_background || "#555";
+    this.style.active_border = this.style.active_border || "#bbb";
+    this.text = text;
+    this.action = action;
   };
   ButtonMenu.prototype = Object.create(BaseMenu.prototype);
   ButtonMenu.prototype.constructor = ButtonMenu;
 
-  // TODO: Implement ButtonMenu
+  ButtonMenu.prototype.tap = function (pos, hit) {
+    if (hit) {
+      this.action();
+    }
+  }
 
-  function CollapsingMenu(
-    ctx,
-    pos,
-    shape,
-    style,
-    buttons,
-    direction,
-    hidden_extent
-  ) {
-    ButtonMenu.call(this, ctx, pos, shape, style, buttons);
-    this.direction = direction;
-    this.hidden_extent = hidden_extent;
-  };
-  CollapsingMenu.prototype = Object.create(ButtonMenu.prototype);
-  CollapsingMenu.prototype.constructor = CollapsingMenu;
+  ButtonMenu.prototype.draw = function (ctx) {
+    BaseMenu.prototype.draw.apply(this, [ctx]);
+    this.set_font(ctx);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    var ctr = this.center();
+    ctx.fillText(this.text, ctr[0], ctr[1]);
+  }
 
-  // TODO: Implement CollapsingMenu
+  function GlyphsMenu(ctx, pos, shape, style, text, action) {
+    ButtonMenu.call(this, ctx, pos, shape, style, text, action);
+    this.style.base_border_color = this.style.border_color;
+    this.style.base_border_width = this.style.border_width;
+    this.style.max_width = this.style.max_width || 0.8;
+    this.style.border_growth = this.style.border_growth || 3.0;
+    this.glyphs = this.text.split("");
+    this.adjust_width();
+    this.fade = undefined;
+    this.fade_color = undefined;
+  }
+  GlyphsMenu.prototype = Object.create(ButtonMenu.prototype);
+  GlyphsMenu.prototype.constructor = GlyphsMenu;
+
+  GlyphsMenu.prototype.add_glyph = function (glyph) {
+    // Add a glyph
+    this.glyphs.push(glyph);
+    this.adjust_width();
+  }
+
+  GlyphsMenu.prototype.remove_glyph = function () {
+    // Remove the last glyph
+    this.glyphs.pop();
+    this.adjust_width();
+  }
+
+  GlyphsMenu.prototype.set_glyphs = function (glyphs) {
+    this.glyphs = glyphs.slice();
+    this.adjust_width();
+  }
+
+  GlyphsMenu.prototype.adjust_width = function () {
+    // Sets display_text and shape.width based on text contents.
+    this.set_font(this.ctx);
+    this.display_text = this.glyphs.join("");
+    var m = this.ctx.measureText(this.display_text);
+    var dw = m.width + this.style.padding * 2;
+    while (dw > this.style.max_width * this.ctx.cwidth) {
+      this.display_text = this.display_text.slice(
+        0,
+        this.display_text.length - 2
+      ) + "…";
+      m = this.ctx.measureText(this.display_text);
+      dw = m.width + this.style.padding * 2;
+    }
+    this.shape.width = dw;
+  }
+
+  GlyphsMenu.prototype.flash = function (color) {
+    this.fade_color = color;
+    this.fade = 1.0;
+  }
+
+  GlyphsMenu.prototype.draw = function (ctx) {
+    // Compute border color for flashing:
+    var animating = false;
+    if (this.fade) {
+      this.fade *= 0.9;
+      if (this.fade < 0.05) {
+        this.fade = undefined;
+        this.fade_color = undefined;
+        this.style.border_color = this.style.base_border_color;
+        this.style.border_width = this.style.base_border_width;
+      } else {
+        this.style.border_color = draw.interp_color(
+          this.style.base_border_color,
+          this.fade,
+          this.fade_color
+        );
+        this.style.border_width = (
+          this.style.base_border_width
+        + this.style.border_growth * this.fade
+        );
+        animating = true;
+      }
+    }
+
+    // Draw background:
+    BaseMenu.prototype.draw.apply(this, [ctx]);
+
+    // Draw glyphs:
+    this.set_font(ctx);
+    this.textAlign = "center";
+    this.textBaseline = "middle";
+    var ctr = this.center();
+    ctx.fillText(this.display_text, ctr[0], ctr[1]);
+
+    return animating;
+  }
 
 
   function add_menu(menu) {
     // Adds the given menu to the top of the active menus list.
     MENUS.push(menu);
+    call_if_available(menu, "added", []);
+    return menu;
   }
 
   function remove_menu(menu) {
@@ -688,6 +969,7 @@ define(["./draw"], function(draw) {
       }
     }
     if (t != null) {
+      call_if_available(menu, "removed", []);
       MENUS = MENUS.slice(0,t).concat(MENUS.slice(t+1))
     }
   }
@@ -724,7 +1006,7 @@ define(["./draw"], function(draw) {
     call_if_available(menu, "swipe", [path, st_hit, ed_hit]);
   }
 
-  function handle_bridge(smenu, tmenu, fpath, r_hit, to_hit) {
+  function handle_bridge(smenu, tmenu, path, fr_hit, to_hit) {
     // Handles press/release pairs where different menus are hit.
     call_if_available(smenu, "bridge_to", [tmenu, path, fr_hit, to_hit]);
     call_if_available(tmenu, "bridge_from", [smenu, path, fr_hit, to_hit]);
@@ -875,8 +1157,9 @@ define(["./draw"], function(draw) {
     "set_canvas_size": set_canvas_size,
     "Dialog": Dialog,
     "ButtonMenu": ButtonMenu,
+    "GlyphsMenu": GlyphsMenu,
     "ToggleMenu": ToggleMenu,
-    "CollapsingMenu": CollapsingMenu,
+    "WordList": WordList,
     "add_menu": add_menu,
     "remove_menu": remove_menu,
     "mousedown": mousedown,
