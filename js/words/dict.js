@@ -142,6 +142,7 @@ define(["./locale"], function(locale) {
     // Load synchronously
     xobj.open("GET", dpath, false);
     xobj.onload = function () {
+      return;
       var words = xobj.responseText.split("\n");
       var i = 0;
       while (words[i][0] == '#') {
@@ -192,7 +193,7 @@ define(["./locale"], function(locale) {
     // itself recursively until INDEX_BIN_SIZE is satisfied or
     // INDEX_DEPTH_LIMIT is met. Returns an object mapping glyphs to
     // sub-indices or an array for terminal entries.
-    var result = {};
+    var result = { "_count_": indices.length };
     indices.forEach(function (idx) {
       var entry = entries[idx];
       if (entry[0].length <= position) {
@@ -211,7 +212,7 @@ define(["./locale"], function(locale) {
       }
     });
     for (var key in result) {
-      if (result.hasOwnProperty(key) && key != "") {
+      if (result.hasOwnProperty(key) && key != "" && key != "_count_") {
         // scan sub-indices to recurse if needed
         if (
           result[key].length > INDEX_BIN_SIZE
@@ -350,6 +351,7 @@ define(["./locale"], function(locale) {
   */
 
   load_dictionary("türk", true);
+  load_dictionary("العربية", true);
 
   // TODO: Missing animals...
   // load_dictionary("crustaceans");

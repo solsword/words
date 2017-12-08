@@ -27,3 +27,5 @@ USDA:
 UC Davis:
   ca_butterflies.lst: http://butterfly.ucdavis.edu/butterfly/common
 
+Open-source Arabic WordList (see LICENSE-attia):
+  العربية.lst: https://sourceforge.net/projects/arabic-wordlist/

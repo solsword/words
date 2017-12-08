@@ -2,8 +2,8 @@
 // Word game.
 
 define(
-["./draw", "./grid", "./dict", "./menu"],
-function(draw, grid, dict, menu) {
+["./draw", "./content", "./grid", "./dict", "./menu"],
+function(draw, content, grid, dict, menu) {
 
   var VIEWPORT_SIZE = 800.0;
 
@@ -157,7 +157,7 @@ function(draw, grid, dict, menu) {
     var combined_swipe = combine_arrays(CURRENT_SWIPES);
     var domains = new Set();
     combined_swipe.forEach(function (gp) {
-      var st = grid.grid_supertile(gp);
+      var st = content.fetch_supertile(gp);
       st.domains.forEach(function (d) {
         domains.add(d);
       });
@@ -167,7 +167,7 @@ function(draw, grid, dict, menu) {
       // Found a match:
       var connected = false;
       combined_swipe.forEach(function (gp) {
-        if (grid.is_unlocked(gp)) {
+        if (content.is_unlocked(gp)) {
           connected = true;
         }
       });
@@ -175,7 +175,7 @@ function(draw, grid, dict, menu) {
         // Match is connected:
         // clear our swipes and glyphs and add to our words found
         combined_swipe.forEach(function (gp) {
-          grid.unlock_tile(gp);
+          content.unlock_tile(gp);
         });
         entries.forEach(function (e) {
           find_word(e[e.length-1], combined_swipe[0]);
@@ -234,7 +234,7 @@ function(draw, grid, dict, menu) {
     var glyphs = []
     CURRENT_SWIPES.forEach(function (sw) {
       sw.forEach(function (gp) {
-        glyphs.push(grid.tile_at(gp)["glyph"]);
+        glyphs.push(content.tile_at(gp)["glyph"]);
       });
     });
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);

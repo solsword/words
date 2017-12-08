@@ -1,7 +1,7 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
 
-define(["./dict"], function(dict) {
+define(["./dict", "./grid"], function(dict, grid) {
 
   var SMOOTHING = 1.5;
 
@@ -44,6 +44,7 @@ define(["./dict"], function(dict) {
     //"all_bugs": 3,
     //"all_plants": 3,
     "türk": 5,
+    "العربية": 5,
     "base": 20
   }
 
@@ -74,6 +75,20 @@ define(["./dict"], function(dict) {
     return result;
   }
 
+  function udist(seed) {
+    // Generates a random number between 0 and 1 given a seed value.
+    // TODO: WAY better here!
+    return (seed % 12083810283013) / 12083810283013
+  }
+
+  function expdist(seed) {
+    // Samples from an exponential distribution with mean 0.5 given a seed.
+    // See:
+    // https://math.stackexchange.com/questions/28004/random-exponential-like-distribution
+    var u = udist(seed);
+    return -Math.log(1 - u)/0.5
+  }
+
   function sample_table(table, seed) {
     // Samples a table of weights.
     var total_weight = 0;
@@ -101,6 +116,130 @@ define(["./dict"], function(dict) {
   function sample_glyph(gcounts, seed) {
     // Sample a glyph from a counts dictionary, using the counts as weights.
     return sample_table(gcounts, seed);
+  }
+
+  function distort_probabilities(probabilities, bias) {
+    // Distorts the given probability distribution (an object mapping options
+    // to probabilities) according to the given bias value, which should be
+    // between -1 and 1. A bias value of -1 skews the distribution towards
+    // uncommon values, while a bias value of +1 skews it even more towards
+    // already-common values. A bias value of zero returns the base
+    // probabilities unchanged. The probability values should all be between 0
+    // and 1, and should sum to 1.
+    result = {};
+    var newsum = 0;
+    var exp = 1;
+    if (bias < 0) {
+      exp = 1/(1 + (-bias*4));
+    } else if (bias > 0) {
+      exp = (1 + bias*4);
+    }
+    // distort
+    for (var k in probabilities) {
+      if (probabilities.hasOwnProperty(k)) {
+        var adj = Math.pow(probabilities[k], exp);
+        newsum += adj;
+        result[k] = adj;
+      }
+    }
+    // re-normalize:
+    for (var k in result) {
+      if (result.hasOwnProperty(k)) {
+        result[k] /= newsum;
+      }
+    }
+    return result;
+  }
+
+  function weighted_shuffle(items, seed) {
+    // Returns an array containing keys from the items dictionary shuffled
+    // according to their values. See:
+    // https://softwareengineering.stackexchange.com/questions/233541/how-to-implement-a-weighted-shuffle
+    var array = [];
+    for (var k in items) {
+      if (items.hasOwnProperty(k)) {
+        var w = items[k];
+        array.push([k, w * expdist(seed)]);
+        seed = prng(seed);
+      }
+    }
+
+    // Weighted random shuffle -> sort by expdist * weight
+    array.sort(function (a, b) { return a[1] - b[1]; });
+
+    var result = [];
+    for (var i = 0; i < array.length; ++i) {
+      result.push(array[i][0]);
+    }
+  }
+
+  function index_order(index, seed, bias) {
+    // Returns an ordered list of keys, shuffled with bias. The bias value
+    // should be between -1 and 1 and controls how much bias there is towards
+    // (or away from, for negative values) more-common glyph sequences.
+    var bc = index["_count_"];
+    var probs = {};
+    var n_keys = 0;
+    for (var key in index) {
+      if (index.hasOwnProperty(key) && key != "" && key != "_count_") {
+        n_keys += 1;
+        if (Array.isArray(index[key])) {
+          probs[key] = index[key].length / bc;
+        } else {
+          probs[key] = index[key]["_count"] / bc;
+        }
+      }
+    }
+    if (index.hasOwnProperty("")) {
+      probs[""] = 1/bc;
+    }
+    probs = distort_probabilities(probs, bias);
+    return weighted_shuffle(probs, seed);
+  }
+
+  function sample_word(domain, seed, bias, max_len) {
+    // Sample a word from the given domain, weighted according to sequential
+    // unigram probabilities adjusted by the given bias factor, which should be
+    // between -1 (bias away from common glyph combinations) to 1 (bias towards
+    // common combinations). Returns a full domain entry a (glyphs-string,
+    // word-string pair). If there are no words short enough in the domain,
+    // this will return undefined.
+
+    var dom = lookup_domain(domain);
+    var index = dom.index;
+    var l = 0
+    while (l < max_len) {
+      seed = prng(seed);
+      var try_order = index_order(index, seed, bias);
+      try_order.forEach(function (key) {
+        if (key == "") { // single-index item
+          var entry = dom.entries[index[key]];
+          if (entry[0].length <= max_len) {
+            return entry;
+          } // else keep going in the outer loop
+        } else if (Array.isArray(index[key])) { // array-of-indices item
+          eindices = index[key].slice();
+          eindices.sort(function (a, b) {
+            var ov = udist(seed);
+            seed = prng(seed);
+            return ov < udist(seed);
+          });
+          var result = undefined;
+          eindices.forEach(function (ei) {
+            var entry = dom.entries[ei];
+            if (entry[0].length <= max_len) {
+              return entry;
+            } // else keep going to the next eindex
+          });
+        } else { // sub-index item
+          index = index[key];
+          l += 1;
+          // continue with outer loop
+        }
+      });
+    }
+    // If we got here, we couldn't find any word that was short enough!
+    return undefined;
   }
 
   function mix_seeds(s1, s2, off) {
@@ -192,16 +331,16 @@ define(["./dict"], function(dict) {
     return result;
   }
 
-  function generate_supertile(seed, spos) {
+  function generate_supertile(seed, sp) {
     // Takes a seed and a supertile position and generates the corresponding
     // supertile.
     //
     // TODO: Uses globally-known edge content to generate guaranteed inroads.
-    var smix = sghash(seed, spos);
+    var smix = sghash(seed, sp);
 
     var result = {
       "glyphs": Array(49),
-      "domains": generate_domains(seed, spos)
+      "domains": generate_domains(seed, sp)
     };
 
     result["colors"] = colors_for_domains(result["domains"]);
@@ -227,6 +366,12 @@ define(["./dict"], function(dict) {
     }
 
     return result;
+  }
+
+  function supertile_base_glyph(seed, sp, rp) {
+    // The first level of supertile glyph generation ensures supertile
+    // connectivity via edge-crossing words.
+    var domains = generate_domains(seed, sp);
   }
 
   return {

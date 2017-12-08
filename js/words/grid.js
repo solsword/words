@@ -1,19 +1,14 @@
 // grid.js
 // Hex grid code.
 
-define(["./generate"], function(generate) {
+define([], function() {
 
   var GRID_SIZE = 45;
-
-  var SEED = 173;
 
   var GRID_TOP = GRID_SIZE/2;
   var GRID_BOTTOM = -GRID_SIZE/2;
   var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2)
   // Note: distance from center to extreme point is also GRID_EDGE
-  
-  // An object to hold supertile info.
-  var SUPERTILES = {};
 
   // Clockwise starting from upper left vertex:
   var VERTICES = [
@@ -25,13 +20,18 @@ define(["./generate"], function(generate) {
     [-GRID_EDGE, 0],
   ];
 
+  // Clockwise starting from the neighbor directly above:
+  var NEIGHBORS = [
+    [0, 1],
+    [1, 1],
+    [1, 0],
+    [0, -1],
+    [-1, -1],
+    [-1, 0]
+  ]
+
   // How big are ultragrid units?
   var ULTRAGRID_SIZE = 10;
-
-  function set_seed(seed) {
-    // Sets the grid's generation seed
-    SEED = seed;
-  }
 
   function world_pos(gp) {
     // Returns the world position corresponding to the given grid position.
@@ -273,67 +273,6 @@ define(["./generate"], function(generate) {
     ];
   }
 
-  function grid_supertile(gp) {
-    // Takes a grid pos and returns the corresponding supertile.
-    var sgp = sgpos(gp);
-    sgk = "" + sgp[0] + "," + sgp[1];
-    if (SUPERTILES.hasOwnProperty(sgk)) {
-      st = SUPERTILES[sgk];
-    } else {
-      st = generate.generate_supertile(SEED, [sgp[0], sgp[1]]);
-      SUPERTILES[sgk] = st;
-      // TODO: Permanent storage?
-    }
-    return st;
-  }
-
-  function is_unlocked(gp) {
-    // Checks whether the given grid position is unlocked or not
-    var st = grid_supertile(gp);
-    var sgp = sgpos(gp);
-    var ord = sgp[2] + sgp[3]*7;
-    if (ord >= 32) {
-      ord -= 32;
-      return (1 << ord) & st["unlocked"][1];
-    } else {
-      return (1 << ord) & st["unlocked"][0];
-    }
-  }
-
-  function unlock_tile(gp) {
-    // Unlocks the given grid position
-    var st = grid_supertile(gp);
-    var sgp = sgpos(gp);
-    var ord = sgp[2] + sgp[3]*7;
-    if (ord >= 32) {
-      ord -= 32;
-      st["unlocked"][1] |= (1 << ord);
-    } else {
-      st["unlocked"][0] |= (1 << ord);
-    }
-  }
-
-  function tile_at(gp) {
-    // Returns a tile object for the given location. A tile object has the
-    // following attributes:
-    //
-    //   pos: the grid-position of this tile.
-    //   spos: the supergrid-position of this tile.
-    //   colors: a list of up to 6 draw.PALETTE codes for this tile.
-    //   glyph: the glyph on this title.
-    //   unlocked: true or false whether this tile is unlocked.
-    //
-    // If the appropriate supergrid tile is not yet loaded, it will be
-    // generated.
-
-    var sgp = sgpos(gp);
-    var st = grid_supertile(gp);
-    var result = extract_subtile(st, [sgp[2], sgp[3]]);
-    result["pos"] = gp.slice();
-    result["spos"] = [sgp[0], sgp[1]];
-    return result;
-  }
-
   function extract_subtile(supertile, rxy) {
     // Extracts a subtile from a supertile according to relative coordinates.
     // Returns an incomplete tile object without position information. Note
@@ -352,56 +291,18 @@ define(["./generate"], function(generate) {
     return result;
   }
 
-  function list_tiles(edges) {
-    // Lists all tiles that overlap with a given world-coordinate box. Returns
-    // an array of tile objects (see tile_at). The input edges array should be
-    // ordered left, top, right, bottom and should be expressed in world
-    // coordinates.
+  function neighbor(gp, dir) {
+    // Takes a global position and a direction (0--6) and returns a global
+    // position for the neighbor in that direction. The directions are:
+    //
+    //        0
+    //     5     1
+    //        *
+    //     4     2
+    //        3
 
-    // Compute grid coordinates:
-    tl = grid_pos([ edges[0], edges[1] ])
-    br = grid_pos([ edges[2], edges[3] ])
-
-    // Compute centers of containing cells:
-    tlc = world_pos(tl);
-    brc = world_pos(br);
-
-    // Test whether we need to expand the range:
-    if (tlc[0] - edges[0] >= GRID_EDGE/2) {
-      // left edge is outside of hexagon central square...
-      // expand left edge by one so we don't have missing triangles:
-      tl[0] -= 1;
-    }
-    if (edges[2] - brc[0] >= GRID_EDGE/2) {
-      // right edge is outside of hexagon central square...
-      // expand right edge by one so we don't have missing triangles:
-      br[0] += 1;
-    }
-    if (edges[1] >= tlc[1]) {
-      // top edge is above midpoint...
-      // expand top edge by one so we don't have missing tetrahedra:
-      tl[1] += 1;
-    }
-    if (edges[3] <= brc[1]) {
-      // bottom edge is below midpoint...
-      // expand top edge by one so we don't have missing tetrahedra:
-      br[1] -= 1;
-    }
-
-    var result = Array();
-
-    // Now iterate squarely within br/tl:
-    for (var x = tl[0]; x <= br[0]; ++x) {
-      for (
-        var y = br[1] - Math.floor((br[0] - x) / 2);
-        y <= tl[1] + Math.floor((x - tl[0]) / 2);
-        ++y
-      ) {
-        result.push(tile_at([x, y]));
-      }
-    }
-
-    return result;
+    var n = NEIGHBORS[dir];
+    return [gp[0] + n[0], gp[1] + n[1]];
   }
 
   return {
@@ -409,16 +310,13 @@ define(["./generate"], function(generate) {
     "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
     "GRID_EDGE": GRID_EDGE,
     "VERTICES": VERTICES,
-    "set_seed": set_seed,
+    "NEIGHBORS": NEIGHBORS,
     "world_pos": world_pos,
     "grid_pos": grid_pos,
     "grid_distance": grid_distance,
-    "is_neighbor": is_neighbor,
     "sgpos": sgpos,
-    "grid_supertile": grid_supertile,
-    "tile_at": tile_at,
-    "list_tiles": list_tiles,
-    "is_unlocked": is_unlocked,
-    "unlock_tile": unlock_tile,
+    "is_neighbor": is_neighbor,
+    "extract_subtile": extract_subtile,
+    "neighbor": neighbor,
   };
 });

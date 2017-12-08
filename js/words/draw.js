@@ -1,7 +1,7 @@
 // draw.js
 // Drawing code for words game.
 
-define(["./grid"], function(grid) {
+define(["./grid", "./content"], function(grid, content) {
 
   var HIGHLIGHT_COLOR = "#fff";
   var TRAIL_COLOR = "#ddd";
@@ -113,7 +113,7 @@ define(["./grid"], function(grid) {
     ctx.textBaseline = "middle";
     ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px " + FONT_FACE;
 
-    tiles = grid.list_tiles(edges);
+    tiles = content.list_tiles(edges);
     tiles.forEach(function(tile) {
       draw_tile(ctx, tile);
     });
