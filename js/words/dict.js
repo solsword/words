@@ -1,18 +1,20 @@
 // dict.js
 // Dictionary implementation.
 
-define(["./locale"], function(locale) {
+define(["./locale"], function(locale, finalize) {
 
-  DOMAINS = {}
+  var DOMAINS = {};
+  var LOADING = {};
+  var FAILED = {};
 
-  INDEX_DEPTH_LIMIT = 6;
-  INDEX_BIN_SIZE = 64;
+  var FINALIZE_URL = "js/words/workers/finalize_dict.js";
+  //var FINALIZE_URL = "js/words/workers/test.js";
 
   function lookup_domain(name) {
     // Looks up a domain by name.
     if (DOMAINS.hasOwnProperty(name)) {
       return DOMAINS[name];
-    } else {
+    } else if (FAILED.hasOwnProperty(name)) {
       console.log("Internal Error: Unknown domain '" + name + "'.");
       console.log("Known domains are:");
       for (var d in DOMAINS) {
@@ -20,7 +22,16 @@ define(["./locale"], function(locale) {
           console.log("  " + d);
         }
       }
+      console.log("...still-loading domains:");
+      for (var d in LOADING) {
+        if (LOADING.hasOwnProperty(d)) {
+          console.log("  " + d);
+        }
+      }
       console.log("---");
+      return undefined;
+    } else if (!LOADING.hasOwnProperty(d)) {
+      load_dictionary(name);
       return undefined;
     }
   }
@@ -28,55 +39,50 @@ define(["./locale"], function(locale) {
   function finish_loading(name, json) {
     // Takes a JSON object from a domain file and augments it before adding it
     // to DOMAINS.
-
-    // Default properties:
-    if (!json.hasOwnProperty("ordered")) { json.ordered = true; }
-    if (!json.hasOwnProperty("cased")) { json.cased = false; }
-    if (!json.hasOwnProperty("colors")) { json.colors = []; }
-    if (!json.hasOwnProperty("locale")) { json.locale = locale.DEFAULT_LOCALE; }
-
-    // Analyze glyphs if needed:
-    if (!json.hasOwnProperty("glyph_counts")) {
-      json.glyph_counts = {};
-      for (var i = 0; i < json.entries.length; ++i) {
-        var entry = json.entries[i];
-        for (var j = 0; j < entry[0].length; ++j) {
-          var g = entry[0][j];
-          // This because glyph counts are used for generation:
-          if (!json.cased) {
-            g = locale.upper(g, json.locale);
-          }
-          if (json.glyph_counts.hasOwnProperty(g)) {
-            json.glyph_counts[g] += 1;
-          } else {
-            json.glyph_counts[g] = 1;
-          }
-        }
-      }
+    if (DOMAINS.hasOwnProperty(name)) {
+      console.log("Not finalizing already-loaded domain: '" + name + "'.");
+      return;
     }
 
-    // Build an index if needed:
-    if (!json.hasOwnProperty("index")) {
-      // Create an array of indices:
-      var indices = []
-      for (var i = 0; i < json.entries.length; ++i) {
-        indices.push(i);
+    // Create a worker to do the work:
+    var worker = new Worker(FINALIZE_URL);
+    worker.payload = [name, json];
+    worker.onmessage = function (msg) {
+      // Gets a name + finalized domain from the worker and adds the domain.
+      if (msg.data == "worker_ready") { // initial ready message
+        worker.postMessage(worker.payload);
+      } else { // finished message w/ product
+        add_domain(msg.data[0], msg.data[1]);
       }
-      // Build the index:
-      json.index = create_index(json.entries, indices, 0);
     }
-
-    // Add it as a domain:
-    DOMAINS[name] = json;
   }
+
+  function add_domain(name, json) {
+    // Adds a domain, taking care of the necessary status checks/updates.
+    if (DOMAINS.hasOwnProperty(name)) {
+      console.log("Not adding already-loaded domain: '" + name + "'.");
+      return;
+    }
+
+    DOMAINS[name] = json;
+    if (LOADING.hasOwnProperty(name)) {
+      delete LOADING[name];
+    }
+    if (FAILED.hasOwnProperty(name)) {
+      delete FAILED[name];
+    }
+  }
+
 
   function load_dictionary(domain, is_simple=undefined) {
     // Loads the dictionary for the given domain. Does nothing if that domain
-    // is already loaded. Puts the data into the DOMAINS object. Builds an
-    // index if the loaded domain doesn't have one, which may take some time.
-    if (DOMAINS.hasOwnProperty(domain)) {
+    // is already loaded (or is currently being loaded). Puts the data into the
+    // DOMAINS object. Builds an index if the loaded domain doesn't have one,
+    // which may take some time.
+    if (DOMAINS.hasOwnProperty(domain) || LOADING.hasOwnProperty(domain)) {
       return;
     }
+    LOADING[domain] = true;
     if (is_simple == undefined) {
       load_json_or_list(domain);
     } else if (is_simple) {
@@ -96,19 +102,28 @@ define(["./locale"], function(locale) {
     var path = url.substr(0, url.lastIndexOf('/'));
     var dpath = path + "/js/words/domains/" + name + ".json";
 
-    // Load synchronously
-    xobj.open("GET", dpath, false);
+    // Load asynchronously
+    xobj.open("GET", dpath);
     xobj.onload = function () {
-      if (xobj.status != 200) {
+      var successful = (
+        xobj.status == 200
+     || (xobj.status == 0 && dpath.startsWith("file://"))
+      );
+      if (!successful) {
         load_simple_word_list(name);
+        return;
       }
       try {
         var json = JSON.parse(xobj.responseText);
         finish_loading(name, json);
       } catch (e) {
         load_simple_word_list(name);
+        return;
       }
     };
+    xobj.onerror = function () {
+      load_simple_word_list(name);
+    }
     try {
       xobj.send(null);
     } catch (e) {
@@ -117,6 +132,7 @@ define(["./locale"], function(locale) {
   }
 
   function name_hash(name) {
+    // Hashes a name
     var h = name.split("").reduce(
       function (a,b) {
         a=((a << 5) - a) + b.charCodeAt(0);
@@ -139,10 +155,20 @@ define(["./locale"], function(locale) {
     var path = url.substr(0, url.lastIndexOf('/'));
     var dpath = path + "/js/words/domains/" + name + ".lst";
 
-    // Load synchronously
-    xobj.open("GET", dpath, false);
+    // Load asynchronously
+    xobj.open("GET", dpath);
     xobj.onload = function () {
-      return;
+      var successful = (
+        xobj.status == 200
+     || (xobj.status == 0 && dpath.startsWith("file://"))
+      );
+      if (!successful) {
+        console.log("Internal Error: Failed to fetch domain '" + name + "'!");
+        console.log("  Response code: " + xobj.status);
+        console.log("  Response content:\n" + xobj.responseText.slice(0,80));
+        FAILED[name] = true;
+        return undefined;
+      }
       var words = xobj.responseText.split("\n");
       var i = 0;
       while (words[i][0] == '#') {
@@ -154,8 +180,24 @@ define(["./locale"], function(locale) {
       }
       var entries = [];
       words.forEach(function (w) {
-        entries.push([w, w]);
+        var bits = w.split(",");
+        var word = bits[0];
+        var freq = bits[1]; // might be 'undefined'
+        bits = word.split("→")
+        var glyphs = bits[0];
+        var word = bits[1]; // might be undefined
+        if (word == undefined) {
+          word = glyphs;
+        }
+        // TODO: HERE
+        entries.push([glyphs, word, freq]);
       });
+      // TODO: Really this?
+      /*
+      entries.sort(function (a, b) {
+        return b[2] - a[2]; // put most-frequent words first
+      });
+      */
       var json = {
         "ordered": true,
         "cased": false,
@@ -184,46 +226,11 @@ define(["./locale"], function(locale) {
       });
       finish_loading(name, json);
     };
-    xobj.send(null);
-  }
-
-  function create_index(entries, indices, position) {
-    // Creates an index on the position-th glyphs from each of the given
-    // entries, picked out from the full list by the indices array. Calls
-    // itself recursively until INDEX_BIN_SIZE is satisfied or
-    // INDEX_DEPTH_LIMIT is met. Returns an object mapping glyphs to
-    // sub-indices or an array for terminal entries.
-    var result = { "_count_": indices.length };
-    indices.forEach(function (idx) {
-      var entry = entries[idx];
-      if (entry[0].length <= position) {
-        // This entry is too short
-        if (result.hasOwnProperty("")) {
-          console.log("Internal Error: multiple too-short entry:\n" + entry);
-        }
-        result[""] = idx;
-      } else {
-        var glyph = entry[0][position]
-        if (result.hasOwnProperty(glyph)) {
-          result[glyph].push(idx);
-        } else {
-          result[glyph] = [ idx ];
-        }
-      }
-    });
-    for (var key in result) {
-      if (result.hasOwnProperty(key) && key != "" && key != "_count_") {
-        // scan sub-indices to recurse if needed
-        if (
-          result[key].length > INDEX_BIN_SIZE
-       && position < INDEX_DEPTH_LIMIT
-        ) {
-          // Recurse
-          result[key] = create_index(entries, result[key], position + 1);
-        }
-      }
+    try {
+      xobj.send(null);
+    } catch (e) {
+      FAILED[name] = true;
     }
-    return result;
   }
 
   function check_word(glyphs, domains) {
@@ -242,8 +249,8 @@ define(["./locale"], function(locale) {
 
   function find_word_in_domain(glyphs, domain) {
     // Finds the given glyph sequence in the given domain. Returns an array
-    // containing the matching word (combined & with cannonical case) and its
-    // definition. Returns null if there is no match.
+    // containing the matching word (combined & with canonical case) and its
+    // frequency. Returns null if there is no match.
 
     // For unordered domains, sort glyphs so that indexing will work:
     var dom = DOMAINS[domain];
@@ -297,7 +304,17 @@ define(["./locale"], function(locale) {
       }
     } else if (g == null) {
       if (index.hasOwnProperty("")) {
-        entry = dom.entries[index[""]];
+        for (var i = 0 ;i < index[""].length; ++i) {
+          var idx = index[""][i];
+          var test_entry = dom.entries[ids];
+          var against = test_entry[0];
+          if (!dom.cased) {
+            against = locale.lower(against, dom.locale);
+          }
+          if (against === original) {
+            entry = test_entry;
+          }
+        }
       } else {
         // word prefix
         return null;
@@ -315,48 +332,6 @@ define(["./locale"], function(locale) {
       return entry;
     }
   }
-
-  // Load dictionaries:
-  // TODO: HERE
-  //load_dictionary("test");
-  //load_dictionary("test_combo");
-
-  // Base domains:
-  load_dictionary("adj", true);
-  load_dictionary("adv", true);
-  load_dictionary("noun", true);
-  load_dictionary("verb", true);
-
-  // Bonus domains:
-  /*
-  load_dictionary("us_plants", true);
-  load_dictionary("plants", true);
-
-  load_dictionary("animals", true);
-
-  load_dictionary("birds", true);
-  load_dictionary("fish", true);
-  load_dictionary("mammals", true);
-  load_dictionary("monotremes", true);
-  load_dictionary("reptiles", true);
-  load_dictionary("amphibians", true);
-
-  load_dictionary("insects", true);
-  load_dictionary("spiders", true);
-  load_dictionary("au_ants", true);
-  load_dictionary("gb_ants", true);
-  load_dictionary("gb_bees", true);
-  load_dictionary("gb_wasps", true);
-  load_dictionary("ca_butterflies", true);
-  */
-
-  load_dictionary("türk", true);
-  load_dictionary("العربية", true);
-
-  // TODO: Missing animals...
-  // load_dictionary("crustaceans");
-  // load_dictionary("molluscs");
-  // load_dictionary("fungi");
 
   return {
     "lookup_domain": lookup_domain,

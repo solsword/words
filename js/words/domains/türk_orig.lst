@@ -2,7 +2,6 @@
 # colors:lb
 # TODO:Replace â etc.?
 # TODO: use a corpus
-# TODO: What about - and '?
 ab
 aba
 abacı
@@ -751,6 +750,7 @@ ahbaplık
 ahcar
 ahdetme
 ahdetmek
+Ahd-i
 ahdî
 ahenk
 ahenkleştirme
@@ -3855,6 +3855,7 @@ bağdaştırmak
 Bağdat
 baget
 bagetli
+bağ-fiil
 bağı
 bağıcı
 bağıl
@@ -6441,7 +6442,7 @@ boğasamak
 boğası
 boğaz
 boğazı
-Boğaziçini
+Boğaziçi'ni
 boğazına
 Boğazkale
 boğazkesen
@@ -12269,6 +12270,8 @@ dışbükeylik
 dişçi
 dişçik
 dişçilik
+diş-damak
+diş-dudak
 dişe
 dişeği
 dişeğileme
@@ -14661,6 +14664,7 @@ epitel
 epitelyum
 epizot
 epope
+e-posta
 eprime
 eprimek
 epsilon
@@ -15180,6 +15184,8 @@ etfal
 eti
 Eti
 etibba
+eti-damak
+eti-dudak
 etik
 etiket
 etiketçi
@@ -16192,6 +16198,7 @@ fink
 Finlandiya
 Finlandiyalı
 fino
+Fin-Ugor
 fır
 firak
 firaklı
@@ -17677,7 +17684,6 @@ gezlik
 gezme
 gezmek
 gezmen
-ği
 gibi
 gibilerden
 gibisi
@@ -18215,6 +18221,7 @@ görmezlik
 görmüş
 görmüşlük
 görsel
+görsel-işitsel
 görü
 görücü
 görücülük
@@ -20511,6 +20518,7 @@ hinlik
 hinoğlu
 hinoğluhin
 Hint
+Hint-Avrupa
 Hintçe
 hinterlant
 Hinthorozu
@@ -22561,7 +22569,7 @@ işgüzarlık
 İshak
 ishal
 ishalli
-isi
+i'si
 işi
 ısı
 ısıalan
@@ -27329,6 +27337,7 @@ kitabet
 kitabevi
 kitabi
 kitabı
+Kitab-ı
 kıtal
 kıtalar
 kitap
@@ -29422,8 +29431,9 @@ kuramı
 kuramlaştırma
 kuramlaştırmak
 kuramsal
-Kuran
+Kur'an
 kurander
+Kur'an-ı
 kürar
 kurası
 küraso
@@ -38452,6 +38462,7 @@ pratisyen
 prediksiyon
 prefabrik
 prefabrikasyon
+prefabrik-ği
 prehistorik
 prehistorya
 prekambriyen
@@ -39515,7 +39526,7 @@ Rum
 rumba
 Rumca
 Rumelili
-Rumeliyi
+Rumeli'yi
 Rumen
 Rumence
 rumi
@@ -42339,6 +42350,8 @@ sif
 şifalı
 şifasız
 sıfat
+sıfat-fiil
+sıfat-fiili
 sıfatı
 sıfatlandırma
 sıfatlandırmak
@@ -48087,7 +48100,7 @@ tun
 tün
 tünaydın
 tunç
-Tunceliyi
+Tunceli'yi
 tunçlama
 tunçlamak
 tunçlaşma
@@ -48603,7 +48616,6 @@ ufunetsiz
 üfürükçülük
 Uganda
 Ugandalı
-Ugor
 uğra
 uğrağı
 uğrak
@@ -48889,6 +48901,7 @@ upuzun
 ur
 urağan
 Ural
+Ural-Altay
 uran
 Uranüs
 uranyum
@@ -52593,6 +52606,8 @@ zarcı
 zarf
 zarfçı
 zarfçılık
+zarf-fiil
+zarf-fiili
 zarfı
 zarfında
 zarflama

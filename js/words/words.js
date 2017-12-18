@@ -19,8 +19,8 @@ function(draw, content, grid, dict, menu) {
 
   var RESIZE_TIMEOUT = 20; // milliseconds
 
-  // Do we need to redraw the screen?
-  var DO_REDRAW = false;
+  // How many frames before we need to redraw?
+  var DO_REDRAW = undefined;
 
   var SOFAR_BORDER = "#555";
   var SOFAR_HIGHLIGHT = "#ccc";
@@ -39,8 +39,11 @@ function(draw, content, grid, dict, menu) {
   var CLEAR_SELECTION_BUTTON = null;
   var CURRENT_GLYPHS_BUTTON = null;
 
+  // Timing:
+  var MISSING_TILE_RETRY = 10;
+
   function find_word(word, gp) {
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
     if (WORDS_FOUND.hasOwnProperty(word)) {
       WORDS_FOUND[word].push(gp);
     } else {
@@ -53,7 +56,7 @@ function(draw, content, grid, dict, menu) {
     var wpos = grid.world_pos([0, 0]);
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
   }
 
   var COMMANDS = {
@@ -122,12 +125,12 @@ function(draw, content, grid, dict, menu) {
       var wpos = grid.world_pos(LAST_POSITION);
       CTX.viewport_center[0] = wpos[0];
       CTX.viewport_center[1] = wpos[1];
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     },
     // shows 'about' dialog
     "a": function (e) {
       ABOUT_TOGGLE.toggle();
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     },
     // home and 0 reset the view to center 0, 0
     "0": home_view,
@@ -143,14 +146,14 @@ function(draw, content, grid, dict, menu) {
         }
         CURRENT_GLYPHS_BUTTON.remove_glyph();
       }
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     }
   }
 
   function clear_selection() {
     CURRENT_SWIPES = [];
     CURRENT_GLYPHS_BUTTON.set_glyphs([]);
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
   }
 
   function test_selection() {
@@ -158,9 +161,11 @@ function(draw, content, grid, dict, menu) {
     var domains = new Set();
     combined_swipe.forEach(function (gp) {
       var st = content.fetch_supertile(gp);
-      st.domains.forEach(function (d) {
-        domains.add(d);
-      });
+      if (st != null) {
+        st.domains.forEach(function (d) {
+          domains.add(d);
+        });
+      }
     });
     var entries = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (entries.length > 0) {
@@ -178,7 +183,7 @@ function(draw, content, grid, dict, menu) {
           content.unlock_tile(gp);
         });
         entries.forEach(function (e) {
-          find_word(e[e.length-1], combined_swipe[0]);
+          find_word(e[1], combined_swipe[0]);
         });
         clear_selection();
         // Highlight in white:
@@ -191,7 +196,7 @@ function(draw, content, grid, dict, menu) {
       // No match found: just highlight in red
       CURRENT_GLYPHS_BUTTON.flash("#f22");
     }
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
   }
 
   function combine_arrays(deep) {
@@ -226,7 +231,7 @@ function(draw, content, grid, dict, menu) {
     CTX.cheight = CANVAS.height;
     CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
     CTX.bounds = bounds;
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
     menu.set_canvas_size([CANVAS.width, CANVAS.height]);
   }
 
@@ -234,7 +239,15 @@ function(draw, content, grid, dict, menu) {
     var glyphs = []
     CURRENT_SWIPES.forEach(function (sw) {
       sw.forEach(function (gp) {
-        glyphs.push(content.tile_at(gp)["glyph"]);
+        var g = content.tile_at(gp)["glyph"];
+        if (g == undefined) { // should never happen in theory:
+          console.log(
+            "InternalError: update_current_glyphs found undefined glyph at: "
+          + gp
+          );
+          g = "?";
+        }
+        glyphs.push(g);
       });
     });
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
@@ -254,7 +267,7 @@ function(draw, content, grid, dict, menu) {
     } else {
       CTX.viewport_scale = 1.0;
     }
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
 
     // kick off animation
     window.requestAnimationFrame(animate);
@@ -373,7 +386,11 @@ function(draw, content, grid, dict, menu) {
           }
         }
       }
-      if (!is_selected(gpos) && (head == null || grid.is_neighbor(head, gpos))){
+      if (
+        !is_selected(gpos)
+     && (head == null || grid.is_neighbor(head, gpos))
+     && content.tile_at(gpos)["glyph"] != undefined
+      ) {
         CURRENT_SWIPES.push([gpos]);
         update_current_glyphs();
         LAST_POSITION = gpos;
@@ -381,7 +398,7 @@ function(draw, content, grid, dict, menu) {
         CURRENT_SWIPES.push([]);
       }
       SWIPING = true;
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     }
     document.ontouchstart = document.onmousedown;
 
@@ -391,7 +408,7 @@ function(draw, content, grid, dict, menu) {
       // dispatch to menu system first:
       var vpos = canvas_position_of_event(e);
       if (menu.mouseup(vpos)) {
-        DO_REDRAW = true;
+        DO_REDRAW = 0;
         return;
       }
       SWIPING = false;
@@ -404,7 +421,7 @@ function(draw, content, grid, dict, menu) {
         CURRENT_SWIPES.push(latest_swipe);
       }
       update_current_glyphs();
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     }
     document.ontouchcancel = document.onmouseup
 
@@ -413,7 +430,7 @@ function(draw, content, grid, dict, menu) {
       if (e.preventDefault) { e.preventDefault(); }
       // dispatch to menu system first:
       var vpos = canvas_position_of_event(e);
-      if (menu.mousemove(vpos)) { DO_REDRAW = true; return; }
+      if (menu.mousemove(vpos)) { DO_REDRAW = 0; return; }
       if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
         return;
       }
@@ -449,24 +466,29 @@ function(draw, content, grid, dict, menu) {
             } else if (combined_swipe.length > 1) {
               LAST_POSITION = combined_swipe[combined_swipe.length - 2];
             }
-            DO_REDRAW = true;
+            DO_REDRAW = 0;
           }
         }
         // else do nothing, we're on a tile that's already part of the
         // current swipe.
       } else {
-        // for tiles that aren't part of the swipe already:
-        if (head == null || grid.is_neighbor(head, gpos)) {
+        // for tiles that aren't part of the swipe already, and which *are*
+        // loaded:
+        if (
+          head == null || grid.is_neighbor(head, gpos)
+       && content.tile_at(gpos)["glyph"] != undefined
+        ) {
           // add them if they're a neighbor of the head
           latest_swipe.push(gpos);
           update_current_glyphs();
           LAST_POSITION = gpos;
-          DO_REDRAW = true;
+          DO_REDRAW = 0;
         }
       }
     }
     document.ontouchmove = document.onmousemove;
 
+    // TODO: Make this passive? (see chromium verbose warning)
     document.onwheel = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
       var unit = e.deltaMode;
@@ -484,7 +506,7 @@ function(draw, content, grid, dict, menu) {
 
       CTX.viewport_center[0] += x;
       CTX.viewport_center[1] -= y;
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     }
 
     document.onkeydown = function (e) {
@@ -507,14 +529,20 @@ function(draw, content, grid, dict, menu) {
   }
 
   function animate(now) {
-    if (!DO_REDRAW) {
+    if (DO_REDRAW == undefined) {
+      window.requestAnimationFrame(animate);
+      return;
+    } else if (DO_REDRAW > 0) {
+      DO_REDRAW -= 1;
       window.requestAnimationFrame(animate);
       return;
     }
-    DO_REDRAW = false;
+    DO_REDRAW = undefined;
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
-    draw.draw_tiles(CTX);
+    if (!draw.draw_tiles(CTX)) {
+      DO_REDRAW = MISSING_TILE_RETRY;
+    };
     if (CURRENT_SWIPES.length > 0) {
       CURRENT_SWIPES.forEach(function (swipe, index) {
         if (index == CURRENT_SWIPES.length - 1) {
@@ -527,13 +555,13 @@ function(draw, content, grid, dict, menu) {
 
     // Draw menus:
     if (menu.draw_active(CTX)) {
-      DO_REDRAW = true;
+      DO_REDRAW = 0;
     }
 
     // DEBUG: Uncomment this to draw a cursor; causes animation every frame
     // while the mouse is moving.
     /*
-    DO_REDRAW = true;
+    DO_REDRAW = 0;
     CTX.strokeStyle = "#fff";
     CTX.beginPath();
     CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);

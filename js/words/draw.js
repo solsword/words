@@ -107,6 +107,8 @@ define(["./grid", "./content"], function(grid, content) {
   }
 
   function draw_tiles(ctx) {
+    // Draws tiles for the given context. Returns true if all tiles were drawn,
+    // or false if there was at least one undefined tile.
     // TODO: Chunk rendering...
     edges = viewport_edges(ctx);
     ctx.textAlign = "center";
@@ -114,9 +116,14 @@ define(["./grid", "./content"], function(grid, content) {
     ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px " + FONT_FACE;
 
     tiles = content.list_tiles(edges);
+    var any_undefined = false;
     tiles.forEach(function(tile) {
       draw_tile(ctx, tile);
+      if (tile["glyph"] == undefined) {
+        any_undefined = true;
+      }
     });
+    return !any_undefined;
   }
 
   function draw_tile(ctx, tile) {
@@ -126,113 +133,144 @@ define(["./grid", "./content"], function(grid, content) {
 
     var vpos = view_pos(ctx, wpos);
 
-    // Outer hexagon
-    ctx.strokeStyle = TILE_COLORS["outline"];
-    ctx.fillStyle = TILE_COLORS["inner"];
+    if (glyph == undefined) { // an unloaded tile: just draw a dim '?'
+      ctx.strokeStyle = TILE_COLORS["pad"];
+      ctx.fillStyle = TILE_COLORS["inner"];
 
-    ctx.lineWidth=2;
+      ctx.lineWidth=2;
 
-    ctx.beginPath();
-    once = true;
-    grid.VERTICES.forEach(function (vertex) {
-      vertex = vertex.slice();
-      vertex[0] += wpos[0];
-      vertex[1] += wpos[1];
+      ctx.beginPath();
+      once = true;
+      grid.VERTICES.forEach(function (vertex) {
+        vertex = vertex.slice();
+        vertex[0] += wpos[0];
+        vertex[1] += wpos[1];
 
-      var vv = view_pos(ctx, vertex);
-      if (once) {
-        ctx.moveTo(vv[0], vv[1]);
-        once = false;
-      } else {
-        ctx.lineTo(vv[0], vv[1]);
-      }
-    });
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+        var vv = view_pos(ctx, vertex);
+        if (once) {
+          ctx.moveTo(vv[0], vv[1]);
+          once = false;
+        } else {
+          ctx.lineTo(vv[0], vv[1]);
+        }
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
 
-    // Hexagon highlight
-    ctx.lineWidth=3;
-    if (colors.length > 0) {
-      var side_colors = [];
-      if (colors.length <= 3 || colors.length >= 6) {
-        colors.forEach(function (c) {
-          side_colors.push(PALETTE[c]);
-        });
-      } else if (colors.length == 4) {
-        side_colors = [
-          TILE_COLORS["inner"], // invisible
-          PALETTE[colors[0]],
-          PALETTE[colors[1]],
-          TILE_COLORS["inner"], // invisible
-          PALETTE[colors[2]],
-          PALETTE[colors[3]],
-        ];
-      } else if (colors.length == 5) {
-        side_colors = [
-          TILE_COLORS["inner"], // invisible
-          PALETTE[colors[0]],
-          PALETTE[colors[1]],
-          PALETTE[colors[2]],
-          PALETTE[colors[3]],
-          PALETTE[colors[4]],
-        ];
-      } else {
-        // Should be impossible
-        console.log("Internal Error: invalid colors length: " + colors.length);
-      }
-
-      for (var i = 0; i < grid.VERTICES.length; ++i) {
-        tv = grid.VERTICES[i].slice();
-        tv[0] *= 0.9;
-        tv[1] *= 0.9;
-        tv[0] += wpos[0];
-        tv[1] += wpos[1];
-
-        var ni = (i + 1) % grid.VERTICES.length;
-        nv = grid.VERTICES[ni].slice();
-        nv[0] *= 0.9;
-        nv[1] *= 0.9;
-        nv[0] += wpos[0];
-        nv[1] += wpos[1];
-
-        var tvv = view_pos(ctx, tv);
-        var nvv = view_pos(ctx, nv);
-
-        ctx.strokeStyle = side_colors[i % side_colors.length];
-
-        ctx.beginPath();
-        ctx.moveTo(tvv[0], tvv[1]);
-        ctx.lineTo(nvv[0], nvv[1]);
-        ctx.stroke();
-      }
-    }
-
-    // Inner circle
-    var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
-    if (tile["unlocked"]) {
-      ctx.fillStyle = TILE_COLORS["unlocked-pad"];
-    } else {
+      // The question mark:
       ctx.fillStyle = TILE_COLORS["pad"];
-    }
-    ctx.beginPath();
-    ctx.arc(vpos[0], vpos[1], r, 0, 2 * Math.PI);
-    ctx.fill();
+      ctx.fillText('?', vpos[0], vpos[1]);
 
-    // Circle edge
-    if (tile["unlocked"]) {
-      ctx.strokeStyle = TILE_COLORS["unlocked-circle"];
-    } else {
-      ctx.strokeStyle = TILE_COLORS["circle"];
-    }
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(vpos[0], vpos[1], r*0.95, 0, 2*Math.PI);
-    ctx.stroke();
+    } else { // a loaded tile: the works
+      // Outer hexagon
+      ctx.strokeStyle = TILE_COLORS["outline"];
+      ctx.fillStyle = TILE_COLORS["inner"];
 
-    // Letter
-    ctx.fillStyle = TILE_COLORS["glyph"];
-    ctx.fillText(glyph, vpos[0], vpos[1]);
+      ctx.lineWidth=2;
+
+      ctx.beginPath();
+      once = true;
+      grid.VERTICES.forEach(function (vertex) {
+        vertex = vertex.slice();
+        vertex[0] += wpos[0];
+        vertex[1] += wpos[1];
+
+        var vv = view_pos(ctx, vertex);
+        if (once) {
+          ctx.moveTo(vv[0], vv[1]);
+          once = false;
+        } else {
+          ctx.lineTo(vv[0], vv[1]);
+        }
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Hexagon highlight
+      ctx.lineWidth=3;
+      if (colors.length > 0) {
+        var side_colors = [];
+        if (colors.length <= 3 || colors.length >= 6) {
+          colors.forEach(function (c) {
+            side_colors.push(PALETTE[c]);
+          });
+        } else if (colors.length == 4) {
+          side_colors = [
+            TILE_COLORS["inner"], // invisible
+            PALETTE[colors[0]],
+            PALETTE[colors[1]],
+            TILE_COLORS["inner"], // invisible
+            PALETTE[colors[2]],
+            PALETTE[colors[3]],
+          ];
+        } else if (colors.length == 5) {
+          side_colors = [
+            TILE_COLORS["inner"], // invisible
+            PALETTE[colors[0]],
+            PALETTE[colors[1]],
+            PALETTE[colors[2]],
+            PALETTE[colors[3]],
+            PALETTE[colors[4]],
+          ];
+        } else {
+          // Should be impossible
+          console.log("Internal Error: invalid colors length: " +colors.length);
+        }
+
+        for (var i = 0; i < grid.VERTICES.length; ++i) {
+          tv = grid.VERTICES[i].slice();
+          tv[0] *= 0.9;
+          tv[1] *= 0.9;
+          tv[0] += wpos[0];
+          tv[1] += wpos[1];
+
+          var ni = (i + 1) % grid.VERTICES.length;
+          nv = grid.VERTICES[ni].slice();
+          nv[0] *= 0.9;
+          nv[1] *= 0.9;
+          nv[0] += wpos[0];
+          nv[1] += wpos[1];
+
+          var tvv = view_pos(ctx, tv);
+          var nvv = view_pos(ctx, nv);
+
+          ctx.strokeStyle = side_colors[i % side_colors.length];
+
+          ctx.beginPath();
+          ctx.moveTo(tvv[0], tvv[1]);
+          ctx.lineTo(nvv[0], nvv[1]);
+          ctx.stroke();
+        }
+      }
+
+      // Inner circle
+      var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
+      if (tile["unlocked"]) {
+        ctx.fillStyle = TILE_COLORS["unlocked-pad"];
+      } else {
+        ctx.fillStyle = TILE_COLORS["pad"];
+      }
+      ctx.beginPath();
+      ctx.arc(vpos[0], vpos[1], r, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Circle edge
+      if (tile["unlocked"]) {
+        ctx.strokeStyle = TILE_COLORS["unlocked-circle"];
+      } else {
+        ctx.strokeStyle = TILE_COLORS["circle"];
+      }
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(vpos[0], vpos[1], r*0.95, 0, 2*Math.PI);
+      ctx.stroke();
+
+      // Letter
+      ctx.fillStyle = TILE_COLORS["glyph"];
+      ctx.fillText(glyph, vpos[0], vpos[1]);
+    }
   }
 
   function draw_swipe(ctx, gplist, do_highlight) {

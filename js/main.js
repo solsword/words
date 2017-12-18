@@ -4,11 +4,6 @@ function is_odd(n) {
 
 requirejs.config({
   baseURL: "js/",
-/*
-  paths: {
-    "planck": "bower_components/planck-js/dist/planck",
-  }
-*/
 });
 
 requirejs(

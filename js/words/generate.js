@@ -7,42 +7,10 @@ define(["./dict", "./grid"], function(dict, grid) {
 
   var DOMAIN_COMBOS = {
     //"base": [ "türk" ],
-    "base": [ "adj", "adv", "noun", "verb" ],
-    "all_mammals": [ "mammals", "monotremes" ],
-    "all_plants": [ "us_plants", "plants" ],
-    "all_bugs": [
-      "insects",
-      "spiders",
-      "au_ants",
-      "gb_ants",
-      "gb_bees",
-      "gb_wasps",
-      "ca_butterflies"
-    ],
-    "big_animals": [
-      "fish",
-      "birds",
-      "mammals",
-      "monotremes",
-      "amphibians",
-      "reptiles"
-    ],
-    "all_animals": [
-      "animals",
-      "fish",
-      "birds",
-      "mammals",
-      "monotremes",
-      "amphibians",
-      "reptiles",
-      "all_bugs"
-    ],
+    "base": [ "adj", "adv", "noun", "verb" ]
   }
 
   var DOMAIN_WEIGHTS = {
-    //"big_animals": 3,
-    //"all_bugs": 3,
-    //"all_plants": 3,
     "türk": 5,
     "العربية": 5,
     "base": 20
@@ -68,7 +36,7 @@ define(["./dict", "./grid"], function(dict, grid) {
 
   function prng(seed) {
     // TODO: Better here!
-    var result =  ((((seed * 1029830183) << 5) - seed) % 1e9) / 1e9;
+    var result =  ((((seed * 1029830183) << 5) - seed) % 1e9);
     if (result < 0) {
       result = -result;
     }
@@ -78,7 +46,7 @@ define(["./dict", "./grid"], function(dict, grid) {
   function udist(seed) {
     // Generates a random number between 0 and 1 given a seed value.
     // TODO: WAY better here!
-    return (seed % 12083810283013) / 12083810283013
+    return (seed % 120283013) / 120283013
   }
 
   function expdist(seed) {
@@ -97,7 +65,7 @@ define(["./dict", "./grid"], function(dict, grid) {
         total_weight += table[e] + SMOOTHING;
       }
     }
-    var r = prng(seed) * total_weight;
+    var r = udist(prng(seed)) * total_weight;
 
     var last = undefined;
     var selected = null;
@@ -264,11 +232,6 @@ define(["./dict", "./grid"], function(dict, grid) {
 
     var domain = sample_table(DOMAIN_WEIGHTS, smix);
     result = domains_list(domain);
-    DOMAIN_COMBOS["base"].forEach(function (d) {
-      if (!result.includes(d)) {
-        result.push(d);
-      }
-    });
     return result;
   }
 
@@ -285,19 +248,32 @@ define(["./dict", "./grid"], function(dict, grid) {
   }
 
   function merge_glyph_counts(gs1, gs2) {
-    // Merges two glyph counts, returning a new object.
+    // Merges two glyph counts, returning a new object. Normalizes both counts
+    // first to avoid source-set-size bias.
     var result = {};
+    var gs1_total = 0;
+    var gs2_total = 0;
     for (var g in gs1) {
       if (gs1.hasOwnProperty(g)) {
-        result[g] = gs1[g];
+        gs1_total += gs1[g];
+      }
+    }
+    for (var g in gs2) {
+      if (gs2.hasOwnProperty(g)) {
+        gs2_total += gs2[g];
+      }
+    }
+    for (var g in gs1) {
+      if (gs1.hasOwnProperty(g)) {
+        result[g] = gs1[g] / gs1_total;
       }
     }
     for (var g in gs2) {
       if (gs2.hasOwnProperty(g)) {
         if (result.hasOwnProperty(g)) {
-          result[g] += gs2[g];
+          result[g] += gs2[g] / gs2_total;
         } else {
-          result[g] = gs2[g];
+          result[g] = gs2[g] / gs2_total;
         }
       }
     }
@@ -333,7 +309,8 @@ define(["./dict", "./grid"], function(dict, grid) {
 
   function generate_supertile(seed, sp) {
     // Takes a seed and a supertile position and generates the corresponding
-    // supertile.
+    // supertile. If a required domain is not-yet-loaded, this will return
+    // undefined, and the generation process should be re-initiated.
     //
     // TODO: Uses globally-known edge content to generate guaranteed inroads.
     var smix = sghash(seed, sp);
@@ -342,6 +319,17 @@ define(["./dict", "./grid"], function(dict, grid) {
       "glyphs": Array(49),
       "domains": generate_domains(seed, sp)
     };
+
+    var any_missing = false;
+    result["domains"].forEach(function (d) {
+      var dom = dict.lookup_domain(d);
+      if (dom == undefined) {
+        any_missing = true;
+      }
+    });
+    if (any_missing) {
+      return undefined;
+    }
 
     result["colors"] = colors_for_domains(result["domains"]);
 

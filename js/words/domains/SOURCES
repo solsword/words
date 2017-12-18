@@ -28,4 +28,7 @@ UC Davis:
   ca_butterflies.lst: http://butterfly.ucdavis.edu/butterfly/common
 
 Open-source Arabic WordList (see LICENSE-attia):
-  العربية.lst: https://sourceforge.net/projects/arabic-wordlist/
+  العربية_big.lst: https://sourceforge.net/projects/arabic-wordlist/
+
+Classic Arabic word list (see LICENSE-classic-arabic):
+  العربية_classic.lst: https://sourceforge.net/projects/classical-arabic-corpus/

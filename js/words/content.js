@@ -4,9 +4,20 @@
 define(["./grid", "./generate"], function(grid, generate) {
   // An object to hold generated supertile info.
   var SUPERTILES = {};
+  var QUEUED = {};
 
   // Current global seed
   var SEED = 173;
+
+  // How long to wait before re-attempting supertile generation (milliseconds):
+  var GEN_BACKOFF = 50;
+
+  // How long since the most-recent request for a tile before we give up on
+  // generating it (maybe it's off-window by now?)
+  var GEN_GIVEUP = 1000;
+
+  // How long to wait before re-attempting a tile unlock:
+  var UNLOCK_BACKOFF = 80;
   
   function set_seed(seed) {
     // Sets the global generation seed
@@ -24,33 +35,67 @@ define(["./grid", "./generate"], function(grid, generate) {
     //   unlocked: true or false whether this tile is unlocked.
     //
     // If the appropriate supergrid tile is not yet loaded, it will be
-    // generated.
+    // generated. While generation is ongoing, this function will return an
+    // "unknown tile" object with the 'unlocked' property set to 'undefined'
+    // instead of 'true' or 'false', and empty colors list, and an undefined
+    // 'glyph' property.
 
     var sgp = grid.sgpos(gp);
     var st = fetch_supertile(gp);
+    if (st == null) {
+      return {
+        "pos": gp.slice(),
+        "spos": [sgp[0], sgp[1]],
+        "colors": [],
+        "glyph": undefined,
+        "unlocked": undefined
+      };
+    }
     var result = grid.extract_subtile(st, [sgp[2], sgp[3]]);
     result["pos"] = gp.slice();
     result["spos"] = [sgp[0], sgp[1]];
     return result;
   }
 
-  function fetch_supertile(gp) {
-    // Takes a grid pos and returns the corresponding supertile.
-    var sgp = grid.sgpos(gp);
-    sgk = "" + sgp[0] + "," + sgp[1];
-    if (SUPERTILES.hasOwnProperty(sgk)) {
-      st = SUPERTILES[sgk];
-    } else {
-      st = generate.generate_supertile(SEED, [sgp[0], sgp[1]]);
+  function eventually_generate_supertile(sgp, accumulated) {
+    var sgk = "" + sgp[0] + "," + sgp[1];
+    if (accumulated > GEN_GIVEUP) {
+      delete QUEUED[sgk]; // allow re-queue
+      return;
+    }
+    var st = generate.generate_supertile(SEED, [sgp[0], sgp[1]]);
+    if (st != undefined) {
       SUPERTILES[sgk] = st;
+    } else {
+      setTimeout(eventually_generate_supertile, GEN_BACKOFF, sgp);
+    }
+  }
+
+  function fetch_supertile(gp) {
+    // Takes a grid pos and returns the corresponding supertile, or null if
+    // that supertile isn't generated yet.
+    var sgp = grid.sgpos(gp);
+    var sgk = "" + sgp[0] + "," + sgp[1];
+    if (SUPERTILES.hasOwnProperty(sgk)) {
+      return SUPERTILES[sgk];
+    } else {
+      if (!QUEUED[sgk]) {
+        // async generate:
+        QUEUED[sgk] = true;
+        setTimeout(eventually_generate_supertile, 0, sgp, 0);
+      }
+      return null; 
       // TODO: Permanent storage?
     }
-    return st;
   }
 
   function is_unlocked(gp) {
-    // Checks whether the given grid position is unlocked or not
+    // Checks whether the given grid position is unlocked or not. Returns
+    // undefined on unloaded positions.
     var st = fetch_supertile(gp);
+    if (st == null) {
+      return undefined;
+    }
     var sgp = grid.sgpos(gp);
     var ord = sgp[2] + sgp[3]*7;
     if (ord >= 32) {
@@ -64,6 +109,11 @@ define(["./grid", "./generate"], function(grid, generate) {
   function unlock_tile(gp) {
     // Unlocks the given grid position
     var st = fetch_supertile(gp);
+    if (st == null) {
+      // reschedule indefinitely if stymied
+      setTimeout(unlock_tile, UNLOCK_BACKOFF, gp);
+      return;
+    }
     var sgp = grid.sgpos(gp);
     var ord = sgp[2] + sgp[3]*7;
     if (ord >= 32) {
@@ -78,7 +128,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     // Lists all tiles that overlap with a given world-coordinate box. Returns
     // an array of tile objects (see content.tile_at). The input edges array
     // should be ordered left, top, right, bottom and should be expressed in
-    // world coordinates.
+    // world coordinates. Missing tiles may be included in the list.
 
     // Compute grid coordinates:
     tl = grid.grid_pos([ edges[0], edges[1] ])
