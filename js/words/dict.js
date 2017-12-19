@@ -51,6 +51,10 @@ define(["./locale"], function(locale, finalize) {
       // Gets a name + finalized domain from the worker and adds the domain.
       if (msg.data == "worker_ready") { // initial ready message
         worker.postMessage(worker.payload);
+      } else if (msg.data[0] == "count-progress") { // counting progress
+        LOADING[name][1] = msg.data[1];
+      } else if (msg.data[0] == "index-progress") { // indexing progress
+        LOADING[name][2] = msg.data[1];
       } else { // finished message w/ product
         add_domain(msg.data[0], msg.data[1]);
       }
@@ -82,7 +86,7 @@ define(["./locale"], function(locale, finalize) {
     if (DOMAINS.hasOwnProperty(domain) || LOADING.hasOwnProperty(domain)) {
       return;
     }
-    LOADING[domain] = true;
+    LOADING[domain] = [false, 0, 0]; // http-done, count-prog, index prog
     if (is_simple == undefined) {
       load_json_or_list(domain);
     } else if (is_simple) {
@@ -114,6 +118,7 @@ define(["./locale"], function(locale, finalize) {
         return;
       }
       try {
+        LOADING[name][0] = true;
         var json = JSON.parse(xobj.responseText);
         finish_loading(name, json);
       } catch (e) {
@@ -169,6 +174,7 @@ define(["./locale"], function(locale, finalize) {
         FAILED[name] = true;
         return undefined;
       }
+      LOADING[name][0] = true;
       var words = xobj.responseText.split("\n");
       var i = 0;
       while (words[i][0] == '#') {

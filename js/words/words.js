@@ -41,6 +41,7 @@ function(draw, content, grid, dict, menu) {
 
   // Timing:
   var MISSING_TILE_RETRY = 10;
+  var LOADING_RETRY = 10;
 
   function find_word(word, gp) {
     DO_REDRAW = 0;
@@ -551,6 +552,21 @@ function(draw, content, grid, dict, menu) {
           draw.draw_swipe(CTX, swipe, false);
         }
       });
+    }
+
+    // Draw loading bars for domains:
+    var loading = dict.LOADING;
+    var lks = [];
+    for (var l in loading) {
+      if (loading.hasOwnProperty(l)) {
+        lks.push(l);
+      }
+    }
+    if (lks.length > 0) {
+      lks.sort();
+      if (draw.draw_loading(CTX, lks, loading)) {
+        DO_REDRAW = LOADING_RETRY;
+      }
     }
 
     // Draw menus:

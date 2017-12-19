@@ -6,6 +6,9 @@ define(["./grid", "./content"], function(grid, content) {
   var HIGHLIGHT_COLOR = "#fff";
   var TRAIL_COLOR = "#ddd";
 
+  var LOADING_BAR_HEIGHT = 20;
+  var LOADING_BAR_SPACING = 6;
+
   var FONT_SIZE = 24;
   var FONT_FACE = "asap";
   //var FONT_FACE = "serif";
@@ -355,6 +358,28 @@ define(["./grid", "./content"], function(grid, content) {
     ctx.stroke();
   }
 
+  function draw_loading(ctx, keys, loading) {
+    var n_bars = keys.length;
+    var bars_top = (
+      ctx.cheight/2
+    - (n_bars * (LOADING_BAR_HEIGHT + LOADING_BAR_SPACING))
+    + LOADING_BAR_SPACING
+    );
+    keys.forEach(function (key, ii) {
+      // Unpack progress:
+      var progress = loading[key];
+      var fetched = progress[0];
+      var count_progress = progress[1];
+      var index_progress = progress[2];
+
+      // Decide position:
+      var x = 10;
+      var y = BARS_TOP + ii * (LOADING_BAR_HEIGHT + LOADING_BAR_SPACING);
+
+      // TODO: HERE!
+    });
+  }
+
   return {
     "TILE_COLORS": TILE_COLORS,
     "PALETTE": PALETTE,
@@ -365,5 +390,6 @@ define(["./grid", "./content"], function(grid, content) {
     "view_pos": view_pos,
     "world_pos": world_pos,
     "draw_swipe": draw_swipe,
+    "draw_loading": draw_loading,
   };
 });

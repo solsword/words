@@ -16,6 +16,7 @@ require(["../locale"], function (locale) {
     // INDEX_DEPTH_LIMIT is met. Returns an object mapping glyphs to
     // sub-indices or an array for terminal entries.
     var result = { "_count_": indices.length };
+    var nkeys = 0;
     indices.forEach(function (idx) {
       var entry = entries[idx];
       if (entry[0].length <= position) {
@@ -23,6 +24,7 @@ require(["../locale"], function (locale) {
         if (result.hasOwnProperty("")) {
           reuslt[""].push(idx);
         } else {
+          nkeys += 1;
           result[""] = [ idx ];
         }
       } else {
@@ -30,11 +32,17 @@ require(["../locale"], function (locale) {
         if (result.hasOwnProperty(glyph)) {
           result[glyph].push(idx);
         } else {
+          nkeys += 1;
           result[glyph] = [ idx ];
         }
       }
     });
+    var processed = -1;
     for (var key in result) {
+      processed += 1;
+      if (position == 0 && (nkeys < 50 || processed % 5 == 0)) {
+        postMessage("index-progress", processed / nkeys);
+      }
       if (result.hasOwnProperty(key) && key != "" && key != "_count_") {
         // scan sub-indices to recurse if needed
         if (
@@ -70,6 +78,9 @@ require(["../locale"], function (locale) {
       var l = json.entries.length;
 
       for (var i = 0; i < json.entries.length; ++i) {
+        if (json.entries.length < 200 || i % 100 == 0) {
+          postMessage(["count-progress", i / json.entries.length]);
+        }
 
         var entry = json.entries[i];
         var gl = entry[0]; // glyphs list
@@ -150,6 +161,7 @@ require(["../locale"], function (locale) {
         }
       }
     }
+    postMessage(["count-progress", 1.0]);
 
     // Build an index if needed:
     if (!json.hasOwnProperty("index")) {
@@ -161,6 +173,7 @@ require(["../locale"], function (locale) {
       // Build the index:
       json.index = create_index(json.entries, indices, 0);
     }
+    postMessage(["index-progress", 1.0]);
 
     return json;
   }
