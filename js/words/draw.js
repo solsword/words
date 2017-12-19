@@ -7,6 +7,7 @@ define(["./grid", "./content"], function(grid, content) {
   var TRAIL_COLOR = "#ddd";
 
   var LOADING_BAR_HEIGHT = 20;
+  var LOADING_BAR_WIDTH = 120;
   var LOADING_BAR_SPACING = 6;
 
   var FONT_SIZE = 24;
@@ -21,6 +22,15 @@ define(["./grid", "./content"], function(grid, content) {
              "glyph": "#bbb",
       "unlocked-pad": "#555",
    "unlocked-circle": "#999"
+  };
+
+  var LOADING_COLORS = {
+   "deactive": "#999",
+    "outline": "#999",
+      "inner": "#333",
+     "counts": "#777",
+      "index": "#999",
+       "text": "#fff"
   };
 
   var PALETTE = {
@@ -374,8 +384,44 @@ define(["./grid", "./content"], function(grid, content) {
 
       // Decide position:
       var x = 10;
-      var y = BARS_TOP + ii * (LOADING_BAR_HEIGHT + LOADING_BAR_SPACING);
+      var y = bars_top + ii * (LOADING_BAR_HEIGHT + LOADING_BAR_SPACING);
 
+      ctx.fillStyle = LOADING_COLORS["inner"];
+      ctx.fillRect(x, y, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT);
+      if (fetched) {
+        ctx.strokeStyle = LOADING_COLORS["outline"];
+      } else {
+        ctx.strokeStyle = LOADING_COLORS["deactive"];
+      }
+      ctx.strokeRect(x, y, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT);
+      ctx.fillStyle = LOADING_COLORS["index"];
+      ctx.fillRect(
+        x + 2,
+        y + 2,
+        (LOADING_BAR_WIDTH - 4) * index_progress,
+        (LOADING_BAR_HEIGHT - 5) / 2
+      );
+      ctx.fillStyle = LOADING_COLORS["counts"];
+      ctx.fillRect(
+        x + 2,
+        y + 2 + (LOADING_BAR_HEIGHT - 5) / 2 + 1,
+        (LOADING_BAR_WIDTH - 4) * count_progress,
+        (LOADING_BAR_HEIGHT - 5) / 2
+      );
+      txt = key
+      var m = ctx.measureText(txt);
+      while (m.width >= LOADING_BAR_WIDTH - 4) {
+        txt = txt.slice(0, txt.length-2) + "…";
+        m = ctx.measureText(txt);
+      }
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.font = (
+        ((LOADING_BAR_HEIGHT - 4) * ctx.viewport_scale) + "px "
+      + "asap"
+      );
+      ctx.fillStyle = LOADING_COLORS["text"];
+      ctx.fillText(txt, x+2, y+2);
       // TODO: HERE!
     });
   }

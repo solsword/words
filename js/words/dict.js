@@ -312,7 +312,7 @@ define(["./locale"], function(locale, finalize) {
       if (index.hasOwnProperty("")) {
         for (var i = 0 ;i < index[""].length; ++i) {
           var idx = index[""][i];
-          var test_entry = dom.entries[ids];
+          var test_entry = dom.entries[idx];
           var against = test_entry[0];
           if (!dom.cased) {
             against = locale.lower(against, dom.locale);
@@ -340,6 +340,7 @@ define(["./locale"], function(locale, finalize) {
   }
 
   return {
+    "LOADING": LOADING,
     "lookup_domain": lookup_domain,
     "load_dictionary": load_dictionary,
     "check_word": check_word,

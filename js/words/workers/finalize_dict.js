@@ -41,7 +41,7 @@ require(["../locale"], function (locale) {
     for (var key in result) {
       processed += 1;
       if (position == 0 && (nkeys < 50 || processed % 5 == 0)) {
-        postMessage("index-progress", processed / nkeys);
+        postMessage(["index-progress", processed / nkeys]);
       }
       if (result.hasOwnProperty(key) && key != "" && key != "_count_") {
         // scan sub-indices to recurse if needed
