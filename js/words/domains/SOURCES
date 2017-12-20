@@ -5,30 +5,7 @@ WordNet (see LICENSE-wordnet):
   verb.lst
 
 Wikipedia (see LICENSE-wikipedia):
-  birds.lst: https://en.wikipedia.org/wiki/List_of_birds_by_common_name
-  fish.lst: https://en.wikipedia.org/wiki/List_of_common_fish_names
-  plants.lst: https://en.wikipedia.org/wiki/List_of_plants_by_common_name
-  animals.lst: https://en.wikipedia.org/wiki/List_of_animals_by_common_name
-  mammals.lst: https://en.wikipedia.org/wiki/List_of_placental_mammals
-  monotremes.lst: https://en.wikipedia.org/wiki/List_of_monotremes_and_marsupials
-  reptiles.lst: https://en.wikipedia.org/wiki/List_of_reptiles
-  amphibians.lst: https://en.wikipedia.org/wiki/List_of_amphibians
-
-  spiders.lst: https://en.wikipedia.org/wiki/Spider_taxonomy#Table_of_families
-  au_ants.lst: https://en.wikipedia.org/wiki/List_of_ants_of_Australia
-  gb_ants.lst: https://en.wikipedia.org/wiki/List_of_ants_of_Great_Britain
-  gb_bees.lst: https://en.wikipedia.org/wiki/List_of_bees_of_Great_Britain
-  moths.lst: https://en.wikipedia.org/wiki/List_of_moths
-
-USDA:
-  USDA, NRCS. 2017. The PLANTS Database (http://plants.usda.gov, 3 December 2017). National Plant Data Team, Greensboro, NC 27401-4901 USA.
-  us_plants.lst: https://plants.usda.gov/dl_all.html
-
-UC Davis:
-  ca_butterflies.lst: http://butterfly.ucdavis.edu/butterfly/common
-
-Open-source Arabic WordList (see LICENSE-attia):
-  العربية_big.lst: https://sourceforge.net/projects/arabic-wordlist/
+  <none right now>
 
 Classic Arabic word list (see LICENSE-classic-arabic):
   العربية_classic.lst: https://sourceforge.net/projects/classical-arabic-corpus/
