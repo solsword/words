@@ -8,6 +8,7 @@ function(draw, content, grid, dict, menu) {
   var VIEWPORT_SIZE = 800.0;
 
   var SWIPING = false;
+  var SCROLL_REFERENT = undefined;
   var CURRENT_SWIPES = [];
   var LAST_POSITION = [0, 0];
 
@@ -15,7 +16,8 @@ function(draw, content, grid, dict, menu) {
   var PIXELS_PER_LINE = 18;
   var LINES_PER_PAGE = 40;
 
-  var LAST_MOUSE_POSITION = [0, 0];
+  // TODO: Remove this DEBUG
+  // var LAST_MOUSE_POSITION = [0, 0];
 
   var RESIZE_TIMEOUT = 20; // milliseconds
 
@@ -222,6 +224,26 @@ function(draw, content, grid, dict, menu) {
     ];
   }
 
+  function which_click(e) {
+    if (e.touches) {
+      if (e.touches.length > 1) {
+        return "auxiliary";
+      } else {
+        return "primary";
+      }
+    } else {
+      if (e.button == 0) {
+        return "primary";
+      } else if (e.button == 1) {
+        return "auxiliary";
+      } else if (e.button == 2) {
+        return "secondary";
+      } else {
+        return "tertiary";
+      }
+    }
+  }
+
   function update_canvas_size() {
     // Updates the canvas size. Called on resize after a timeout.
     var bounds = CANVAS.getBoundingClientRect();
@@ -252,6 +274,158 @@ function(draw, content, grid, dict, menu) {
       });
     });
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
+  }
+
+  function handle_primary_down(ctx, e) {
+    // dispatch to menu system first:
+    var vpos = canvas_position_of_event(e);
+    if (menu.mousedown(vpos, "primary")) { return; }
+    var wpos = draw.world_pos(ctx, vpos);
+    var gpos = grid.grid_pos(wpos);
+    var head = null;
+    if (CURRENT_SWIPES.length > 0) {
+      for (var i = CURRENT_SWIPES.length - 1; i > -1; --i) {
+        var latest_swipe = CURRENT_SWIPES[i];
+        if (latest_swipe.length > 0) {
+          head = latest_swipe[latest_swipe.length - 1];
+          break;
+        }
+      }
+    }
+    if (
+      !is_selected(gpos)
+      && (head == null || grid.is_neighbor(head, gpos))
+      && content.tile_at(gpos)["glyph"] != undefined
+    ) {
+      CURRENT_SWIPES.push([gpos]);
+      update_current_glyphs();
+      LAST_POSITION = gpos;
+    } else {
+      CURRENT_SWIPES.push([]);
+    }
+    SWIPING = true;
+    DO_REDRAW = 0;
+  }
+
+  function handle_auxiliary_down(ctx, e) {
+    var vpos = canvas_position_of_event(e);
+    if (menu.mousedown(vpos, "auxiliary")) { return; }
+    SCROLL_REFERENT = vpos.slice();
+  }
+
+  function handle_primary_up(ctx, e) {
+    // dispatch to menu system first:
+    var vpos = canvas_position_of_event(e);
+    if (menu.mouseup(vpos)) {
+      DO_REDRAW = 0;
+      return;
+    }
+    SWIPING = false;
+    if (CURRENT_SWIPES.length == 0) {
+      return;
+    }
+    var latest_swipe = CURRENT_SWIPES.pop();
+    if (latest_swipe.length > 0) {
+      // A non-empty swipe motion; push it back on:
+      CURRENT_SWIPES.push(latest_swipe);
+    }
+    update_current_glyphs();
+    DO_REDRAW = 0;
+  }
+
+  function handle_auxiliary_up(ctx, e) {
+    var vpos = canvas_position_of_event(e);
+    if (menu.mouseup(vpos, "auxiliary")) { return; }
+    SCROLL_REFERENT = undefined;
+  }
+
+  function handle_movement(ctx, e) {
+    // dispatch to menu system first:
+    var vpos = canvas_position_of_event(e);
+    if (menu.mousemove(vpos)) { DO_REDRAW = 0; return; }
+    if (SCROLL_REFERENT != undefined) {
+      // scrolling w/ aux button or two fingers
+      var dx = vpos[0] - SCROLL_REFERENT[0];
+      var dy = vpos[1] - SCROLL_REFERENT[1];
+
+      SCROLL_REFERENT = vpos.slice();
+
+      CTX.viewport_center[0] -= dx;
+      CTX.viewport_center[1] += dy;
+      DO_REDRAW = 0;
+    } else if (SWIPING && CURRENT_SWIPES.length > 0) {
+      // swiping w/ primary button or one finger
+      var combined_swipe = combine_arrays(CURRENT_SWIPES);
+      var wpos = draw.world_pos(CTX, vpos);
+      var gpos = grid.grid_pos(wpos);
+      var head = null;
+      if (combined_swipe.length > 0) {
+        head = combined_swipe[combined_swipe.length - 1];
+      }
+      var is_used = false;
+      var is_prev = false;
+      var is_head = false;
+      combined_swipe.forEach(function (prpos, idx) {
+        if ("" + prpos == "" + gpos) {
+          is_used = true;
+          if (idx == combined_swipe.length - 1) {
+            is_head = true;
+          } else if (idx == combined_swipe.length - 2) {
+            is_prev = true;
+          }
+        }
+      });
+      var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length -1];
+      if (is_used) {
+        if (is_prev) {
+          if (latest_swipe.length > 0) {
+            // only pop from an active swipe
+            latest_swipe.pop();
+            update_current_glyphs();
+            if (latest_swipe.length > 0) {
+              LAST_POSITION = latest_swipe[latest_swipe.length - 1];
+            } else if (combined_swipe.length > 1) {
+              LAST_POSITION = combined_swipe[combined_swipe.length - 2];
+            }
+            DO_REDRAW = 0;
+          }
+        }
+        // else do nothing, we're on a tile that's already part of the
+        // current swipe.
+      } else {
+        // for tiles that aren't part of the swipe already, and which *are*
+        // loaded:
+        if (
+          head == null || grid.is_neighbor(head, gpos)
+          && content.tile_at(gpos)["glyph"] != undefined
+        ) {
+          // add them if they're a neighbor of the head
+          latest_swipe.push(gpos);
+          update_current_glyphs();
+          LAST_POSITION = gpos;
+          DO_REDRAW = 0;
+        }
+      }
+    } // else ignore this event
+  }
+
+  function handle_wheel(ctx, e) {
+    var unit = e.deltaMode;
+    var dx = e.deltaX;
+    var dy = e.deltaY;
+
+    // normalize units to pixels:
+    if (unit == 1) {
+      dx *= PIXELS_PER_LINE;
+      dy *= PIXELS_PER_LINE;
+    } else if (unit == 2) {
+      dx *= PIXELS_PER_LINE * LINES_PER_PAGE;
+      dy *= PIXELS_PER_LINE * LINES_PER_PAGE;
+    }
+
+    CTX.viewport_center[0] += dx;
+    CTX.viewport_center[1] -= dy;
+    DO_REDRAW = 0;
   }
 
   function start_game() {
@@ -372,142 +546,39 @@ function(draw, content, grid, dict, menu) {
     // set up event handlers
     document.onmousedown = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
-      var vpos = canvas_position_of_event(e);
-      // dispatch to menu system first:
-      if (menu.mousedown(vpos)) { return; }
-      var wpos = draw.world_pos(CTX, vpos);
-      var gpos = grid.grid_pos(wpos);
-      var head = null;
-      if (CURRENT_SWIPES.length > 0) {
-        for (var i = CURRENT_SWIPES.length - 1; i > -1; --i) {
-          var latest_swipe = CURRENT_SWIPES[i];
-          if (latest_swipe.length > 0) {
-            head = latest_swipe[latest_swipe.length - 1];
-            break;
-          }
-        }
-      }
-      if (
-        !is_selected(gpos)
-     && (head == null || grid.is_neighbor(head, gpos))
-     && content.tile_at(gpos)["glyph"] != undefined
-      ) {
-        CURRENT_SWIPES.push([gpos]);
-        update_current_glyphs();
-        LAST_POSITION = gpos;
-      } else {
-        CURRENT_SWIPES.push([]);
-      }
-      SWIPING = true;
-      DO_REDRAW = 0;
+      var which = which_click(e);
+      if (which == "primary") {
+        handle_primary_down(CTX, e);
+      } else if (which == "auxiliary") {
+        handle_auxiliary_down(CTX, e);
+      } // otherwise ignore this click
     }
     document.ontouchstart = document.onmousedown;
 
     document.onmouseup = function(e) {
       // TODO: Menus
       if (e.preventDefault) { e.preventDefault(); }
-      // dispatch to menu system first:
-      var vpos = canvas_position_of_event(e);
-      if (menu.mouseup(vpos)) {
-        DO_REDRAW = 0;
-        return;
-      }
-      SWIPING = false;
-      if (CURRENT_SWIPES.length == 0) {
-        return;
-      }
-      var latest_swipe = CURRENT_SWIPES.pop();
-      if (latest_swipe.length > 0) {
-        // A non-empty swipe motion; push it back on:
-        CURRENT_SWIPES.push(latest_swipe);
-      }
-      update_current_glyphs();
-      DO_REDRAW = 0;
+      var which = which_click(e);
+      if (which == "primary") {
+        handle_primary_up(CTX, e);
+      } else if (which == "auxiliary") {
+        handle_auxiliary_up(CTX, e);
+      } // otherwise ignore this click
     }
     document.ontouchcancel = document.onmouseup
 
     document.onmousemove = function (e) {
-      LAST_MOUSE_POSITION = canvas_position_of_event(e);
+      // TODO: Remove this debug
+      // LAST_MOUSE_POSITION = canvas_position_of_event(e);
       if (e.preventDefault) { e.preventDefault(); }
-      // dispatch to menu system first:
-      var vpos = canvas_position_of_event(e);
-      if (menu.mousemove(vpos)) { DO_REDRAW = 0; return; }
-      if (CURRENT_SWIPES.length == 0 || SWIPING == false) {
-        return;
-      }
-      var combined_swipe = combine_arrays(CURRENT_SWIPES);
-      var wpos = draw.world_pos(CTX, vpos);
-      var gpos = grid.grid_pos(wpos);
-      var head = null;
-      if (combined_swipe.length > 0) {
-        head = combined_swipe[combined_swipe.length - 1];
-      }
-      var is_used = false;
-      var is_prev = false;
-      var is_head = false;
-      combined_swipe.forEach(function (prpos, idx) {
-        if ("" + prpos == "" + gpos) {
-          is_used = true;
-          if (idx == combined_swipe.length - 1) {
-            is_head = true;
-          } else if (idx == combined_swipe.length - 2) {
-            is_prev = true;
-          }
-        }
-      });
-      var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length -1];
-      if (is_used) {
-        if (is_prev) {
-          if (latest_swipe.length > 0) {
-            // only pop from an active swipe
-            latest_swipe.pop();
-            update_current_glyphs();
-            if (latest_swipe.length > 0) {
-              LAST_POSITION = latest_swipe[latest_swipe.length - 1];
-            } else if (combined_swipe.length > 1) {
-              LAST_POSITION = combined_swipe[combined_swipe.length - 2];
-            }
-            DO_REDRAW = 0;
-          }
-        }
-        // else do nothing, we're on a tile that's already part of the
-        // current swipe.
-      } else {
-        // for tiles that aren't part of the swipe already, and which *are*
-        // loaded:
-        if (
-          head == null || grid.is_neighbor(head, gpos)
-       && content.tile_at(gpos)["glyph"] != undefined
-        ) {
-          // add them if they're a neighbor of the head
-          latest_swipe.push(gpos);
-          update_current_glyphs();
-          LAST_POSITION = gpos;
-          DO_REDRAW = 0;
-        }
-      }
+      handle_movement(CTX, e);
     }
     document.ontouchmove = document.onmousemove;
 
     // TODO: Make this passive? (see chromium verbose warning)
     document.onwheel = function (e) {
       if (e.preventDefault) { e.preventDefault(); }
-      var unit = e.deltaMode;
-      var x = e.deltaX;
-      var y = e.deltaY;
-
-      // normalize units to pixels:
-      if (unit == 1) {
-        x *= PIXELS_PER_LINE;
-        y *= PIXELS_PER_LINE;
-      } else if (unit == 2) {
-        x *= PIXELS_PER_LINE * LINES_PER_PAGE;
-        y *= PIXELS_PER_LINE * LINES_PER_PAGE;
-      }
-
-      CTX.viewport_center[0] += x;
-      CTX.viewport_center[1] -= y;
-      DO_REDRAW = 0;
+      handle_wheel(CTX, e);
     }
 
     document.onkeydown = function (e) {
