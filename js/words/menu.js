@@ -640,7 +640,7 @@ define(["./draw"], function(draw) {
     //
     // TODO: Handle too-wide words using a hover popup?
     BaseMenu.call(this, ctx, pos, shape, style);
-    this.style.prefix = this.style.prefix || "⚿ ";
+    this.style.prefix = this.style.prefix || "📖 ";
     this.style.scrollbar_width = this.style.scrollbar_width || 24;
     this.words = words;
     this.base_url = base_url;

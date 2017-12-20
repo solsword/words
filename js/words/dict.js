@@ -310,7 +310,7 @@ define(["./locale"], function(locale, finalize) {
       }
     } else if (g == null) {
       if (index.hasOwnProperty("")) {
-        for (var i = 0 ;i < index[""].length; ++i) {
+        for (var i = 0; i < index[""].length; ++i) {
           var idx = index[""][i];
           var test_entry = dom.entries[idx];
           var against = test_entry[0];
@@ -330,13 +330,7 @@ define(["./locale"], function(locale, finalize) {
       return null;
     }
 
-    if (entry != null && entry.length == 3) {
-      // Truncate 3-item entries that include glyph combinations separately
-      // from words.
-      return [ entry[1], entry[2] ];
-    } else {
-      return entry;
-    }
+    return entry;
   }
 
   return {
