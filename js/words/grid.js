@@ -3,8 +3,10 @@
 
 define([], function() {
 
+  // Grid size in pixels
   var GRID_SIZE = 45;
 
+  // Size constants based on GRID_SIZE
   var GRID_TOP = GRID_SIZE/2;
   var GRID_BOTTOM = -GRID_SIZE/2;
   var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2)
@@ -31,7 +33,7 @@ define([], function() {
   ]
 
   // How big are ultragrid units?
-  var ULTRAGRID_SIZE = 10;
+  var ULTRAGRID_SIZE = 12;
 
   function world_pos(gp) {
     // Returns the world position corresponding to the given grid position.

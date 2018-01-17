@@ -422,7 +422,6 @@ define(["./grid", "./content"], function(grid, content) {
       );
       ctx.fillStyle = LOADING_COLORS["text"];
       ctx.fillText(txt, x+2, y+2);
-      // TODO: HERE!
     });
   }
 

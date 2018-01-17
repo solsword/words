@@ -195,7 +195,6 @@ define(["./locale"], function(locale, finalize) {
         if (word == undefined) {
           word = glyphs;
         }
-        // TODO: HERE
         entries.push([glyphs, word, freq]);
       });
       // TODO: Really this?
