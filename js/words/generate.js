@@ -11,9 +11,17 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   // The units are ultragrid tiles.
   var ASSIGNMENT_REGION_SIDE = 1000;
 
-  // Maximum fraction of an assignment grid tile that can be made up of
-  // inclusions. Will not work above 81/100 due to ulgragrid edge restrictions.
-  var MAX_INCLUSION_DENSITY = 0.15;
+  // Limits on the fraction of an available assignment grid spaces that can be
+  // made up of inclusions. Computed as a fraction of remaining spaces after
+  // MAX_LOCAL_INCLUSION_DENSITY and edge restrictions have been accounted for.
+  // Actual inclusion density of each assignment grid tile is randomized.
+  var MIN_INCLUSION_DENSITY = 0.03;
+  var MAX_INCLUSION_DENSITY = 0.2;
+
+  // Maximum fraction of a single ultragrid cell that can be assigned to
+  // inclusions. Actually a fraction of the non-edge locations, instead of
+  // fraction of the entire cell.
+  var MAX_LOCAL_INCLUSION_DENSITY = 0.7;
 
   // roughness of inclusions distribution
   var INCLUSION_ROUGHNESS = 0.75;
@@ -33,7 +41,7 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   var DOMAIN_WEIGHTS = {
     "türk": 5,
     "اللغة_العربية_الفصحى": 5,
-    "base": 20
+    "base": 50
   }
 
   // Limits on the number of unlocked tiles per supertile:
@@ -55,33 +63,29 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     }
   }
 
-  function udist(seed) {
-    // Generates a random number between 0 and 1 given a seed value.
-    // TODO: WAY better here!
-    return (seed % 120283013) / 120283013
-  }
-
-  function expdist(seed) {
-    // Samples from an exponential distribution with mean 0.5 given a seed.
-    // See:
-    // https://math.stackexchange.com/questions/28004/random-exponential-like-distribution
-    var u = udist(seed);
-    return -Math.log(1 - u)/0.5
-  }
-
   function mix_seeds(s1, s2, off) {
     // Mixes two seeds (variables) using a third offset (constant).
-    return s1 ^ ((s2 + off/2) * off);
+    return (
+      anarchy.prng(s1, 1731)
+    ^ anarchy.prng(s2, off)
+    );
   }
 
-  function sghash(seed, spos) {
+  function sghash(seed, sgp) {
     // Hashes a seed and a supergrid position together into a combined seed
     // value.
 
-    var smix = mix_seeds(seed, spos[0], 40349);
-    smix = mix_seeds(smix, spos[1], 4839482);
-
-    return smix;
+    var r = anarchy.prng(
+      sgp[0] ^ anarchy.prng(
+        sgp[1],
+        seed + 18921
+      ),
+      1748120
+    );
+    for (var i = 0; i < 1 + (sgp[0] + sgp[1] + seed) % 3; ++i) {
+      r = anarchy.prng(r, seed);
+    }
+    return r;
   }
 
   function sample_table(table, seed) {
@@ -92,7 +96,7 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
         total_weight += table[e] + SMOOTHING;
       }
     }
-    var r = udist(anarchy.prng(seed)) * total_weight;
+    var r = anarchy.udist(seed) * total_weight;
 
     var last = undefined;
     var selected = null;
@@ -154,8 +158,8 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     for (var k in items) {
       if (items.hasOwnProperty(k)) {
         var w = items[k];
-        array.push([k, w * expdist(seed)]);
-        seed = anarchy.prng(seed);
+        array.push([k, w * anarchy.expdist(seed)]);
+        seed = anarchy.lfsr(seed);
       }
     }
 
@@ -204,7 +208,7 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     var index = dom.index;
     var l = 0
     while (l < max_len) {
-      seed = anarchy.prng(seed);
+      seed = anarchy.lfsr(seed);
       var try_order = index_order(index, seed, bias);
       try_order.forEach(function (key) {
         if (key == "") { // single-index item
@@ -215,9 +219,9 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
         } else if (Array.isArray(index[key])) { // array-of-indices item
           eindices = index[key].slice();
           eindices.sort(function (a, b) {
-            var ov = udist(seed);
-            seed = anarchy.prng(seed);
-            return ov < udist(seed);
+            var ov = anarchy.udist(seed);
+            seed = anarchy.lfsr(seed);
+            return ov < anarchy.udist(seed);
           });
           var result = undefined;
           eindices.forEach(function (ei) {
@@ -264,12 +268,12 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     var y = sgap[1];
     var asg_pos = sgap[2];
     if (asg_pos == 0) { // take from a neighbor
-      var x -= 1;
+      x -= 1;
     } else if (asg_pos == 1) { // take from a neighbor
-      var x -= 1;
-      var y += 1;
+      x -= 1;
+      y += 1;
     } else if (asg_pos == 2) { // take from a neighbor
-      var y += 1;
+      y += 1;
     } else if (asg_pos > 3) {
       asg_pos -= 3;
     }
@@ -343,14 +347,14 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
       var alt = supergrid_alternate(sgap);
       return [
         // adjacent edges on original supergrid tile:
-        canonical_sgapos([ sgap[0], sgap[1], prev_edge(sgap[2]) ],
-        canonical_sgapos([ sgap[0], sgap[1], next_edge(sgap[2]) ],
+        canonical_sgapos([ sgap[0], sgap[1], prev_edge(sgap[2]) ]),
+        canonical_sgapos([ sgap[0], sgap[1], next_edge(sgap[2]) ]),
         // adjacent edges on alternate supergrid tile:
-        canonical_sgapos([ alt[0], alt[1], prev_edge(alt[2]) ],
+        canonical_sgapos([ alt[0], alt[1], prev_edge(alt[2]) ]),
         canonical_sgapos([ alt[0], alt[1], next_edge(alt[2]) ]),
         // centers of original and alternate tiles:
         [ sgap[0], sgap[1], 3 ],
-        [ alt[0], alt[1], 3 ],
+        [ alt[0], alt[1], 3 ]
       ];
     }
   }
@@ -399,11 +403,6 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     ];
   }
 
-  function assignment_grid_holes_sumtable(agp) {
-    // Takes an assignment grid position, and returns the sumtable for holes in
-    // that assignment grid tile.
-  }
-
   function punctuated_agpos(sgap) {
     // Takes a supergrid position and an assignment position (0--6 clockwise
     // from left-vertical with 3 indicating center; see canonical_sgapos) and
@@ -424,25 +423,34 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     var asg_pos = cp[2];
 
     // density of inclusions in this assignment grid unit:
-    var d_seed = anarchy.prng(mix_seeds(ag_x, ag_y, 8190813480));
-    var incl_density = udist(d_seed) * MAX_INCLUSION_DENSITY;
-    d_seed = anarchy.prng(d_seed);
-
-    // total number of assignment slots reserved for inclusions:
-    var incl_mass = (
-      incl_density
-    * ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE
-    * ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE
-    * 4 // assignment positions per supergrid tile
-    ) >>> 0; // convert to unsigned integer
+    var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
+    var incl_density = (
+      MIN_INCLUSION_DENSITY
+    + anarchy.udist(d_seed) * (MAX_INCLUSION_DENSITY - MIN_INCLUSION_DENSITY)
+    );
+    d_seed = anarchy.lfsr(d_seed);
 
     // segment parameters:
     var segment = ugp[0] + ASSIGNMENT_REGION_SIDE * ugp[1];
     var n_segments = ASSIGNMENT_REGION_SIDE * ASSIGNMENT_REGION_SIDE;
-    var segment_capacity = (
-      (grid.ULTRAGRID_SIZE - 1)
-    * (grid.ULTRAGRID_SIZE - 1)
+    var segment_capacity = Math.floor(
+      MAX_LOCAL_INCLUSION_DENSITY
+    * (grid.ULTRAGRID_SIZE - 2)
+    * (grid.ULTRAGRID_SIZE - 2)
     * 4 // assignment positions per supergrid tile
+    );
+    var segment_full_size = (
+      grid.ULTRAGRID_SIZE
+    * grid.ULTRAGRID_SIZE
+    * 4 // assignment positions per supergrid tile
+    );
+
+    // total number of assignment slots reserved for inclusions:
+    var incl_mass = Math.floor(
+      incl_density
+    * ASSIGNMENT_REGION_SIDE
+    * ASSIGNMENT_REGION_SIDE
+    * segment_capacity
     );
 
     // prior inclusions:
@@ -455,14 +463,18 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
       d_seed
     );
 
+    // inclusions here:
     var incl_here = anarchy.distribution_portion(
       segment,
       incl_mass,
       n_segments,
       segment_capacity,
       INCLUSION_ROUGHNESS,
-      d_seed // seed must be the same!
+      d_seed // seed must be the same as in distribution_prior_sum above!
     );
+
+    // prior natural (non-inclusion) assignments:
+    var nat_prior = (segment_full_size * segment) - incl_prior;
 
     // TODO: HERE!
   }
@@ -472,7 +484,7 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   function generate_domains(seed, spos) {
     // Generates the domain list for the given supergrid position according to
     // the given seed.
-    var smix = sghash(seed, spos);
+    var smix = sghash(seed + 1, spos);
 
     var domain = sample_table(DOMAIN_WEIGHTS, smix);
     result = domains_list(domain);
@@ -536,10 +548,10 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   function generate_unlocked(hash) {
     // Generates an unlocked bitmask for a fresh supertile using the given hash.
     var result = [ 0, 0 ];
-    hash = anarchy.prng(hash);
+    hash = anarchy.lfsr(hash);
     var n_unlocked = MIN_UNLOCKED + (hash % (MAX_UNLOCKED - MIN_UNLOCKED));
     for (var i = 0; i < n_unlocked; ++i) {
-      hash = anarchy.prng(hash);
+      hash = anarchy.lfsr(hash);
       var ord = hash % 49;
       if (ord >= 32) {
         ord -= 32;

@@ -27,7 +27,7 @@ define([], function() {
 
   function circular_shift(x, distance) {
     // Circular bit shift; distance is capped at 3/4 of ID_BITS
-    var distance %= Math.floor(3 * ID_BITS / 4);
+    distance %= Math.floor(3 * ID_BITS / 4);
     var m = mask(distance);
     var fall_off = x & m;
     var shift_by = (ID_BITS - distance);
@@ -39,7 +39,7 @@ define([], function() {
 
   function rev_circular_shift(x, distance) {
     // Inverse circular shift (see above).
-    var distance %= Math.floor(3 * ID_BITS / 4);
+    distance %= Math.floor(3 * ID_BITS / 4);
     var m = mask(distance);
     var fall_off = x & (m << (ID_BITS - distance));
     var shift_by = (ID_BITS - distance);
@@ -61,38 +61,110 @@ define([], function() {
   }
   // fold is its own inverse.
 
-  var FLOP_MASK = 0xff00ff00;
+  var FLOP_MASK = 0xf0f0f0f0;
 
   function flop(x) {
-    // Flops each byte with the adjacent byte.
+    // Flops each 1/2 byte with the adjacent 1/2 byte.
     var left = x & FLOP_MASK;
     var right = x & ~FLOP_MASK;
-    return (right << 8) | (left >>> 8);
+    return (right << 4) | (left >>> 4);
   }
   // flop is its own inverse.
 
+  function scramble(x) {
+    // Implements a reversible linear-feedback-shift-register-like operation.
+    var trigger = x & 0x80200003;
+    var r = circular_shift(x, 1);
+    if (trigger) {
+      r ^= 0x03040610;
+    }
+    return r;
+  }
+
+  function rev_scramble(x) {
+    // Inverse of scramble (see above).
+    var pr = rev_circular_shift(x, 1);
+    var trigger = pr & 0x80200003;
+    if (trigger) {
+      // pr ^= rev_circular_shift(0x03040610, 1);
+      pr ^= 0x06080c20;
+    }
+    return pr;
+  }
+
   function prng(x, seed) {
     // A simple reversible pseudo-random number generator.
+
+    // seed scrambling:
+    seed = seed >>> 0;
+    seed = ((seed + 1) * (3 + (seed % 23))) >>> 0;
+    seed = fold(seed, 11) >>> 0; // prime
+    seed = scramble(seed) >>> 0;
+    seed = circular_shift(seed, seed + 23) >>> 0; // prime
+    seed = scramble(seed) >>> 0;
+    seed ^= (seed % 153) * scramble(seed);
+    seed = seed >>> 0;
+
+    // value scrambling:
     x ^= seed;
+    x = fold(x, seed + 3); // prime
     x = flop(x);
-    x = fold(x, seed + 17);
-    x = circular_shift(x, seed + 48);
-    x = fold(x, seed + 83);
-    x = circular_shift(x, seed + 105);
-    x = flop(x);
+    x = circular_shift(x, seed + 37); // prime
+    x = fold(x, seed + 89); // prime
+    x = circular_shift(x, seed + 107); // prime
+    x = scramble(x);
     return x;
   }
 
   function rev_prng(x, seed) {
     // Inverse of prng (see above).
+
+    // seed scrambling:
+    seed = seed >>> 0;
+    seed = ((seed + 1) * (3 + (seed % 23))) >>> 0;
+    seed = fold(seed, 11) >>> 0; // prime
+    seed = scramble(seed) >>> 0;
+    seed = circular_shift(seed, seed + 23) >>> 0; // prime
+    seed = scramble(seed) >>> 0;
+    seed ^= (seed % 153) * scramble(seed);
+    seed = seed >>> 0;
+
+    // value unscrambling:
+    x = rev_scramble(x);
+    x = rev_circular_shift(x, seed + 107); // prime
+    x = fold(x, seed + 89); // prime
+    x = rev_circular_shift(x, seed + 37); // prime
     x = flop(x);
-    x = rev_circular_shift(x, seed + 105);
-    x = fold(x, seed + 83);
-    x = rev_circular_shift(x, seed + 48);
-    x = fold(x, seed + 17);
-    x = flop(x);
+    x = fold(x, seed + 3); // prime
     x ^= seed;
     return x;
+  }
+
+  function lfsr(x) {
+    // Implements a max-cycle-length 32-bit linear-feedback-shift-register.
+    // See: https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+    // Note that this is NOT reversible!
+    var lsb = x & 1;
+    var r = x >>> 1;
+    if (lsb) {
+      r ^= 0x80200003; // 32, 22, 2, 1
+    }
+    return r;
+  }
+
+  function udist(x) {
+    // Generates a random number between 0 and 1 given a seed value.
+    var ux = lfsr(x >>> 0);
+    var sc = (ux ^ (ux << 16)) >>> 0;
+    return (sc % 2147483659) / 2147483659; // prime near 2^31
+  }
+
+  function expdist(x) {
+    // Generates a number from an exponential distribution with mean 0.5 given
+    // a seed. See:
+    // https://math.stackexchange.com/questions/28004/random-exponential-like-distribution
+    var u = udist(x);
+    return -Math.log(1 - u)/0.5;
   }
 
   function cohort(outer, cohort_size) {
@@ -347,21 +419,21 @@ define([], function() {
     // shuffle within a cohort.
     var r = inner;
     seed = seed ^ cohort_size;
-    r = cohort_spread(r, cohort_size, seed + 453);
-    r = cohort_mix(r, cohort_size, seed + 2891);
+    r = cohort_spread(r, cohort_size, seed + 457); // prime
+    r = cohort_mix(r, cohort_size, seed + 2897); // prime
     r = cohort_interleave(r, cohort_size);
-    r = cohort_spin(r, cohort_size, seed + 1982);
-    r = cohort_upend(r, cohort_size, seed + 47);
-    r = cohort_fold(r, cohort_size, seed + 837);
+    r = cohort_spin(r, cohort_size, seed + 1987); // prime
+    r = cohort_upend(r, cohort_size, seed + 47); // prime
+    r = cohort_fold(r, cohort_size, seed + 839); // prime
     r = cohort_interleave(r, cohort_size);
-    r = cohort_flop(r, cohort_size, seed + 53);
-    r = cohort_fold(r, cohort_size, seed + 201);
-    r = cohort_mix(r, cohort_size, seed + 728);
-    r = cohort_spread(r, cohort_size, seed + 881);
+    r = cohort_flop(r, cohort_size, seed + 53); // prime
+    r = cohort_fold(r, cohort_size, seed + 211); // prime
+    r = cohort_mix(r, cohort_size, seed + 733); // prime
+    r = cohort_spread(r, cohort_size, seed + 881); // prime
     r = cohort_interleave(r, cohort_size);
-    r = cohort_flop(r, cohort_size, seed + 192);
-    r = cohort_upend(r, cohort_size, seed + 794614);
-    r = cohort_spin(r, cohort_size, seed + 19);
+    r = cohort_flop(r, cohort_size, seed + 193); // prime
+    r = cohort_upend(r, cohort_size, seed + 794641); // prime
+    r = cohort_spin(r, cohort_size, seed + 19); // prime
     return r;
   }
 
@@ -369,21 +441,21 @@ define([], function() {
     // Inverse shuffle (see above).
     var r = inner;
     seed = seed ^ cohort_size;
-    r = rev_cohort_spin(r, cohort_size, seed + 19);
-    r = cohort_upend(r, cohort_size, seed + 794614);
-    r = cohort_flop(r, cohort_size, seed + 192);
+    r = rev_cohort_spin(r, cohort_size, seed + 19); // prime
+    r = cohort_upend(r, cohort_size, seed + 794641); // prime
+    r = cohort_flop(r, cohort_size, seed + 193); // prime
     r = rev_cohort_interleave(r, cohort_size);
-    r = rev_cohort_spread(r, cohort_size, seed + 881);
-    r = rev_cohort_mix(r, cohort_size, seed + 728);
-    r = rev_cohort_fold(r, cohort_size, seed + 201);
-    r = cohort_flop(r, cohort_size, seed + 53);
+    r = rev_cohort_spread(r, cohort_size, seed + 881); // prime
+    r = rev_cohort_mix(r, cohort_size, seed + 733); // prime
+    r = rev_cohort_fold(r, cohort_size, seed + 211); // prime
+    r = cohort_flop(r, cohort_size, seed + 53); // prime
     r = rev_cohort_interleave(r, cohort_size);
-    r = rev_cohort_fold(r, cohort_size, seed + 837);
-    r = cohort_upend(r, cohort_size, seed + 47);
-    r = rev_cohort_spin(r, cohort_size, seed + 1982);
+    r = rev_cohort_fold(r, cohort_size, seed + 839); // prime
+    r = cohort_upend(r, cohort_size, seed + 47); // prime
+    r = rev_cohort_spin(r, cohort_size, seed + 1987); // prime
     r = rev_cohort_interleave(r, cohort_size);
-    r = rev_cohort_mix(r, cohort_size, seed + 2891);
-    r = rev_cohort_spread(r, cohort_size, seed + 453);
+    r = rev_cohort_mix(r, cohort_size, seed + 2897); // prime
+    r = rev_cohort_spread(r, cohort_size, seed + 457); // prime
     return r;
   }
 
@@ -579,9 +651,16 @@ define([], function() {
     "rev_circular_shift": rev_circular_shift,
     "fold": fold,
     "flop": flop,
+    "scramble": scramble,
+    "rev_scramble": rev_scramble,
 
     "prng": prng,
     "rev_prng": rev_prng,
+
+    "lfsr": lfsr,
+
+    "udist": udist,
+    "expdist": expdist,
 
     "cohort": cohort,
     "cohort_inner": cohort_inner,
@@ -595,13 +674,11 @@ define([], function() {
     "cohort_spin": cohort_spin,
     "rev_cohort_spin": rev_cohort_spin,
     "cohort_flop": cohort_flop,
-    "rev_cohort_flop": rev_cohort_flop,
     "cohort_mix": cohort_mix,
     "rev_cohort_mix": rev_cohort_mix,
     "cohort_spread": cohort_spread,
     "rev_cohort_spread": rev_cohort_spread,
     "cohort_upend": cohort_upend,
-    "rev_cohort_upend": rev_cohort_upend,
     "cohort_shuffle": cohort_shuffle,
     "rev_cohort_shuffle": rev_cohort_shuffle,
 

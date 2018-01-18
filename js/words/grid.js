@@ -2,7 +2,6 @@
 // Hex grid code.
 
 define([], function() {
-
   // Grid size in pixels
   var GRID_SIZE = 45;
 
@@ -87,7 +86,7 @@ define([], function() {
     var cellx = (wp[0] + GRID_EDGE/2);
     var col = Math.floor(cellx / (GRID_EDGE*1.5));
 
-    var celly = (wp[1] + GRID_SIZE/(2 - is_odd(col)));
+    var celly = (wp[1] + GRID_SIZE/(2 - (col % 2 != 0)));
     // Note fancy denominator shifts grid squares in odd rows (see picture)
     var row = Math.floor(celly / GRID_SIZE)
 
