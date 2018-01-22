@@ -159,6 +159,12 @@ define([], function() {
     return (sc % 2147483659) / 2147483659; // prime near 2^31
   }
 
+  function idist(x, start, end) {
+    // Even distribution over the given integer range, including start but
+    // excluding end. Distribution bias is about one part in (range/2^31).
+    return Math.floor(udist(x) * (max - min)) + min;
+  }
+
   function expdist(x) {
     // Generates a number from an exponential distribution with mean 0.5 given
     // a seed. See:
@@ -660,6 +666,7 @@ define([], function() {
     "lfsr": lfsr,
 
     "udist": udist,
+    "idist": idist,
     "expdist": expdist,
 
     "cohort": cohort,

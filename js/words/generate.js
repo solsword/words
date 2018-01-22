@@ -6,11 +6,6 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   // Smoothing for table sampling.
   var SMOOTHING = 1.5;
 
-  // Size of assignment region is this squared; should be large enough to
-  // accommodate even a relatively large corpus (vocabulary, not count).
-  // The units are ultragrid tiles.
-  var ASSIGNMENT_REGION_SIDE = 1000;
-
   // Limits on the fraction of an available assignment grid spaces that can be
   // made up of inclusions. Computed as a fraction of remaining spaces after
   // MAX_LOCAL_INCLUSION_DENSITY and edge restrictions have been accounted for.
@@ -30,6 +25,9 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   // TODO: Use these?
   var INCLUSION_MIN_SIZE = 6;
   var INCLUSION_MAX_SIZE = 35;
+
+  // Number of possible connections from each plane:
+  var MULTIPLANAR_CONNECTIONS = 64;
 
   // All known combined domains.
   var DOMAIN_COMBOS = {
@@ -241,186 +239,17 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     return undefined;
   }
 
-  function canonical_sgapos(sgap) {
-    // Converts an arbitrary supergrid+assignment position combination to the
-    // corresponding canonical combination. Assignment positions 4, 5, and 6
-    // are mirrored to positions 0, 1, an 2, while positions 0--3 are
-    // unchanged. The return value is an array with supergrid x,y followed by
-    // canonical assignment position. The assignment positions are as follows,
-    // with positions 0--3 being canonical:
+  function ultratile_punctuation_parameters(ugp) {
+    // Takes an ultragrid position and returns two values:
     //
-    //
-    //                     1     ###     2
-    //                        ###   ###
-    //                     ###         ###
-    //                  ###               ###
-    //                  #                   #
-    //                  #                   #
-    //                0 #         3         # 4
-    //                  #                   #
-    //                  #                   #
-    //                  ###               ###
-    //                     ###         ###
-    //                        ###   ###
-    //                      6    ###     5
-    //
-    var x = sgap[0];
-    var y = sgap[1];
-    var asg_pos = sgap[2];
-    if (asg_pos == 0) { // take from a neighbor
-      x -= 1;
-    } else if (asg_pos == 1) { // take from a neighbor
-      x -= 1;
-      y += 1;
-    } else if (asg_pos == 2) { // take from a neighbor
-      y += 1;
-    } else if (asg_pos > 3) {
-      asg_pos -= 3;
-    }
-    return [ x, y, asg_pos ];
-  }
-
-  function supergrid_alternate(sgap) {
-    // Returns an array containing the supergrid position and assignment
-    // position which overlap with the given position. Returns the inputs if
-    // the given asg_position is 6 (center).
-    var asg_pos = sgap[2];
-    if (asg_pos == 0) {
-      return [ sgap[0] - 1, sgap[1], 4 ];
-    } else if (asg_pos == 1) {
-      return [ sgap[0] - 1, sgap[1] + 1, 5 ];
-    } else if (asg_pos == 2) {
-      return [ sgap[0], sgap[1] + 1, 6 ];
-
-    } else if (asg_pos == 4) {
-      return [ sgap[0] + 1, sgap[1], 0 ];
-    } else if (asg_pos == 5) {
-      return [ sgap[0] + 1, sgap[1] - 1, 1 ];
-    } else if (asg_pos == 6) {
-      return [ sgap[0], sgap[1] - 1, 2 ];
-
-    } else {
-      // neighbor via asg_pos 3 (center) it just yourself
-      return [ sgap[0], sgap[1], asg_pos ];
-    }
-  }
-
-  function next_edge(asg_pos) {
-    // Computes the next edge index for an assignment position, ignoring the
-    // center position (the next edge for the center is the first edge).
-    if (asg_pos == 3 || asg_pos == 6) {
-      return 0;
-    } else if (asg_pos == 2) {
-      return 4;
-    } else {
-      return asg_pos + 1;
-    }
-  }
-
-  function prev_edge(asg_pos) {
-    // Computes the previous edge index for an assignment position, ignoring
-    // the center position (the previous edge for the center is the last edge).
-    if (asg_pos == 3 || asg_pos == 0) {
-      return 6;
-    } else if (asg_pos == 4) {
-      return 2;
-    } else {
-      return asg_pos - 1;
-    }
-  }
-
-  function supergrid_asg_neighbors(sgap) {
-    // Returns a list of supergrid/assignment positions which are adjacent to
-    // the given position. Each entry has three values: supergrid x,y and
-    // assignment position. There are always six possible neighbors, and they
-    // are returned in canonical form.
-    if (sgap[2] == 3) { // center: all 6 edges are the neighbors
-      return [
-        canonical_sgapos([ sgap[0], sgap[1], 0 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 1 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 2 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 4 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 5 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 6 ])
-      ];
-    } else {
-      var alt = supergrid_alternate(sgap);
-      return [
-        // adjacent edges on original supergrid tile:
-        canonical_sgapos([ sgap[0], sgap[1], prev_edge(sgap[2]) ]),
-        canonical_sgapos([ sgap[0], sgap[1], next_edge(sgap[2]) ]),
-        // adjacent edges on alternate supergrid tile:
-        canonical_sgapos([ alt[0], alt[1], prev_edge(alt[2]) ]),
-        canonical_sgapos([ alt[0], alt[1], next_edge(alt[2]) ]),
-        // centers of original and alternate tiles:
-        [ sgap[0], sgap[1], 3 ],
-        [ alt[0], alt[1], 3 ]
-      ];
-    }
-  }
-
-  function agpos(sgap) {
-    // Takes a supergrid position and an assignment position (0--5 for sides
-    // clockwise from left-vertical and 6 for center) and returns the
-    // assignment grid position plus assignment grid number of that position on
-    // that supergrid tile. Note that each assignment grid number is assigned
-    // to two supergrid tiles, except the center position. For example, the
-    // position-4 grid number for the tile at (0, 0) is also the position-1
-    // grid number for the tile at (1, 0) because those tiles share that edge.
-    var cp = canonical_sgapos(sgap);
-    var asg_x = cp[0] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var x = cp[0] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var y = cp[1] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    asg_pos = cp[2];
-    return [
-      asg_x,
-      asg_y,
-      (x * ASSIGNMENT_REGION_SIDE + y) * 4 + asg_pos
-    ];
-  }
-
-  function supergrid_home(agp) {
-    // The inverse of agpos, takes an assignment grid position
-    // (grid indices and number) and returns the supergrid position of a
-    // supergrid tile which includes the given assignment number, along with
-    // the assignment position within that supergrid tile. The tile returned
-    // will be the leftmost/bottommost of the two tiles which are assigned
-    // given assignment number.
-    var asg_x = agp[0];
-    var asg_y = agp[1];
-    var asg_number = agp[2];
-
-    var asg_pos = asg_number % 4;
-    var apg_xy = Math.floor(asg_number / 4);
-    var y = asg_xy % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var x = Math.floor(asg_xy / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE));
-
-    return [
-      asg_x * (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE) + x,
-      asg_y * (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE) + y,
-      asg_pos
-    ];
-  }
-
-  function punctuated_agpos(sgap) {
-    // Takes a supergrid position and an assignment position (0--6 clockwise
-    // from left-vertical with 3 indicating center; see canonical_sgapos) and
-    // returns an array containing:
-    //
-    //   x,y - assignment grid position
-    //   n - assignment index
-    //   m - multiplanar offset value
-
-
-    // canonical supergrid position and ultragrid position of that:
-    var cp = canonical_sgapos(sgap);
-    var ugp = grid.ugpos(cp); // third entry is ignored
+    // 1. The number of non-inclusion assignment positions within this tile's
+    //    assignment grid tile prior to it.
+    // 2. The number of inclusion assignment positions within this ultragrid
+    //    tile.
 
     // assignment grid position:
-    var ag_x = ugp[0] / ASSIGNMENT_REGION_SIDE;
-    var ag_y = ugp[1] / ASSIGNMENT_REGION_SIDE;
-    var asg_pos = cp[2];
+    var ag_x = ugp[0] / grid.ASSIGNMENT_REGION_SIDE;
+    var ag_y = ugp[1] / grid.ASSIGNMENT_REGION_SIDE;
 
     // density of inclusions in this assignment grid unit:
     var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
@@ -431,25 +260,19 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     d_seed = anarchy.lfsr(d_seed);
 
     // segment parameters:
-    var segment = ugp[0] + ASSIGNMENT_REGION_SIDE * ugp[1];
-    var n_segments = ASSIGNMENT_REGION_SIDE * ASSIGNMENT_REGION_SIDE;
+    var segment = ugp[0] + grid.ASSIGNMENT_REGION_SIDE * ugp[1];
+    var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
     var segment_capacity = Math.floor(
       MAX_LOCAL_INCLUSION_DENSITY
-    * (grid.ULTRAGRID_SIZE - 2)
-    * (grid.ULTRAGRID_SIZE - 2)
-    * 4 // assignment positions per supergrid tile
+      grid.ULTRATILE_INTERIOR_SOCKETS
     );
-    var segment_full_size = (
-      grid.ULTRAGRID_SIZE
-    * grid.ULTRAGRID_SIZE
-    * 4 // assignment positions per supergrid tile
-    );
+    var segment_full_size = grid.ULTRATILE_SOCKETS;
 
     // total number of assignment slots reserved for inclusions:
     var incl_mass = Math.floor(
       incl_density
-    * ASSIGNMENT_REGION_SIDE
-    * ASSIGNMENT_REGION_SIDE
+    * grid.ASSIGNMENT_REGION_SIDE
+    * grid.ASSIGNMENT_REGION_SIDE
     * segment_capacity
     );
 
@@ -476,8 +299,233 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     // prior natural (non-inclusion) assignments:
     var nat_prior = (segment_full_size * segment) - incl_prior;
 
-    // TODO: HERE!
+    return [ nat_prior, incl_here ];
   }
+
+  function ultratile_muliplanar_info(ugp, seed) {
+    // Takes an ultragrid position and computes multiplanar offset info for
+    // each assignment position in that ultratile. Returns three things:
+    // 1. The number of prior non-inclusion positions in this assignment tiles,
+    //    as returned by ultratile_punctuation_parameters (see above).
+    // 2. A flat array containing the multiplanar offset for each assignment
+    //    position in the given ultragrid tile.
+    // 3. A one-dimensional array containing the sum of the number of
+    //    non-inclusion assignments on each row of the ultragrid.
+
+    var r = sghash(seed + 489813, ugp);
+
+    var info = ultratile_punctuation_parameters(ugp);
+    var nat_prior = info[0];
+    var incl_here = info[1];
+
+    // initialize result to all-natural:
+    var result = [];
+    for (var i = 0; i < ULTRATILE_SOCKETS; ++i) {
+      result[i] = 0;
+    }
+
+    var min_ni = incl_here / INCLUSION_MAX_SIZE;
+    var max_ni = incl_here / INCLUSION_MIN_SIZE;
+
+    var n_inclusions = anarchy.idist(r, min_ni, max_ni + 1);
+    r = anarchy.lfsr(r);
+
+    // compute the seed location and index of each inclusion:
+    var iseeds = [];
+    var isizes = [];
+    var impi = [];
+    var queues = [];
+    for (var i = 0; i < n_inclusions; ++i) {
+      // random (non-overlapping) seed from core sockets:
+      iseeds[i] = (
+        ULTRATILE_PRE_CORE
+      + anarchy.cohort_shuffle(i, ULTRATILE_CORE_SOCKETS, r)
+      );
+      r = anarchy.lfsr(r);
+
+      // zero size:
+      isizes[i] = 0;
+
+      // TODO: better here
+      // random multiplanar index
+      impi[i] = anarchy.idist(r, 0, MULTIPLANAR_CONNECTIONS);
+      r = anarchy.lfsr(r);
+
+      // seed is on the queue:
+      queues[i] = [ iseeds[i] ];
+    }
+
+    // now iteratively expand each inclusion:
+    var left = incl_here;
+    var blocked = [];
+    while (left > 0) {
+      for (var i = 0; i < iseeds.length; ++i) { // each inclusion gets a turn
+        // detect blocked inclusions:
+        if (queues[i].length == 0) {
+          if (isizes[i] >= INCLUSION_MIN_SIZE) {
+            continue; // this inclusion will just be small
+          } else {
+            blocked.push(i); // must keep expanding!
+          }
+        }
+        var loc = queues[i].shift();
+
+        if (blocked.length > 0) {
+          here = blocked.shift(); // steal the expansion point!
+          i -= 1; // redo this iteration next
+        } else {
+          here = i;
+        }
+
+        // assign to this inclusion & decrement remaining:
+        result[loc] = impi[here];
+        left -= 1;
+
+        // add neighbors to queue if possible:
+        var x = (loc / grid.ASSIGNMENT_SOCKETS) % grid.ULTRAGRID_SIZE;
+        var y = (loc / grid.ASSIGNMENT_SOCKETS) / grid.ULTRAGRID_SIZE;
+        var a = loc % grid.ASSIGNMENT_SOCKETS;
+        var neighbors = grid.supergrid_asg_neighbors([x, y, a]);
+        for (var j = 0; j < neighbors.length; ++j) {
+          var nb = neighbors[j];
+          if (
+            nb[0] > 0
+         && nb[0] < grid.ULTRAGRID_SIZE - 1
+            nb[1] > 0
+         && nb[1] < grid.ULTRAGRID_SIZE - 1
+          ) { // not on the edge (slight asymmetry, but that's alright).
+            var nloc = (
+              nb[0] * grid.ASSIGNMENT_SOCKETS
+            + nb[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
+            + nb[2]
+            );
+            var taken = false;
+            // check for queue overlap
+            for (var k = 0; k < queues.length; ++k) {
+              if (queues[k].indexOf(nloc) >= 0) {
+                taken = true;
+                break;
+              }
+            }
+            if (result[nloc] == 0 && !taken) {
+              // add to queue in random position:
+              // max of two rngs biases towards later indices, letting earlier
+              // things mostly stay early.
+              var idx = anarchy.idist(r, 0, queues[here].length);
+              r = anarchy.lfsr(r);
+              var alt_idx = anarchy.idist(r, 0, queues[here].length);
+              r = anarchy.lfsr(r);
+              if (alt_idx > idx) {
+                idx = alt_idx;
+              }
+              queues[here].splice(idx, 0, nloc);
+            }
+          }
+        }
+      }
+    }
+
+    // now that our results matrix is done, compute row pre-totals
+    var presums = [];
+    var sum = 0;
+    for (var y = 0; y < grid.ULTRAGRID_SIZE - 1; ++y) {
+      presums.push(sum);
+      for (var x = 0; x < grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS; ++x) {
+        var loc = x + y * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS;
+        if (result[loc] == 0) {
+          sum += 1;
+        }
+      }
+    }
+
+    // return our results:
+    return [nat_prior, result, presums];
+  }
+
+  function punctuated_assignment_index(ugap, mpinfo, seed) {
+    // Takes an ultragrid assignment position (ultratile x/y, sub x/y, and
+    // assignment index) and corresponding ultragrid multiplanar offset info
+    // (the result of ultratile_muliplanar_info above) and returns an array
+    // containing:
+    //
+    //   x,y - assignment grid position
+    //   n - assignment index
+    //   m - multiplanar offset value
+    //
+    //   Note that the given ultragrid assignment position must be in canonical
+    //   form, so that the correspondence with given mpinfo won't be broken.
+
+    // unpack:
+    var nat_prior = mpinfo[0];
+    var mptable = mpinfo[1];
+    var mpsums = mpinfo[2];
+
+    var ut_x = ugp[0];
+    var ut_y = ugp[1];
+    var sub_x = ugp[2];
+    var sub_y = ugp[3];
+    var ap = ugp[4];
+
+    // compute assignment tile:
+    var asg_x = Math.floor(ut_x / grid.ASSIGNMENT_REGION_SIDE);
+    var asg_y = Math.floor(ut_y / grid.ASSIGNMENT_REGION_SIDE);
+
+    // linear index within ultratile:
+    var lin = (
+      (
+        sub_x
+      + sub_y * grid.ULTRAGRID_SIZE
+      ) * grid.ASSIGNMENT_SOCKETS
+    + ap
+    );
+
+    // get mutiplanar offset
+    var mp_offset = mptable[lin];
+    var asg_index = 0;
+    var r = sghash(seed + 379238109821, [ut_x, ut_y])
+    if (mp_offset == 0) { // natural: index determined by prior stuff
+      var row = Math.floor(lin / grid.ULTRATILE_ROW_SOCKETS);
+      asg_index = nat_prior + mpsums[row];
+      // iterate from beginning of row to count local priors
+      for (var here = sub_y * grid.ULTRATILE_ROW_SOCKETS; here < lin; ++here) {
+        if (mptable[here] == 0) {
+          asg_index += 1;
+        }
+      }
+    } else { // inclusion: index determined by RNG
+      // TODO: Pull these together near a destination?
+      // compute a suitable seed value for this inclusion:
+      var ir = r + mp_offset;
+      for (var i = 0; i < (mp_offset % 7) + 2; ++i) {
+        ir = anarchy.lfsr(r);
+      }
+      asg_index = anarchy.cohort_shuffle(
+        lin,
+        grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
+        ir
+      );
+    }
+
+    // Return values:
+    return [ asg_x, asg_y, asg_index, mp_offset ];
+  }
+
+  function punctuated_assignment_lookup(agp, mp_offset) {
+    // The inverse of punctuated_assignment_index (see above); this takes an
+    // assignment position (assignment grid x/y and linear number) and a
+    // multiplanar offset, and returns a (canonical) supergrid assignment
+    // position that contains the indicated assignment index.
+
+    // TODO: How to look up cached mpinfo?!?
+
+    // unpack:
+    var nat_prior = mpinfo[0];
+    var mptable = mpinfo[1];
+    var mpsums = mpinfo[2];
+
+    var asg_x = agp[0];
+    var asg_y = agp[1];
+    var ap = agp[2];
 
   // TODO: HERE
 
@@ -622,11 +670,9 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
-    "canonical_sgapos": canonical_sgapos,
-    "supergrid_alternate": supergrid_alternate,
-    "supergrid_asg_neighbors": supergrid_asg_neighbors,
-    "agpos": agpos,
-    "supergrid_home": supergrid_home,
+    "punctuated_agpos": punctuated_agpos,
+    "ultratile_punctuation_parameters": ultratile_punctuation_parameters,
+    "ultratile_muliplanar_info": ultratile_muliplanar_info,
     "punctuated_agpos": punctuated_agpos,
   };
 });
