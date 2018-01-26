@@ -3,9 +3,20 @@
 
 define(["./locale"], function(locale, finalize) {
 
+  // Whether or not to issue console warnings.
+  var WARNINGS = true;
+
   var DOMAINS = {};
   var LOADING = {};
   var FAILED = {};
+
+  // The number of bins in the domain frequency sumtable. Each bin corresponds
+  // to the count of words with the given frequency (i.e., the first bin
+  // contains the sum of the counts of words with frequency 1), except the last
+  // bin, which contains all of the rest of the words. Accordingly, any word
+  // with frequency greater than N-1 will be accumulated in the Nth bin.
+  var DOMAIN_FREQUENCY_BINS = 256;
+  // TODO: Use a sparse table for better memory and time efficiency!
 
   var FINALIZE_URL = "js/words/workers/finalize_dict.js";
   //var FINALIZE_URL = "js/words/workers/test.js";
@@ -185,6 +196,7 @@ define(["./locale"], function(locale, finalize) {
         words = words.slice(i);
       }
       var entries = [];
+      var total_count = 0;
       words.forEach(function (w) {
         var bits = w.split(",");
         var word = bits[0];
@@ -196,18 +208,45 @@ define(["./locale"], function(locale, finalize) {
           word = glyphs;
         }
         entries.push([glyphs, word, freq]);
+        total_count += freq;
       });
-      // TODO: Really this?
-      /*
+      // Sort by frequency
       entries.sort(function (a, b) {
         return b[2] - a[2]; // put most-frequent words first
       });
-      */
+      // Create a sumtable for each frequency count, starting with a grouped
+      // bin for frequencies over a cutoff:
+      var counttable = [];
+      for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+        counttable[i] = 0;
+      }
+      var hf_entries = 0;
+      var freq = 
+      for (var i = 0; i < entries.length; ++i) {
+        var freq = entries[i][2];
+        if (freq >= DOMAIN_FREQUENCY_BINS) {
+          counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
+          hf_entries += 1;
+        } else {
+          counttable[freq - 1] += freq;
+        }
+      }
+      var sumtable = [];
+      var sum = 0;
+      for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+        var j = DOMAIN_FREQUENCY_BINS - i - 1;
+        sum += counttable[j];
+        sumtable[i] = sum;
+      }
       var json = {
+        "name": name,
         "ordered": true,
         "cased": false,
         "colors": [],
-        "entries": entries
+        "entries": entries,
+        "total_count": total_count,
+        "high_frequency_entries": hf_entries,
+        "count_sums": sumtable
       }
       directives.forEach(function (d) {
         dbits = d.slice(1).split(":");
@@ -239,9 +278,9 @@ define(["./locale"], function(locale, finalize) {
   }
 
   function check_word(glyphs, domains) {
-    // Returns a list of word, definition pairs that match the given glyphs in
-    // one of the given domains. The list will be empty if there are no
-    // matches.
+    // Returns a list of glyphs, word, frequency triples that match the given
+    // glyphs in one of the given domains. The list will be empty if there are
+    // no matches.
     var entries = [];
     domains.forEach(function (domain) {
       var match = find_word_in_domain(glyphs, domain);
@@ -332,7 +371,53 @@ define(["./locale"], function(locale, finalize) {
     return entry;
   }
 
+  function unrolled_word(n, domain) {
+    // Finds the nth word in the given domain, where each word is repeated
+    // according to its frequency. The words are sorted by frequency, so lower
+    // values of n will tend to return more-common words. Time taken is at
+    // worst proportional to the number of high-frequency words in the domain,
+    // or the number of explicit bins (DOMAIN_FREQUENCY_BINS, which is fixed).
+    //
+    // Note that n will be wrapped to fit into the total word count of the
+    // domain.
+    //
+    // Returns a [glyphs, word, frequency] triple.
+    n %= domain.total_count;
+    if (n < domain.count_sums[0]) {
+      for (var i = 0; i < domain.high_frequency_entries; ++i) {
+        var e = domain.entries[i];
+        n -= e[2];
+        if (n < 0) {
+          return e;
+        }
+      }
+    } else {
+      var index = domain.high_frequency_entries;
+      for (var i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
+        var count = DOMAIN_FREQUENCY_BINS - i;
+        if (n < domain.count_sums[i]) { // it's in this bin
+          var inside = n - domain.count_sums[i-1];
+          return domain.entries[index + Math.floor(inside / count)];
+        } else {
+          index += Math.floor(
+            (domain.count_sums[i] - domain.count_sums[i-1])
+          / count
+          );
+        }
+      }
+    }
+    if (WARNINGS) {
+      console.log(
+        "WARNING: unexpectedly dodged both cases in unrolled_word!\n"
+      + "  (n is " + n + " and the domain is '" + domain.name + "')"
+      )
+    }
+    // default to the most-frequent entry in this should-be-impossible case:
+    return domain.entries[0];
+  }
+
   return {
+    "WARNINGS": WARNINGS,
     "LOADING": LOADING,
     "lookup_domain": lookup_domain,
     "load_dictionary": load_dictionary,

@@ -68,11 +68,15 @@ require(["../locale"], function (locale) {
     // Analyze glyphs if needed:
     if (!json.hasOwnProperty("glyph_counts")) {
       json.glyph_counts = {};
+      json.total_glyph_count = 0;
       if (json.ordered) {
         json.bigram_counts = {};
+        json.total_bigram_count = 0;
         json.trigram_counts = {};
+        json.total_trigram_count = 0;
       } else {
         json.pair_counts = {};
+        json.total_pair_count = 0;
       }
 
       var l = json.entries.length;
@@ -104,6 +108,7 @@ require(["../locale"], function (locale) {
           } else {
             json.glyph_counts[g] = f / l;
           }
+          json.total_glyph_count += f / l;
 
           // Count bigrams/trigrams:
           if (json.ordered) {
@@ -120,6 +125,7 @@ require(["../locale"], function (locale) {
               } else {
                 bg_entry[bi[1]] = f / l;
               }
+              json.total_bigram_count += f / l;
             }
             if (j < gl.length - 2) {
               var tri = gl.slice(i, i+3);
@@ -141,6 +147,7 @@ require(["../locale"], function (locale) {
               } else {
                 tr_entry[tri[2]] = f / l;
               }
+              json.total_trigram_count += f / l;
             }
           } else { // unordered: count all pairs
             for (var k = j+1; k < gl.length; ++k) {
@@ -156,6 +163,7 @@ require(["../locale"], function (locale) {
               } else {
                 json.pair_counts[pair] = f / l;
               }
+              json.total_pair_count += f / l;
             }
           }
         }

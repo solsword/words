@@ -31,14 +31,18 @@ define([], function() {
     [-1, 0]
   ]
 
+  // Number of canonical sockets per supergrid tile, and number of total
+  // sockets including non-canonical shared sockets.
+  var ASSIGNMENT_SOCKETS = 4;
+  var COMBINED_SOCKETS = 7;
+
   // How big are ultragrid units?
   var ULTRAGRID_SIZE = 12;
-  var ASSIGNMENT_SOCKETS = 4;
 
   // Ultragrid size constants:
   var ULTRATILE_ROW_SOCKETS = ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS;
 
-  // Number of assignment positions in an ultragrid tile:
+  // Number of assignment sockets in an ultragrid tile:
   var ULTRATILE_SOCKETS = (
     ULTRAGRID_SIZE
   * ULTRAGRID_SIZE
@@ -68,9 +72,10 @@ define([], function() {
   // Size of assignment region is this squared; should be large enough to
   // accommodate even a relatively large corpus (vocabulary, not count).
   // The units are ultragrid tiles.
-  var ASSIGNMENT_REGION_SIDE = 1000;
+  var ASSIGNMENT_REGION_SIDE = 1024;
 
   // Total sockets in an assignment region.
+  //   1024 * 1024 * 12 * 12 * 4 ~= 600,000,000
   var ASSIGNMENT_REGION_TOTAL_SOCKETS = (
     ASSIGNMENT_REGION_SIDE
   * ASSIGNMENT_REGION_SIDE

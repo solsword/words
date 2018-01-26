@@ -650,6 +650,35 @@ define([], function() {
     }
   }
 
+  function max_smaller(value, sumtable) {
+    // Uses binary search to find and return the index of the largest sum in
+    // the given sumtable that's smaller than the given value. Works in time
+    // proportional to the logarithm of the sumtable size. Returns -1 if there
+    // is no entry in the sumtable smaller than the given value.
+    var from = 0;
+    var to = sumtable.length;
+    var where = 0;
+    while (to - from > 2) {
+      where = Math.floor((to - from)/2);
+      if (mpsums[where] >= value) {
+        to = where;
+      } else {
+        from = where;
+      }
+    }
+    if (to - from == 1 && sumtable[from] < value) {
+      return from;
+    } else {
+      for (var i = from; i < to - 1; ++i) {
+        if (sumtable[i] < value && sumtable[i+1] >= value) {
+          return i;
+        }
+      }
+    }
+    // no entry is smaller than the given value:
+    return -1;
+  }
+
   return {
     "mask": mask,
     "byte_mask": byte_mask,
@@ -693,5 +722,7 @@ define([], function() {
     "distribution_portion": distribution_portion,
     "distribution_prior_sum": distribution_prior_sum,
     "distribution_segment": distribution_segment,
+
+    "max_smaller": max_smaller,
   };
 });

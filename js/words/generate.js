@@ -1,7 +1,12 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
 
-define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
+define(
+["./dict", "./grid", "./anarchy", "./caching"],
+function(dict, grid, anarchy, caching) {
+
+  // Whether or not to issue warnings to the console.
+  var WARNINGS = true;
 
   // Smoothing for table sampling.
   var SMOOTHING = 1.5;
@@ -29,6 +34,9 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   // Number of possible connections from each plane:
   var MULTIPLANAR_CONNECTIONS = 64;
 
+  // Cache sizes for various things:
+  var MULTIPLANAR_INFO_CACHE_SIZE = 4096;
+
   // All known combined domains.
   var DOMAIN_COMBOS = {
     //"base": [ "türk" ],
@@ -41,6 +49,13 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     "اللغة_العربية_الفصحى": 5,
     "base": 50
   }
+
+  // TODO: Better here!
+  var MULTIPLANAR_DOMAINS = [
+    "base",
+    "türk",
+    "اللغة_العربية_الفصحى"
+  ]
 
   // Limits on the number of unlocked tiles per supertile:
   var MAX_UNLOCKED = 8;
@@ -302,6 +317,97 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     return [ nat_prior, incl_here ];
   }
 
+  function assignment_punctuation_parameters(agp) {
+    // The converse of ultratile_punctuation_parameters, this looks up the same
+    // parameters using the assignment position (assignment grid coordinates
+    // plus linear assignment number in that tile) instead of the ultratile
+    // position. Returns the discovered ultratile position as well as the prior
+    // and inclusion information, structured as follows:
+    //
+    // [
+    //   [ ultragrid_x, ultragrid_y ],
+    //   [ nat_prior, incl_here ]
+    // ]
+
+    var ag_x = agp[0];
+    var ag_y = agp[1];
+    var ag_idx = agp[2];
+
+    // density of inclusions in this assignment grid unit:
+    var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
+    var incl_density = (
+      MIN_INCLUSION_DENSITY
+    + anarchy.udist(d_seed) * (MAX_INCLUSION_DENSITY - MIN_INCLUSION_DENSITY)
+    );
+    d_seed = anarchy.lfsr(d_seed);
+
+    // segment parameters:
+    var segment_full_size = grid.ULTRATILE_SOCKETS;
+    var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
+    var segment_capacity = Math.floor(
+      MAX_LOCAL_INCLUSION_DENSITY
+      grid.ULTRATILE_INTERIOR_SOCKETS
+    );
+
+    // total number of assignment slots reserved for inclusions:
+    var incl_mass = Math.floor(
+      incl_density
+    * grid.ASSIGNMENT_REGION_SIDE
+    * grid.ASSIGNMENT_REGION_SIDE
+    * segment_capacity
+    );
+
+    // compute segment:
+    var segment = anarchy.distribution_segment(
+      ag_idx,
+      incl_mass,
+      n_segments,
+      segment_capacity,
+      INCLUSION_ROUGHNESS,
+      d_seed
+    );
+
+    // prior inclusions:
+    var incl_prior = anarchy.distribution_prior_sum(
+      segment,
+      incl_mass,
+      n_segments,
+      segment_capacity,
+      INCLUSION_ROUGHNESS,
+      d_seed
+    );
+
+    // inclusions here:
+    var incl_here = anarchy.distribution_portion(
+      segment,
+      incl_mass,
+      n_segments,
+      segment_capacity,
+      INCLUSION_ROUGHNESS,
+      d_seed // seed must be the same as in distribution_prior_sum above!
+    );
+
+    // prior natural (non-inclusion) assignments:
+    var nat_prior = (segment_full_size * segment) - incl_prior;
+
+    // back out (global) ultragrid position:
+    var ugp = [
+      (
+        (segment % grid.ASSIGNMENT_REGION_SIDE)
+      + (ag_x * grid.ASSIGNMENT_REGION_SIDE)
+      ),
+      (
+        Math.floor(segment / grid.ASSIGNMENT_REGION_SIDE)
+      + (ag_y * grid.ASSIGNMENT_REGION_SIDE)
+      )
+    ];
+
+    return [
+      ugp,
+      [ nat_prior, incl_here ]
+    ];
+  }
+
   function ultratile_muliplanar_info(ugp, seed) {
     // Takes an ultragrid position and computes multiplanar offset info for
     // each assignment position in that ultratile. Returns three things:
@@ -441,6 +547,15 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     // return our results:
     return [nat_prior, result, presums];
   }
+  // register ultratile_multiplanar_info as a caching domain:
+  caching.register_domain(
+    "ultratile_multiplanar_info", 
+    function (ugp, seed) {
+      return ugp[0] + "," + ugp[1] + ":" + seed
+    },
+    ultratile_muliplanar_info,
+    MULTIPLANAR_INFO_CACHE_SIZE
+  );
 
   function punctuated_assignment_index(ugap, mpinfo, seed) {
     // Takes an ultragrid assignment position (ultratile x/y, sub x/y, and
@@ -510,24 +625,198 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
     return [ asg_x, asg_y, asg_index, mp_offset ];
   }
 
-  function punctuated_assignment_lookup(agp, mp_offset) {
+  function punctuated_assignment_lookup(agp, mp_offset, seed) {
     // The inverse of punctuated_assignment_index (see above); this takes an
     // assignment position (assignment grid x/y and linear number) and a
     // multiplanar offset, and returns a (canonical) supergrid assignment
-    // position that contains the indicated assignment index.
+    // position that contains the indicated assignment index. If suitable
+    // cached multiplanar offset info isn't yet available, this will return
+    // null. Use caching.with_cached_value to execute code as soon as the info
+    // becomes available.
 
     // TODO: How to look up cached mpinfo?!?
+
+    var asg_x = agp[0];
+    var asg_y = agp[1];
+    var asg_idx = agp[2];
+
+    var params = assignment_punctuation_parameters(agp);
+    var ugp = params[0];
+    var nat_prior = params[1][0];
+    var incl_here = params[1][1];
+
+    // fetch mpinfo or fail:
+    mpinfo = caching.cached_value(
+      "ultratile_multiplanar_info", 
+      [ ugp, seed ]
+    );
+    if (mpinfo == null) {
+      return undefined;
+    }
 
     // unpack:
     var nat_prior = mpinfo[0];
     var mptable = mpinfo[1];
     var mpsums = mpinfo[2];
 
-    var asg_x = agp[0];
-    var asg_y = agp[1];
-    var ap = agp[2];
+    var internal_idx = asg_idx - nat_prior;
+    var prior_row = max_smaller(internal_idx, mpsums);
+    var before = 0;
+    if (prior_row > -1) {
+      before = mpsums[prior_row];
+    }
+    var in_row_idx = asg_idx - nat_prior - before;
+    var col_idx = 0;
+    for (
+      var mp_idx = grid.ULTRATILE_ROW_SOCKETS * prior_row;
+      mp_idx < grid.ULTRATILE_ROW_SOCKETS * (prior_row + 1);
+      mp_idx += 1
+    ) {
+      if (in_row_idx == 0) {
+        break;
+      }
+      if (mptable[mp_idx] == 0) {
+        in_row_idx -= 1;
+        col_idx += 1;
+      }
+    }
 
-  // TODO: HERE
+    // Escape the assignment grid tile and our ultragrid tile within that
+    // assignment grid tile to get a global supergrid position along with an
+    // assignment socket index.
+    return [
+      (
+        (asg_x * grid.ASSIGNMENT_REGION_SIDE + ugp[0]) * grid.ULTRAGRID_SIZE
+      + Math.floor(col_idx / grid.ASSIGNMENT_SOCKETS)
+      ),
+      (
+        (asg_y * grid.ASSIGNMENT_REGION_SIDE + ugp[1]) * grid.ULTRAGRID_SIZE
+      + prior_row + 1
+      ),
+      col_idx % grid.ASSIGNMENT_SOCKETS;
+    ];
+  }
+
+  function pick_word(domains, asg, seed) {
+    // Given an assignment position (assignment grid x/y and assignment index)
+    // and a seed, returns the corresponding word from the given domain list.
+    // If required domain information isn't available, returns undefined.
+    //
+    // Returns a domain entry, which is a [glyphs, word, frequency] triple.
+    //
+    // TODO: Handle words that are too big for their sockets!
+
+    var any_missing = false;
+    var grand_total = 0;
+    var lesser_total = 0;
+    var greater_counttable = [];
+    var lesser_counttable = [];
+    domains.forEach(function (d) {
+      var dom = dict.lookup_domain(d);
+      if (dom == undefined) {
+        any_missing = true;
+      } else {
+        greater_counttable.push(dom.total_count);
+        grand_total += dom.total_count;
+        lesser_counttable.push(dom.entries.length);
+        lesser_total += dom.entries.length;
+      }
+    });
+    if (any_missing) {
+      return undefined;
+    }
+    if (WARNINGS && lesser_total > ASSIGNMENT_REGION_TOTAL_SOCKETS) {
+      console.log(
+        "Warning: domain (combo?) size exceeds number of assignable sockets: "
+      + grand_total + " > " + ASSIGNMENT_REGION_TOTAL_SOCKETS
+      )
+    }
+
+    var r = sghash(seed, asg);
+
+    var idx = anarchy.cohort_shuffle(
+      asg[2],
+      ASSIGNMENT_REGION_TOTAL_SOCKETS,
+      r
+    );
+    r = anarchy.lfsr(r);
+
+    if (idx < lesser_total) { // one of the per-index assignments
+      var ct_idx = 0;
+      for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
+        var here = lesser_counttable[ct_idx];
+        if (idx < here) {
+          break;
+        }
+        idx -= here;
+      }
+      if (WARNINGS && ct_idx == lesser_counttable.length) {
+        console.log("Warning: lesser couttable loop failed to break!");
+        ct_idx = lesser_counttable.length - 1;
+        idx %= dict.entries.length;
+      }
+      var dom = domains[ct_idx];
+      return dict.entries(idx); // all words get equal representation
+    } else {
+      idx -= lesser_total;
+      idx %= grand_total;
+      var ct_idx = 0;
+      for (ct_idx = 0; ct_idx < greater_counttable.length; ++ct_idx) {
+        var here = greater_counttable[ct_idx];
+        if (idx < here) {
+          break;
+        }
+        idx -= here;
+      }
+      if (WARNINGS && ct_idx == greater_counttable.length) {
+        console.log("Warning: greater couttable loop failed to break!");
+        ct_idx = greater_counttable.length - 1;
+        idx %= dict.total_count;
+      }
+      var dom = domains[ct_idx];
+      return dict.unrolled_word(idx, dom); // representation according to freq
+    }
+  }
+
+  function generate_supertile(sgp, seed) {
+    // Given that the necessary domain(s) and multiplanar info are all
+    // available, generates the glyph contents of the supertile at the given
+    // position. Returns undefined if there's missing information.
+
+    var base_words = [];
+    for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
+      var sgap = canonical_sgapos([sgp[0], sgp[1], socket]);
+      var ugp = grid.ugpos(sgap); // socket index is ignored
+      var mpinfo = caching.cached_value(
+        "ultratile_multiplanar_info",
+        [ [ ugp[0], ugp[1] ], seed ]
+      );
+      if (mpinfo == null) {
+        return undefined;
+      }
+
+      var asg = punctuated_assignment_index(
+        [ ugp[0], ugp[1], ugp[2], ugp[3], sgap[2] ],
+        mpinfo,
+        seed
+      );
+      var asg_x = asg[0];
+      var asg_y = asg[1];
+      var asg_idx = asg[2];
+      var mpo = asg[3];
+      var l_seed = sghash(seed, asg);
+
+      var dom = MULTIPLANAR_DOMAINS[mpo % MULTIPLANAR_DOMAINS.length];
+      var word = pick_word(domains_list(dom), asg, l_seed));
+      if (word == undefined) {
+        return undefined;
+      }
+      base_words.push(word);
+    }
+
+    // TODO: HERE
+
+  }
 
   function generate_domains(seed, spos) {
     // Generates the domain list for the given supergrid position according to
@@ -667,6 +956,7 @@ define(["./dict", "./grid", "./anarchy"], function(dict, grid, anarchy) {
   }
 
   return {
+    "WARNINGS": WARNINGS,
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
