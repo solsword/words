@@ -385,6 +385,49 @@ define([], function() {
   }
 
 
+  function is_canonical(socket) {
+    // Takes just a socket index and returns whether or not it's a canonical
+    // index or a non-canonical index (see canonical_sgapos below).
+    return (socket >= 0 and socket <= 3);
+  }
+
+  function is_valid_subindex(gp) {
+    // Returns true if the given position is a valid supergrid sub-index, or
+    // false if it's outside of the 0,0-origin supergrid tile.
+    //
+    //   0,6 -> .
+    //              .
+    //          .       .
+    //              .       @
+    //          .       @       @
+    //              @       @       @
+    //   0,3 -> @       @       @       @ <- 6,6
+    //              @       @       @    
+    //          @       @       @       @
+    //              @      3,3      @    
+    //          @       @       @       @
+    //              @       @       @    
+    //   0,0 -> @       @       @       @
+    //              @       @       @
+    //                  @       @       .
+    //                      @       .
+    //                          .       .
+    //                              .
+    //                                  .
+    //                        
+    //                                  ^
+    //                                  |
+    //                                 6,0
+    //
+    var x = gp[0];
+    var y = gp[1];
+    if (x < 0 or x > 6) { return false; }
+    if (y < 0 or y > 6) { return false; }
+    if (x > 3 + y) { return false; }
+    if (x < (y - 3)) { return false; }
+    return true;
+  }
+
   function canonical_sgapos(sgap) {
     // Converts an arbitrary supergrid+assignment position combination to the
     // corresponding canonical combination. Assignment positions 4, 5, and 6

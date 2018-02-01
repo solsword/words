@@ -128,12 +128,12 @@ function(dict, grid, anarchy, caching) {
   for (var i = 0; i < 6; ++i) {
     for (var j = 0; j < CENTER_CENTER_PERMUTATIONS.length; ++j) {
       var rotated = grid.rotate_path(CENTER_CENTER_PERMUTATIONS[j], i);
-      CENTER_PERMUTATIONS.push([grid.SG_CENTER, rotated]);
+      CENTER_PERMUTATIONS.push([0, grid.SG_CENTER, rotated]);
     }
     var start = grid.neighbor(grid.SG_CENTER, grid.N);
     for (var j = 0; j < CENTER_EDGE_PERMUTATIONS.length; ++j) {
       var rotated = grid.rotate_path(CENTER_EDGE_PERMUTATIONS[j], i);
-      CENTER_PERMUTATIONS.push([start, rotated]);
+      CENTER_PERMUTATIONS.push([j+1, start, rotated]);
       start = grid.neighbor(start, CENTER_EDGE_PERMUTATIONS[0][j]);
     }
   }
@@ -181,6 +181,13 @@ function(dict, grid, anarchy, caching) {
     [ [0, 0], [1, 0], [2, 0] ],
   ]
 
+  // Which permutation-site-value combinations are valid for crossover
+  var CROSSOVER_POINTS = [
+    [1, 2],
+    [2, 1],
+    [2, 2]
+  ];
+
   // Add rotations to compute per-socket permutations:
   var EDGE_PERMUTATIONS = [];
   var rotated = EDGE_BASE_PERMUTATIONS;
@@ -195,6 +202,7 @@ function(dict, grid, anarchy, caching) {
       var path = rotated[i][1];
       // Base is defined for socket 6, so rotate before appending:
       rotated[i] = [
+        site,
         EDGE_SOCKET_ANCHORS[socket][site],
         grid.rotate_path(path, 1)
       ];
@@ -919,14 +927,72 @@ function(dict, grid, anarchy, caching) {
     }
   }
 
-  function inlay_word(supertile, glyphs, socket, seed) {
-    // Fits a word (or part of it, for edge-adjacent sockets) into the given
-    // socket of the given supertile, updating the glyphs array.
-    if (socket == 3) { // the central socket
-      // TODO: HERE
-    } else { // an edge socket
-      // TODO: HERE
+  function filter_permutations(permutations, site, min_length) {
+    // Takes a permutation list containing permutations listed as site-index,
+    // starting-coordinates, move-list triples, and filters for a list
+    // containing only permutations that are at the given site and which are at
+    // least the given minimum length (min_length shouldn't exceed the socket
+    // size, or the result will be an empty list). If site is given as -1,
+    // results for all sites are returned.
+    //
+    // TODO: Merge cut-equal paths to avoid biasing shape distribution of
+    // shorter words?
+    var result = [];
+    for (var i = 0; i < permutations.length; ++i) {
+      if (
+        permutations[i][2].length >= min_length
+     && (site < 0 || permutations[i][0] == site)
+      ) {
+        result.push(permutations[i]);
+      }
     }
+    return result;
+  }
+
+  function inlay_word(supertile, domain, glyphs, socket, seed) {
+    // Fits a word (or part of it, for edge-adjacent sockets) into the given
+    // socket of the given supertile, updating the glyphs array. Returns a list
+    // of tile positions updated.
+    var result = [];
+    var r = anarchy.lfsr(seed + 1892831081);
+    var chosen;
+    // Choose a permutation:
+    if (socket == 3) { // the central socket
+      var filtered = filter_permutations(
+        CENTER_PERMUTATIONS,
+        -1,
+        glyphs.length - 1 // path connects glyphs
+      );
+      chosen = filtered[anarchy.idist(r, 0, filtered.length)]
+    } else { // an edge socket
+      var xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
+      r = anarchy.lfsr(r);
+      var site = 2;
+      if (grid.is_canonical(socket)) {
+        site = xo[0];
+      } else {
+        site = xo[1];
+      }
+
+      var filtered = filter_permutations(
+        EDGE_PERMUTATIONS[socket],
+        site,
+        glyphs.length - 1 // path connects glyphs
+      );
+      chosen = filtered[anarchy.idist(r, 0, filtered.length)]
+    }
+    // Finally, punch in the glyphs:
+    var pos = chosen[1];
+    var path = chosen[2];
+    for (var i = 0; i < glyphs.length; ++i) {
+      supertile.glyphs[pos[0] + pos[1]*7] = glyphs[i];
+      result.push(pos);
+      if (i < glyphs.length - 1) {
+        pos = grid.neighbor(pos, path[i]);
+      }
+    }
+
+    return result;
   }
 
   function generate_supertile(sgp, seed) {
@@ -938,6 +1004,16 @@ function(dict, grid, anarchy, caching) {
       "glyphs": Array(49),
       "domains": []
     };
+
+    var glyph_domains = Array(49);
+
+    // TODO: Use base-plane info (needs extra arg above).
+    var default_domain = "base";
+
+    for (var i = 0; i < 49; ++i) {
+      result.glyphs[i] = undefined;
+      domains[i] = undefined;
+    }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
@@ -975,32 +1051,123 @@ function(dict, grid, anarchy, caching) {
       var maxlen = 10;
       if (socket == 3) { // embed in center of tile
         maxlen = 7;
+        var touched = inlay_word(result, glyphs, socket, r);
+        for (var i = 0; i < touched.length; ++i) {
+          glyph_domains[touched[i][0] + touched[i][1]*7] = dom;
+        }
       } else {
         // pick embedding direction & portion to embed
         var flip = (r % 2) == 0;
         r = anarchy.lfsr(r);
-        var min_cut = glyphs.length - maxlen / 2;
+        var min_cut = glyphs.length - Math.floor(maxlen / 2);
         if (min_cut > maxlen - 1) {
           min_cut = maxlen - 1;
         }
-        var max_cut = maxlen / 2;
+        var max_cut = Math.floor(maxlen / 2);
         var cut = anarchy.idist(r, min_cut, max_cut + 1);
         r = anarchy.lfsr(r);
-        // TODO: double-check this!
-        if (flip ^ (socket < 3)) { // take first half
+        if (flip ^ grid.is_canonical(socket)) { // take first half
           glyphs = glyphs.slice(0, cut);
         } else {
           glyphs = glyphs.slice(cut);
         }
-        var join_point = anarchy.idist(r, 0, 4);
-        r = anarchy.lfsr(r);
-        inlay_word(result, glyphs, socket, r);
-        // TODO: HERE?
+        var touched = inlay_word(result, glyphs, socket, r);
+        for (var i = 0; i < touched.length; ++i) {
+          glyph_domains[touched[i][0] + touched[i][1]*7] = dom;
+        }
+      }
+    }
+    r = anarchy.lfsr(r);
+
+    // Now that each socket has been inlaid, fill remaining spots with letters
+    // according to unigram, bigram, and trigram probabilities.
+    var sseed = r;
+    var baseline_counts = {}; // combined glyph counts caches
+    var unary_counts = {};
+    var binary_counts = {};
+    var trinary_counts = {};
+    for (var i = 0; i < 49; ++i) {
+      var u = anarchy.cohort_shuffle(i, 49, sseed); // iterate in shuffled order
+      var x = i % 7;
+      var y = Math.floor(i / 7);
+      if (!grid.is_valid_subindex([x, y])) { // skip out-of-bounds indices
+        continue;
+      }
+      if (result.glyphs[u] == undefined) { // need to fill it in
+        var neighbors = []; // list filled-in neighbors
+        var nbdoms = []; // list their domains
+        for (var j = 0; j < 6; ++j) {
+          var nb = grid.neighbor([x, y], j);
+          var ni = nb[0] + nb[1]*7;
+          var ng = result.glyphs[ni];
+          if (ng != undefined) {
+            neighbors.push(ng);
+            nbdoms.push(glyph_domains[ni]);
+          }
+        }
+        if (neighbors.length == 0) { // should be rare
+          var gcounts;
+          if (baseline_counts.hasOwnProperty(default_domain)) {
+            gcounts = baseline_counts[default_domain];
+          } else {
+            gcounts = combined_counts(domains_list(default_domain));
+            baseline_counts[default_domain] = gcounts;
+          }
+          result.glyphs[u] = sample_glyph_baseline(gcounts, r);
+          r = anarchy.lfsr(r);
+          glyph_domains[u] = default_domain;
+        } else if (neighbors.length == 1) {
+          var gcounts;
+          if (unary_counts.hasOwnProperty(nbdoms[0])) {
+            gcounts = unary_counts[nbdoms[0]];
+          } else {
+            gcounts = combined_ucounts(domains_list(nbdoms[0]));
+            unary_counts[nbdoms[0]] = gcounts;
+          }
+          result.glyphs[u] = sample_glyph_unary(gcounts, neighbors[0], r);
+          r = anarchy.lfsr(r);
+          glyph_domains[u] = nbdoms[0];
+        } else if (neighbors.length == 2) {
+          if (nbdoms[0] == nbdoms[1]) {
+            var gcounts;
+            if (binary_counts.hasOwnProperty(nbdoms[0])) {
+              gcounts = binary_counts[nbdoms[0]];
+            } else {
+              gcounts = combined_bicounts(domains_list(nbdoms[0]));
+              binary_counts[nbdoms[0]] = gcounts;
+            }
+            result.glyphs[u] = sample_glyph_binary(
+              gcounts,
+              [neighbors[0], neighbors[1]],
+              r
+            );
+            r = anarchy.lfsr(r);
+            glyph_domains[u] = nbdoms[0];
+          } else {
+            var ri = r % 2;
+            r = anarchy.lfsr(r);
+            var gcounts;
+            if (unary_counts.hasOwnProperty(nbdoms[ri])) {
+              gcounts = unary_counts[nbdoms[ri]];
+            } else {
+              gcounts = combined_ucounts(domains_list(nbdoms[ri]));
+              unary_counts[nbdoms[ri]] = gcounts;
+            }
+            result.glyphs[u] = sample_glyph_unary(gcounts, neighbors[ri], r);
+            r = anarchy.lfsr(r);
+            glyph_domains[u] = nbdoms[ri];
+          }
+          // TODO: HERE
+        } else { // more than 2 neighbors: pick some
+          var ri = anarchy.idist(r, 0, neighbors.length);
+          r = anarchy.lfsr(r);
+          // TODO: HERE
+        }
       }
     }
 
-    // TODO: HERE
-
+    // all glyphs have been filled in, we're done here!
+    return result;
   }
 
   function generate_domains(seed, spos) {
