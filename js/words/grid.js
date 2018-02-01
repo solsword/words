@@ -31,10 +31,24 @@ define([], function() {
     [-1, 0]
   ]
 
+  // Directions as indices into the NEIGHBORS array:
+  var N = 0;
+  var NE = 1;
+  var SE = 2;
+  var S = 3;
+  var SW = 4;
+  var NW = 5;
+
+  // Hex index of the center of a supergrid tile:
+  var SG_CENTER = [3, 3]; 
+
   // Number of canonical sockets per supergrid tile, and number of total
   // sockets including non-canonical shared sockets.
   var ASSIGNMENT_SOCKETS = 4;
   var COMBINED_SOCKETS = 7;
+
+  // The central socket:
+  var SK_CENTER = 3;
 
   // How big are ultragrid units?
   var ULTRAGRID_SIZE = 12;
@@ -82,6 +96,21 @@ define([], function() {
   * ULTRATILE_SOCKETS
   );
 
+  function rotate(direction, amount) {
+    // Rotates one of the direction constants (e.g., N; NE) by the given number
+    // of steps clockwise.
+    return (((direction + amount) % 6) + 6) % 6;
+  }
+
+  function rotate_path(path, amount) {
+    // Rotates an entire path.
+    var result = [];
+    for (var i = 0; i < path.length; ++i) {
+      result.push(rotate(path[i], amount));
+    }
+    return result;
+  }
+
   function world_pos(gp) {
     // Returns the world position corresponding to the given grid position.
     var x = GRID_SIZE * Math.cos(Math.PI/6) * gp[0];
@@ -94,9 +123,6 @@ define([], function() {
     //
     // Picture (dotted lines indicate initial rectangular boxes; proportions
     // are slightly distorted due to character aspect ratio):
-    //
-    //
-    //
     //
     //
     //                      GRID_EDGE    This part is actually 1/2 GRID_EDGE,
@@ -201,6 +227,9 @@ define([], function() {
     // Superhexes are encoded as an array of 49 values, 12 of which are nulls,
     // which allows quick 2-dimensional indexing (see picture below).
     //
+    // Interior indexing is anchored at the southeast corner of each supergrid
+    // tile, as shown below.
+    //
     // Picture (dots indicate coordinate system extent for middle super-hex):
     //
     //                                                      #
@@ -208,7 +237,7 @@ define([], function() {
     //                                              #       #       #
     //                                          #       #       #       #
     //                                              #       #        #
-    //                                          #       #       #       #
+    //       Supergrid axes:                    #       #       #       #
     //                                              #       #        #
     //                 ^                        #       #       #       #
     //                /      0,6 -> .               #       #        #
@@ -341,8 +370,9 @@ define([], function() {
   }
 
   function neighbor(gp, dir) {
-    // Takes a global position and a direction (0--6) and returns a global
-    // position for the neighbor in that direction. The directions are:
+    // Takes a global position and a direction (0--6; can use constants like N
+    // or SE) and returns a global position for the neighbor in that direction.
+    // The directions are:
     //
     //        0
     //     5     1
