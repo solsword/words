@@ -1083,7 +1083,6 @@ function(dict, grid, anarchy, caching) {
     // according to unigram, bigram, and trigram probabilities.
     var sseed = r;
     var baseline_counts = {}; // combined glyph counts caches
-    var unary_counts = {};
     var binary_counts = {};
     var trinary_counts = {};
     for (var i = 0; i < 49; ++i) {
@@ -1105,63 +1104,87 @@ function(dict, grid, anarchy, caching) {
             nbdoms.push(glyph_domains[ni]);
           }
         }
+        // Simplify mixed-domain neighbors list to single-domain + glyphs list:
+        var nbdom = undefined;
+        var nbglyphs = undefined;
         if (neighbors.length == 0) { // should be rare
-          var gcounts;
-          if (baseline_counts.hasOwnProperty(default_domain)) {
-            gcounts = baseline_counts[default_domain];
-          } else {
-            gcounts = combined_counts(domains_list(default_domain));
-            baseline_counts[default_domain] = gcounts;
-          }
-          result.glyphs[u] = sample_glyph_baseline(gcounts, r);
-          r = anarchy.lfsr(r);
-          glyph_domains[u] = default_domain;
+          nbdom = default_domain;
+          nbglyphs = [];
         } else if (neighbors.length == 1) {
-          var gcounts;
-          if (unary_counts.hasOwnProperty(nbdoms[0])) {
-            gcounts = unary_counts[nbdoms[0]];
-          } else {
-            gcounts = combined_ucounts(domains_list(nbdoms[0]));
-            unary_counts[nbdoms[0]] = gcounts;
-          }
-          result.glyphs[u] = sample_glyph_unary(gcounts, neighbors[0], r);
-          r = anarchy.lfsr(r);
-          glyph_domains[u] = nbdoms[0];
+          nbdom = nbdoms[0];
+          nbglyphs = neighbors[0];
         } else if (neighbors.length == 2) {
           if (nbdoms[0] == nbdoms[1]) {
-            var gcounts;
-            if (binary_counts.hasOwnProperty(nbdoms[0])) {
-              gcounts = binary_counts[nbdoms[0]];
-            } else {
-              gcounts = combined_bicounts(domains_list(nbdoms[0]));
-              binary_counts[nbdoms[0]] = gcounts;
-            }
-            result.glyphs[u] = sample_glyph_binary(
-              gcounts,
-              [neighbors[0], neighbors[1]],
-              r
-            );
-            r = anarchy.lfsr(r);
-            glyph_domains[u] = nbdoms[0];
+            nbdom = nbdoms[0];
+            nbglyphs = neighbors.slice();
           } else {
             var ri = r % 2;
             r = anarchy.lfsr(r);
-            var gcounts;
-            if (unary_counts.hasOwnProperty(nbdoms[ri])) {
-              gcounts = unary_counts[nbdoms[ri]];
-            } else {
-              gcounts = combined_ucounts(domains_list(nbdoms[ri]));
-              unary_counts[nbdoms[ri]] = gcounts;
-            }
-            result.glyphs[u] = sample_glyph_unary(gcounts, neighbors[ri], r);
-            r = anarchy.lfsr(r);
-            glyph_domains[u] = nbdoms[ri];
+            nbdom = nbdoms[ri];
+            nbglyphs = [ neighbors[ri] ];
           }
-          // TODO: HERE
         } else { // more than 2 neighbors: pick some
-          var ri = anarchy.idist(r, 0, neighbors.length);
+          var maxdom = undefined;
+          var maxcount = 0;
+          var domcounts = {};
+          var domglyphs = {};
+          for (var j = 0; j < nbdoms.length; ++j) {
+            if (domcounts.hasOwnProperty(nbdoms[j])) {
+              domcounts[nbdoms[j]] += 1;
+              domglyphs[nbdoms[j]].push(neighbors[j]);
+            } else {
+              domcounts[nbdoms[j]] = 1;
+              domglyphs[nbdoms[j]] = [ neighbors[j] ];
+            }
+            if (domcounts[nbdoms[j]] > maxcount) {
+              maxcount = domcounts[nbdoms[j]];
+              maxdom = nbdoms[j];
+            }
+          }
+          nbdom = maxdom;
+          nbglyphs = domglyphs[maxdom];
+        }
+
+        // Now that we have single-domain neighbors, pick a glyph:
+        glyph_domains[u] = nbdom;
+        var gcounts = undefined;
+        if (nbglyphs.length == 0) {
+          if (baseline_counts.hasOwnProperty(nbdom)) {
+            gcounts = baseline_counts[nbdom];
+          } else {
+            gcounts = combined_counts(domains_list(nbdom));
+            baseline_counts[nbdom] = gcounts;
+          }
+          result.glyphs[u] = sample_glyph_baseline(gcounts, r);
           r = anarchy.lfsr(r);
-          // TODO: HERE
+        } else if (nbglyphs.length == 1) {
+          if (binary_counts.hasOwnProperty(nbdom)) {
+            gcounts = binary_counts[nbdom];
+          } else {
+            gcounts = combined_bicounts(domains_list(nbdom));
+            binary_counts[nbdom] = gcounts;
+          }
+          result.glyphs[u] = sample_glyph_binary(
+            gcounts,
+            nbglyphs[0],
+            r
+          );
+          r = anarchy.lfsr(r);
+        } else if (nbglyphs.length >= 2) {
+          // TODO: Shuffle first here?
+          nbglyphs = nbglyphs.slice(0,2);
+          if (trinary_counts.hasOwnProperty(nbdom)) {
+            gcounts = trinary_counts[nbdom];
+          } else {
+            gcounts = combined_tricounts(domains_list(nbdom));
+            trinary_counts[nbdom] = gcounts;
+          }
+          result.glyphs[u] = sample_glyph_trinary(
+            gcounts,
+            nbglyphs,
+            r
+          );
+          r = anarchy.lfsr(r);
         }
       }
     }
@@ -1227,6 +1250,26 @@ function(dict, grid, anarchy, caching) {
 
   function combined_counts(domains) {
     var result = {};
+    domains.forEach(function (d) {
+      var dom = dict.lookup_domain(d);
+      result = merge_glyph_counts(result, dom.glyph_counts);
+    });
+    return result;
+  }
+
+  function combined_bicounts(domains) {
+    var result = {};
+    // TODO: HERE!
+    domains.forEach(function (d) {
+      var dom = dict.lookup_domain(d);
+      result = merge_glyph_bicounts(result, dom.glyph_counts);
+    });
+    return result;
+  }
+
+  function combined_tricounts(domains) {
+    var result = {};
+    // TODO: HERE!
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
       result = merge_glyph_counts(result, dom.glyph_counts);
