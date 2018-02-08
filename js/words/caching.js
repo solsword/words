@@ -139,7 +139,7 @@ define(function() {
           complete_computation,
           0,
           domain,
-          args
+          args,
           0
         );
         return null;

@@ -407,6 +407,7 @@ define([], function() {
       )
     );
 
+    // TODO: HERE!
     var region = inner / region_size;
     var index = inner % region_size;
 

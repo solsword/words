@@ -221,9 +221,9 @@ define(["./locale"], function(locale, finalize) {
         counttable[i] = 0;
       }
       var hf_entries = 0;
-      var freq = 
+      var freq =  undefined;
       for (var i = 0; i < entries.length; ++i) {
-        var freq = entries[i][2];
+        freq = entries[i][2];
         if (freq >= DOMAIN_FREQUENCY_BINS) {
           counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
           hf_entries += 1;

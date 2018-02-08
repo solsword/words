@@ -153,15 +153,36 @@ require(["../locale"], function (locale) {
             for (var k = j+1; k < gl.length; ++k) {
               var o = gl[k];
               if (g < o) {
-                var pair = g + o;
+                var pair = [g, o];
               } else {
-                var pair = o + g;
+                var pair = [o, g];
               }
-              // TODO: Nest these like the bigrams?
-              if (json.pair_counts.hasOwnProperty(pair)) {
-                json.pair_counts[pair] += f / l;
+              // Enter in canonical order:
+              if (json.pair_counts.hasOwnProperty(pair[0])) {
+                var pr_entry = json.pair_counts[pair[0]];
+                json.pair_counts[pair[0]] += f / l;
               } else {
-                json.pair_counts[pair] = f / l;
+                var pr_entry = {}
+                json.pair_counts[pair[0]] = pr_entry;
+              }
+              if (pr_entry.hasOwnProperty(pair[1])) {
+                pr_entry[pair[1]] += f / l;
+              } else {
+                pr_entry[pair[1]] = f / l;
+              }
+              json.total_pair_count += f / l;
+              // Enter reversed:
+              if (json.pair_counts.hasOwnProperty(pair[1])) {
+                var pr_entry = json.pair_counts[pair[1]];
+                json.pair_counts[pair[1]] += f / l;
+              } else {
+                var pr_entry = {}
+                json.pair_counts[pair[1]] = pr_entry;
+              }
+              if (pr_entry.hasOwnProperty(pair[0])) {
+                pr_entry[pair[0]] += f / l;
+              } else {
+                pr_entry[pair[0]] = f / l;
               }
               json.total_pair_count += f / l;
             }

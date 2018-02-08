@@ -134,11 +134,14 @@ function(dict, grid, anarchy, caching) {
     for (var j = 0; j < CENTER_EDGE_PERMUTATIONS.length; ++j) {
       var rotated = grid.rotate_path(CENTER_EDGE_PERMUTATIONS[j], i);
       CENTER_PERMUTATIONS.push([j+1, start, rotated]);
-      start = grid.neighbor(start, CENTER_EDGE_PERMUTATIONS[0][j]);
     }
+    start = grid.neighbor(
+      start,
+      CENTER_EDGE_PERMUTATIONS[0][i % CENTER_EDGE_PERMUTATIONS[0].length]
+    );
   }
 
-  var EDGE_BASE_PERMUTATIONS = {
+  var EDGE_BASE_PERMUTATIONS = [
     // 20, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
     // 8 from the top-left
     [0, [ grid.NE, grid.S, grid.NE, grid.S ]],
@@ -167,7 +170,7 @@ function(dict, grid, anarchy, caching) {
     [2, [ grid.NW, grid.N, grid.SW ]],
     [2, [ grid.NW, grid.N, grid.SE ]],
     [2, [ grid.NW, grid.NE, grid.NW, grid.SW ]],
-  }
+  ]
 
   var EDGE_SOCKET_ANCHORS = [
     [ [0, 3], [0, 2], [0, 1] ],
@@ -274,9 +277,36 @@ function(dict, grid, anarchy, caching) {
     return selected;
   }
 
-  function sample_glyph(gcounts, seed) {
-    // Sample a glyph from a counts dictionary, using the counts as weights.
-    return sample_table(gcounts, seed);
+  function sample_glyph(seed, context, unicounts, bicounts, tricounts) {
+    // Sample a glyph from counts given context, falling back to smaller
+    // amounts of context/less complicated counts when other info isn't
+    // available. context, bicounts, and tricounts may individually be given as
+    // 'undefined.'
+    var table = undefined;
+    if (context != undefined && context.length >= 2 && tricounts != undefined) {
+      // try tricounts
+      if (tricounts.hasOwnProperty(context[0])) {
+        if (tricounts[context[0]].hasOwnProperty(context[1])) {
+          table = tricounts[context[0]][context[1]];
+        }
+      }
+    }
+    if (
+      table == undefined
+   && context != undefined
+   && context.length >= 1
+   && bicounts != undefined
+    ) {
+      // try bicounts
+      if (bicounts.hasOwnProperty(context[0])) {
+        table = bicounts[context[0]];
+      }
+    }
+    if (table == undefined) {
+      // unicounts must be given!
+      table = unicounts;
+    }
+    return sample_table(table, seed);
   }
 
   function distort_probabilities(probabilities, bias) {
@@ -428,7 +458,7 @@ function(dict, grid, anarchy, caching) {
     var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
     var segment_capacity = Math.floor(
       MAX_LOCAL_INCLUSION_DENSITY
-      grid.ULTRATILE_INTERIOR_SOCKETS
+    * grid.ULTRATILE_INTERIOR_SOCKETS
     );
     var segment_full_size = grid.ULTRATILE_SOCKETS;
 
@@ -495,7 +525,7 @@ function(dict, grid, anarchy, caching) {
     var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
     var segment_capacity = Math.floor(
       MAX_LOCAL_INCLUSION_DENSITY
-      grid.ULTRATILE_INTERIOR_SOCKETS
+    * grid.ULTRATILE_INTERIOR_SOCKETS
     );
 
     // total number of assignment slots reserved for inclusions:
@@ -646,7 +676,7 @@ function(dict, grid, anarchy, caching) {
           if (
             nb[0] > 0
          && nb[0] < grid.ULTRAGRID_SIZE - 1
-            nb[1] > 0
+         && nb[1] > 0
          && nb[1] < grid.ULTRAGRID_SIZE - 1
           ) { // not on the edge (slight asymmetry, but that's alright).
             var nloc = (
@@ -842,7 +872,7 @@ function(dict, grid, anarchy, caching) {
         (asg_y * grid.ASSIGNMENT_REGION_SIDE + ugp[1]) * grid.ULTRAGRID_SIZE
       + prior_row + 1
       ),
-      col_idx % grid.ASSIGNMENT_SOCKETS;
+      col_idx % grid.ASSIGNMENT_SOCKETS
     ];
   }
 
@@ -1012,7 +1042,7 @@ function(dict, grid, anarchy, caching) {
 
     for (var i = 0; i < 49; ++i) {
       result.glyphs[i] = undefined;
-      domains[i] = undefined;
+      result.domains[i] = undefined;
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
@@ -1041,7 +1071,7 @@ function(dict, grid, anarchy, caching) {
 
       var dom = MULTIPLANAR_DOMAINS[mpo % MULTIPLANAR_DOMAINS.length];
       result.domains.push(dom); // add to result domains
-      var entry = pick_word(domains_list(dom), asg, l_seed));
+      var entry = pick_word(domains_list(dom), asg, l_seed);
       if (entry == undefined) {
         return undefined;
       }
@@ -1147,42 +1177,65 @@ function(dict, grid, anarchy, caching) {
 
         // Now that we have single-domain neighbors, pick a glyph:
         glyph_domains[u] = nbdom;
-        var gcounts = undefined;
+        var unicounts = undefined;
+        var bicounts = undefined;
+        var tricounts = undefined;
         if (nbglyphs.length == 0) {
           if (baseline_counts.hasOwnProperty(nbdom)) {
-            gcounts = baseline_counts[nbdom];
+            unicounts = baseline_counts[nbdom];
           } else {
-            gcounts = combined_counts(domains_list(nbdom));
-            baseline_counts[nbdom] = gcounts;
+            unicounts = combined_counts(domains_list(nbdom));
+            baseline_counts[nbdom] = unicounts;
           }
-          result.glyphs[u] = sample_glyph_baseline(gcounts, r);
+          result.glyphs[u] = sample_glyph(r, undefined, unicounts);
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length == 1) {
-          if (binary_counts.hasOwnProperty(nbdom)) {
-            gcounts = binary_counts[nbdom];
+          if (baseline_counts.hasOwnProperty(nbdom)) {
+            unicounts = baseline_counts[nbdom];
           } else {
-            gcounts = combined_bicounts(domains_list(nbdom));
-            binary_counts[nbdom] = gcounts;
+            unicounts = combined_counts(domains_list(nbdom));
+            baseline_counts[nbdom] = unicounts;
           }
-          result.glyphs[u] = sample_glyph_binary(
-            gcounts,
+          if (binary_counts.hasOwnProperty(nbdom)) {
+            bicounts = binary_counts[nbdom];
+          } else {
+            bicounts = combined_bicounts(domains_list(nbdom));
+            binary_counts[nbdom] = bicounts;
+          }
+          result.glyphs[u] = sample_glyph(
+            r,
             nbglyphs[0],
-            r
+            unicounts,
+            bicounts
           );
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length >= 2) {
           // TODO: Shuffle first here?
           nbglyphs = nbglyphs.slice(0,2);
-          if (trinary_counts.hasOwnProperty(nbdom)) {
-            gcounts = trinary_counts[nbdom];
+          if (baseline_counts.hasOwnProperty(nbdom)) {
+            unicounts = baseline_counts[nbdom];
           } else {
-            gcounts = combined_tricounts(domains_list(nbdom));
-            trinary_counts[nbdom] = gcounts;
+            unicounts = combined_counts(domains_list(nbdom));
+            baseline_counts[nbdom] = unicounts;
           }
-          result.glyphs[u] = sample_glyph_trinary(
-            gcounts,
+          if (binary_counts.hasOwnProperty(nbdom)) {
+            bicounts = binary_counts[nbdom];
+          } else {
+            bicounts = combined_bicounts(domains_list(nbdom));
+            binary_counts[nbdom] = bicounts;
+          }
+          if (trinary_counts.hasOwnProperty(nbdom)) {
+            tricounts = trinary_counts[nbdom];
+          } else {
+            tricounts = combined_tricounts(domains_list(nbdom));
+            trinary_counts[nbdom] = tricounts;
+          }
+          result.glyphs[u] = sample_glyph(
+            r,
             nbglyphs,
-            r
+            unicounts,
+            bicounts,
+            tricounts
           );
           r = anarchy.lfsr(r);
         }
@@ -1248,7 +1301,225 @@ function(dict, grid, anarchy, caching) {
     return result;
   }
 
+  function merge_glyph_bicounts(gs1, gs2) {
+    // Merges two-layer nested frequency counts.
+    var result = {};
+    var gs1_total = 0;
+    var gs2_total = 0;
+    for (var g in gs1) {
+      if (gs1.hasOwnProperty(g)) {
+        for (var gg in gs1[g]) {
+          if (gs1[g].hasOwnProperty(gg)) {
+            gs1_total += gs1[g][gg];
+          }
+        }
+      }
+    }
+    for (var g in gs2) {
+      if (gs2.hasOwnProperty(g)) {
+        for (var gg in gs2[g]) {
+          if (gs2[g].hasOwnProperty(gg)) {
+            gs2_total += gs2[g][gg];
+          }
+        }
+      }
+    }
+    for (var g in gs1) {
+      if (gs1.hasOwnProperty(g)) {
+        result[g] = {};
+        for (var gg in gs1[g]) {
+          if (gs1[g].hasOwnProperty(gg)) {
+            result[g][gg] = gs1[g][gg] / gs1_total;
+          }
+        }
+      }
+    }
+    for (var g in gs2) {
+      if (gs2.hasOwnProperty(g)) {
+        if (result.hasOwnProperty(g)) {
+          for (var gg in gs2[g]) {
+            if (gs2[g].hasOwnProperty(gg)) {
+              if (result[g].hasOwnProperty(gg)) {
+                result[g][gg] += gs2[g][gg] / gs2_total;
+              } else {
+                result[g][gg] = gs2[g][gg] / gs2_total;
+              }
+            }
+          }
+        } else {
+          result[g] = {};
+          for (var gg in gs2[g]) {
+            if (gs2[g].hasOwnProperty(gg)) {
+              result[g][gg] = gs2[g][gg] / gs2_total;
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  function merge_glyph_tricounts(gs1, gs2) {
+    // Merges three-layer nested frequency counts.
+    var result = {};
+    var gs1_total = 0;
+    var gs2_total = 0;
+    for (var g in gs1) {
+      if (gs1.hasOwnProperty(g)) {
+        for (var gg in gs1[g]) {
+          if (gs1[g].hasOwnProperty(gg)) {
+            for (var ggg in gs1[g][gg]) {
+              if (gs1[g][gg].hasOwnProperty(ggg)) {
+                gs1_total += gs1[g][gg][ggg];
+              }
+            }
+          }
+        }
+      }
+    }
+    for (var g in gs2) {
+      if (gs2.hasOwnProperty(g)) {
+        for (var gg in gs2[g]) {
+          if (gs2[g].hasOwnProperty(gg)) {
+            for (var ggg in gs2[g][gg]) {
+              if (gs2[g][gg].hasOwnProperty(ggg)) {
+                gs2_total += gs2[g][gg][ggg];
+              }
+            }
+          }
+        }
+      }
+    }
+    for (var g in gs1) {
+      if (gs1.hasOwnProperty(g)) {
+        result[g] = {};
+        for (var gg in gs1[g]) {
+          if (gs1[g].hasOwnProperty(gg)) {
+            result[g][gg] = {};
+            for (var ggg in gs1[g][gg]) {
+              result[g][gg][ggg] = gs1[g][gg][ggg] / gs1_total;
+            }
+          }
+        }
+      }
+    }
+    for (var g in gs2) {
+      if (gs2.hasOwnProperty(g)) {
+        if (result.hasOwnProperty(g)) {
+          for (var gg in gs2[g]) {
+            if (gs2[g].hasOwnProperty(gg)) {
+              if (result[g].hasOwnProperty(gg)) {
+                for (var ggg in gs2[g][gg]) {
+                  if (gs2[g][gg].hasOwnProperty(ggg)) {
+                    if (result[g][gg].hasOwnProperty(ggg)) {
+                      result[g][gg][ggg] += gs2[g][gg][ggg] / gs2_total;
+                    } else {
+                      result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
+                    }
+                  }
+                }
+              } else {
+                result[g][gg] = {};
+                for (var ggg in gs2[g][gg]) {
+                  if (gs2[g][gg].hasOwnProperty(ggg)) {
+                    result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          result[g] = {};
+          for (var gg in gs2[g]) {
+            if (gs2[g].hasOwnProperty(gg)) {
+              result[g][gg] = {};
+              for (var ggg in gs2[g][gg]) {
+                if (gs2[g][gg].hasOwnProperty(ggg)) {
+                  result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  function merge_bigrams_into_trigrams(trigrams, bigrams) {
+    // Merges two-layer frequency counts into every layer-1 entry of
+    // three-layer counts.
+    var result = {};
+    var tri_total = 0;
+    var bi_total = 0;
+    for (var g in trigrams) {
+      if (trigrams.hasOwnProperty(g)) {
+        for (var gg in trigrams[g]) {
+          if (trigrams[g].hasOwnProperty(gg)) {
+            for (var ggg in trigrams[g][gg]) {
+              if (trigrams[g][gg].hasOwnProperty(ggg)) {
+                tri_total += trigrams[g][gg][ggg];
+              }
+            }
+          }
+        }
+      }
+    }
+    for (var g in bigrams) {
+      if (bigrams.hasOwnProperty(g)) {
+        for (var gg in bigrams[g]) {
+          if (bigrams[g].hasOwnProperty(gg)) {
+            for (var ggg in bigrams[g][gg]) {
+              if (bigrams[g][gg].hasOwnProperty(ggg)) {
+                gs2_total += bigrams[g][gg][ggg];
+              }
+            }
+          }
+        }
+      }
+    }
+    for (var g in trigrams) {
+      if (trigrams.hasOwnProperty(g)) {
+        result[g] = {};
+        for (var gg in trigrams[g]) {
+          if (trigrams[g].hasOwnProperty(gg)) {
+            result[g][gg] = {};
+            for (var ggg in trigrams[g][gg]) {
+              result[g][gg][ggg] = trigrams[g][gg][ggg] / tri_total;
+            }
+          }
+        }
+      }
+    }
+    for (var base in result) {
+      if (result.hasOwnProperty(base)) {
+        for (var g in bigrams) {
+          if (bigrams.hasOwnProperty(g)) {
+            if (result[base].hasOwnProperty(g)) {
+              var entry = result[base][g];
+            } else {
+              var entry = {};
+              result[base][g] = entry;
+            }
+            for (var gg in bigrams[g]) {
+              if (bigrams[g].hasOwnProperty(gg)) {
+                if (entry.hasOwnProperty(gg)) {
+                  entry[gg] += bigrams[g][gg] / bi_total;
+                } else {
+                  entry[gg] = bigrams[g][gg] / bi_total;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
   function combined_counts(domains) {
+    // Combines the base glyph counts for the given domains into a single joint
+    // distribution table.
     var result = {};
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
@@ -1258,21 +1529,42 @@ function(dict, grid, anarchy, caching) {
   }
 
   function combined_bicounts(domains) {
+    // As above, but works on bigram counts and/or pair counts (mixing the two
+    // if ordered/unordered domains are grouped together).
     var result = {};
-    // TODO: HERE!
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
-      result = merge_glyph_bicounts(result, dom.glyph_counts);
+      if (dom.hasOwnProperty(bigram_counts)) {
+        result = merge_glyph_bicounts(result, dom.bigram_counts);
+      } else if (dom.hasOwnProperty(pair_counts)) {
+        result = merge_glyph_bicounts(result, dom.pair_counts);
+      }
     });
     return result;
   }
 
   function combined_tricounts(domains) {
+    // As above, for trigram counts. If unordered domains are included, their
+    // pair counts are grafted onto every possible unary prefix.
     var result = {};
-    // TODO: HERE!
+    last = [];
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
-      result = merge_glyph_counts(result, dom.glyph_counts);
+      if (dom.hasOwnProperty(trigram_counts)) {
+        result = merge_glyph_tricounts(result, dom.trigram_counts);
+      } else {
+        last.push(dom);
+      }
+      result = merge_glyph_tricounts(result, dom.trigram_counts);
+    });
+    // Merge trigram-deficient domains last to ensure they are grafted onto
+    // every possible unitary prefix.
+    last.forEach(function (dom) {
+      if (dom.hasOwnProperty(pair_counts)) {
+        result = merge_bigrams_into_trigrams(result, dom.pair_counts);
+      } else if (dom.hasOwnProperty(bigram_counts)) {
+        result = merge_bigrams_into_trigrams(result, dom.bigram_counts);
+      }
     });
     return result;
   }
@@ -1295,7 +1587,8 @@ function(dict, grid, anarchy, caching) {
     return result;
   }
 
-  function generate_supertile(seed, sp) {
+  // TODO: Get rid of this!
+  function _generate_supertile(sp, seed) {
     // Takes a seed and a supertile position and generates the corresponding
     // supertile. If a required domain is not-yet-loaded, this will return
     // undefined, and the generation process should be re-initiated.
@@ -1355,10 +1648,8 @@ function(dict, grid, anarchy, caching) {
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
-    "punctuated_agpos": punctuated_agpos,
     "ultratile_punctuation_parameters": ultratile_punctuation_parameters,
     "ultratile_muliplanar_info": ultratile_muliplanar_info,
-    "punctuated_agpos": punctuated_agpos,
   };
 });
 

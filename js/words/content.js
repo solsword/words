@@ -63,7 +63,7 @@ define(["./grid", "./generate"], function(grid, generate) {
       delete QUEUED[sgk]; // allow re-queue
       return;
     }
-    var st = generate.generate_supertile(SEED, [sgp[0], sgp[1]]);
+    var st = generate.generate_supertile([sgp[0], sgp[1]], SEED);
     if (st != undefined) {
       SUPERTILES[sgk] = st;
     } else {
