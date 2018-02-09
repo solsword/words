@@ -207,6 +207,9 @@ define(["./locale"], function(locale, finalize) {
         if (word == undefined) {
           word = glyphs;
         }
+        if (freq == undefined) {
+          freq = 1;
+        }
         entries.push([glyphs, word, freq]);
         total_count += freq;
       });
@@ -423,5 +426,6 @@ define(["./locale"], function(locale, finalize) {
     "load_dictionary": load_dictionary,
     "check_word": check_word,
     "find_word_in_domain": find_word_in_domain,
+    "unrolled_word": unrolled_word,
   };
 });

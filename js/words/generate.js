@@ -204,14 +204,14 @@ function(dict, grid, anarchy, caching) {
       var site = rotated[i][0];
       var path = rotated[i][1];
       // Base is defined for socket 6, so rotate before appending:
-      rotated[i] = [
-        site,
-        EDGE_SOCKET_ANCHORS[socket][site],
-        grid.rotate_path(path, 1)
-      ];
-      EDGE_PERMUTATIONS[socket].push(rotated[i]);
+      rotated[i] = [ site, grid.rotate_path(path, 1) ];
+      EDGE_PERMUTATIONS[socket].push(
+        [ rotated[i][0], EDGE_SOCKET_ANCHORS[socket][site], rotated[i][1] ]
+      );
     }
   }
+  console.log("ALL EP:");
+  console.log(EDGE_PERMUTATIONS);
 
   function domains_list(domain_or_combo) {
     // Returns an array of all domains in the given group or combo.
@@ -445,6 +445,11 @@ function(dict, grid, anarchy, caching) {
     var ag_x = ugp[0] / grid.ASSIGNMENT_REGION_SIDE;
     var ag_y = ugp[1] / grid.ASSIGNMENT_REGION_SIDE;
 
+    var ug_x = ugp[0] % grid.ASSIGNMENT_REGION_SIDE;
+    var ug_y = ugp[1] % grid.ASSIGNMENT_REGION_SIDE;
+    ug_x = (ug_x + grid.ASSIGNMENT_REGION_SIDE) % grid.ASSIGNMENT_REGION_SIDE;
+    ug_y = (ug_y + grid.ASSIGNMENT_REGION_SIDE) % grid.ASSIGNMENT_REGION_SIDE;
+
     // density of inclusions in this assignment grid unit:
     var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
     var incl_density = (
@@ -454,7 +459,7 @@ function(dict, grid, anarchy, caching) {
     d_seed = anarchy.lfsr(d_seed);
 
     // segment parameters:
-    var segment = ugp[0] + grid.ASSIGNMENT_REGION_SIDE * ugp[1];
+    var segment = ug_x + grid.ASSIGNMENT_REGION_SIDE * ug_y;
     var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
     var segment_capacity = Math.floor(
       MAX_LOCAL_INCLUSION_DENSITY
@@ -590,7 +595,7 @@ function(dict, grid, anarchy, caching) {
   function ultratile_muliplanar_info(ugp, seed) {
     // Takes an ultragrid position and computes multiplanar offset info for
     // each assignment position in that ultratile. Returns three things:
-    // 1. The number of prior non-inclusion positions in this assignment tiles,
+    // 1. The number of prior non-inclusion positions in this assignment tile,
     //    as returned by ultratile_punctuation_parameters (see above).
     // 2. A flat array containing the multiplanar offset for each assignment
     //    position in the given ultragrid tile.
@@ -605,7 +610,7 @@ function(dict, grid, anarchy, caching) {
 
     // initialize result to all-natural:
     var result = [];
-    for (var i = 0; i < ULTRATILE_SOCKETS; ++i) {
+    for (var i = 0; i < grid.ULTRATILE_SOCKETS; ++i) {
       result[i] = 0;
     }
 
@@ -722,6 +727,8 @@ function(dict, grid, anarchy, caching) {
         }
       }
     }
+    // final row:
+    presums.push(sum);
 
     // return our results:
     return [nat_prior, result, presums];
@@ -754,11 +761,11 @@ function(dict, grid, anarchy, caching) {
     var mptable = mpinfo[1];
     var mpsums = mpinfo[2];
 
-    var ut_x = ugp[0];
-    var ut_y = ugp[1];
-    var sub_x = ugp[2];
-    var sub_y = ugp[3];
-    var ap = ugp[4];
+    var ut_x = ugap[0];
+    var ut_y = ugap[1];
+    var sub_x = ugap[2];
+    var sub_y = ugap[3];
+    var ap = ugap[4];
 
     // compute assignment tile:
     var asg_x = Math.floor(ut_x / grid.ASSIGNMENT_REGION_SIDE);
@@ -890,11 +897,13 @@ function(dict, grid, anarchy, caching) {
     var lesser_total = 0;
     var greater_counttable = [];
     var lesser_counttable = [];
+    var domain_objects = [];
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
       if (dom == undefined) {
         any_missing = true;
       } else {
+        domain_objects.push(dom);
         greater_counttable.push(dom.total_count);
         grand_total += dom.total_count;
         lesser_counttable.push(dom.entries.length);
@@ -904,10 +913,10 @@ function(dict, grid, anarchy, caching) {
     if (any_missing) {
       return undefined;
     }
-    if (WARNINGS && lesser_total > ASSIGNMENT_REGION_TOTAL_SOCKETS) {
+    if (WARNINGS && lesser_total > grid.ASSIGNMENT_REGION_TOTAL_SOCKETS) {
       console.log(
         "Warning: domain (combo?) size exceeds number of assignable sockets: "
-      + grand_total + " > " + ASSIGNMENT_REGION_TOTAL_SOCKETS
+      + grand_total + " > " + grid.ASSIGNMENT_REGION_TOTAL_SOCKETS
       )
     }
 
@@ -915,11 +924,13 @@ function(dict, grid, anarchy, caching) {
 
     var idx = anarchy.cohort_shuffle(
       asg[2],
-      ASSIGNMENT_REGION_TOTAL_SOCKETS,
+      grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
       r
     );
     r = anarchy.lfsr(r);
 
+    console.log("?: " + asg[2] + ", " + r);
+    console.log("IDX: " + idx);
     if (idx < lesser_total) { // one of the per-index assignments
       var ct_idx = 0;
       for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
@@ -929,13 +940,13 @@ function(dict, grid, anarchy, caching) {
         }
         idx -= here;
       }
+      var dom = domain_objects[ct_idx];
       if (WARNINGS && ct_idx == lesser_counttable.length) {
         console.log("Warning: lesser couttable loop failed to break!");
         ct_idx = lesser_counttable.length - 1;
-        idx %= dict.entries.length;
+        idx %= dom.entries.length;
       }
-      var dom = domains[ct_idx];
-      return dict.entries(idx); // all words get equal representation
+      return dom.entries(idx); // all words get equal representation
     } else {
       idx -= lesser_total;
       idx %= grand_total;
@@ -948,11 +959,11 @@ function(dict, grid, anarchy, caching) {
         idx -= here;
       }
       if (WARNINGS && ct_idx == greater_counttable.length) {
-        console.log("Warning: greater couttable loop failed to break!");
+        console.log("Warning: greater counttable loop failed to break!");
         ct_idx = greater_counttable.length - 1;
         idx %= dict.total_count;
       }
-      var dom = domains[ct_idx];
+      var dom = domain_objects[ct_idx];
       return dict.unrolled_word(idx, dom); // representation according to freq
     }
   }
@@ -967,19 +978,28 @@ function(dict, grid, anarchy, caching) {
     //
     // TODO: Merge cut-equal paths to avoid biasing shape distribution of
     // shorter words?
+    console.log("FPc: " + site + " / " + min_length);
+    console.log(permutations);
     var result = [];
     for (var i = 0; i < permutations.length; ++i) {
       if (
         permutations[i][2].length >= min_length
      && (site < 0 || permutations[i][0] == site)
       ) {
-        result.push(permutations[i]);
+        result.push( // deepish copy
+          [
+            permutations[i][0],
+            permutations[i][1],
+            permutations[i][2].slice()
+          ]
+        );
       }
     }
+    console.log("FPl: " + result.length);
     return result;
   }
 
-  function inlay_word(supertile, domain, glyphs, socket, seed) {
+  function inlay_word(supertile, glyphs, socket, seed) {
     // Fits a word (or part of it, for edge-adjacent sockets) into the given
     // socket of the given supertile, updating the glyphs array. Returns a list
     // of tile positions updated.
@@ -988,12 +1008,15 @@ function(dict, grid, anarchy, caching) {
     var chosen;
     // Choose a permutation:
     if (socket == 3) { // the central socket
+      console.log("F CENTER");
       var filtered = filter_permutations(
         CENTER_PERMUTATIONS,
         -1,
         glyphs.length - 1 // path connects glyphs
       );
-      chosen = filtered[anarchy.idist(r, 0, filtered.length)]
+      var cidx = anarchy.idist(r, 0, filtered.length);
+      console.log("IW cidx (fl): " + cidx + " (" + filtered.length + ")");
+      chosen = filtered[cidx]
     } else { // an edge socket
       var xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
       r = anarchy.lfsr(r);
@@ -1004,13 +1027,23 @@ function(dict, grid, anarchy, caching) {
         site = xo[1];
       }
 
+      console.log("F Edge (" + socket + ")");
       var filtered = filter_permutations(
         EDGE_PERMUTATIONS[socket],
         site,
         glyphs.length - 1 // path connects glyphs
       );
-      chosen = filtered[anarchy.idist(r, 0, filtered.length)]
+      // TODO: How can we end up with > 5 glyphs?!?
+      console.log("IW glyphs: " + glyphs);
+      console.log("IW gl: " + (glyphs.length - 1));
+      var cidx = anarchy.idist(r, 0, filtered.length);
+      console.log("IW cidx (fl): " + cidx + " (" + filtered.length + ")");
+      chosen = filtered[cidx]
     }
+
+    console.log("Chosen:")
+    console.log(chosen)
+
     // Finally, punch in the glyphs:
     var pos = chosen[1];
     var path = chosen[2];
@@ -1047,7 +1080,7 @@ function(dict, grid, anarchy, caching) {
 
     // Pick a word for each socket and embed it (or the relevant part of it).
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
-      var sgap = canonical_sgapos([sgp[0], sgp[1], socket]);
+      var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       var ugp = grid.ugpos(sgap); // socket index is ignored
       var mpinfo = caching.cached_value(
         "ultratile_multiplanar_info",
@@ -1080,6 +1113,7 @@ function(dict, grid, anarchy, caching) {
       var glyphs = entry[0].slice();
       var maxlen = 10;
       if (socket == 3) { // embed in center of tile
+        console.log("OW: " + glyphs);
         maxlen = 7;
         var touched = inlay_word(result, glyphs, socket, r);
         for (var i = 0; i < touched.length; ++i) {
@@ -1089,13 +1123,20 @@ function(dict, grid, anarchy, caching) {
         // pick embedding direction & portion to embed
         var flip = (r % 2) == 0;
         r = anarchy.lfsr(r);
-        var min_cut = glyphs.length - Math.floor(maxlen / 2);
-        if (min_cut > maxlen - 1) {
-          min_cut = maxlen - 1;
+        var half_max = Math.floor(maxlen / 2);
+        var min_cut = glyphs.length - half_max;
+        var max_cut = half_max;
+        if (min_cut == max_cut) {
+          var cut = min_cut;
+        } else if (min_cut > max_cut) {
+          // TODO: Handle these overlength words properly!
+          glyphs = glyphs.slice(0, maxlen);
+          cut = half_max;
+        } else {
+          var cut = anarchy.idist(r, min_cut, max_cut + 1);
         }
-        var max_cut = Math.floor(maxlen / 2);
-        var cut = anarchy.idist(r, min_cut, max_cut + 1);
         r = anarchy.lfsr(r);
+        console.log("OW: " + glyphs);
         if (flip ^ grid.is_canonical(socket)) { // take first half
           glyphs = glyphs.slice(0, cut);
         } else {
@@ -1534,9 +1575,9 @@ function(dict, grid, anarchy, caching) {
     var result = {};
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
-      if (dom.hasOwnProperty(bigram_counts)) {
+      if (dom.hasOwnProperty("bigram_counts")) {
         result = merge_glyph_bicounts(result, dom.bigram_counts);
-      } else if (dom.hasOwnProperty(pair_counts)) {
+      } else if (dom.hasOwnProperty("pair_counts")) {
         result = merge_glyph_bicounts(result, dom.pair_counts);
       }
     });
@@ -1550,7 +1591,7 @@ function(dict, grid, anarchy, caching) {
     last = [];
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
-      if (dom.hasOwnProperty(trigram_counts)) {
+      if (dom.hasOwnProperty("trigram_counts")) {
         result = merge_glyph_tricounts(result, dom.trigram_counts);
       } else {
         last.push(dom);
@@ -1560,9 +1601,9 @@ function(dict, grid, anarchy, caching) {
     // Merge trigram-deficient domains last to ensure they are grafted onto
     // every possible unitary prefix.
     last.forEach(function (dom) {
-      if (dom.hasOwnProperty(pair_counts)) {
+      if (dom.hasOwnProperty("pair_counts")) {
         result = merge_bigrams_into_trigrams(result, dom.pair_counts);
-      } else if (dom.hasOwnProperty(bigram_counts)) {
+      } else if (dom.hasOwnProperty("bigram_counts")) {
         result = merge_bigrams_into_trigrams(result, dom.bigram_counts);
       }
     });

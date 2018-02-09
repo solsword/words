@@ -51,11 +51,6 @@ define(function() {
     // Helper for cached_value that keeps trying to generate a value at
     // intervals until the giveup timeout is reached. Places the value into the
     // cache as soon as it's ready.
-    var key = dom[0].apply(null, args);
-    if (accumulated > UNDEF_GIVEUP) {
-      delete QUEUES[domain][key]; // allow re-queue
-      return;
-    }
     var dom = DOMAINS[domain];
     if (dom == undefined) {
       if (WARNINGS) {
@@ -64,6 +59,11 @@ define(function() {
         + "call to register_domain resolves before you call cached_value?"
         );
       }
+      return;
+    }
+    var key = dom[0].apply(null, args);
+    if (accumulated > UNDEF_GIVEUP) {
+      delete QUEUES[domain][key]; // allow re-queue
       return;
     }
     var result = dom[1].apply(null, args);
@@ -122,10 +122,11 @@ define(function() {
     var key = dom[0].apply(null, args); // TODO: Give args one-by-one
     var cache = CACHES[domain];
     if (cache == undefined) {
-      CACHES[domain] = {};
+      cache = {};
+      CACHES[domain] = cache;
       QUEUES[domain] = {};
     }
-    var queue = QUEUES[domian];
+    var queue = QUEUES[domain];
     if (cache.hasOwnProperty(key)) { // already in cache
       var cell = cache[key];
       cell[1] = 0; // reset age

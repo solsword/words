@@ -103,7 +103,8 @@ define([], function() {
   }
 
   function rotate_path(path, amount) {
-    // Rotates an entire path.
+    // Rotates an entire path. Returns a new array without modifying the
+    // original.
     var result = [];
     for (var i = 0; i < path.length; ++i) {
       result.push(rotate(path[i], amount));
@@ -594,7 +595,6 @@ define([], function() {
     "GRID_EDGE": GRID_EDGE,
     "VERTICES": VERTICES,
     "NEIGHBORS": NEIGHBORS,
-    "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
     "N": N,
     "NE": NE,
     "SE": SE,
@@ -603,12 +603,17 @@ define([], function() {
     "SW": SW,
     "SG_CENTER": SG_CENTER,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
+    "COMBINED_SOCKETS": COMBINED_SOCKETS,
+    "SK_CENTER": SK_CENTER,
+    "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
     "ULTRATILE_SOCKETS": ULTRATILE_SOCKETS,
     "ULTRATILE_ROW_SOCKETS": ULTRATILE_ROW_SOCKETS,
     "ULTRATILE_INTERIOR_SOCKETS": ULTRATILE_INTERIOR_SOCKETS,
     "ULTRATILE_PRE_INTERIOR": ULTRATILE_PRE_INTERIOR,
     "ULTRATILE_CORE_SOCKETS": ULTRATILE_CORE_SOCKETS,
     "ULTRATILE_PRE_CORE": ULTRATILE_PRE_CORE,
+    "ASSIGNMENT_REGION_SIDE": ASSIGNMENT_REGION_SIDE,
+    "ASSIGNMENT_REGION_TOTAL_SOCKETS": ASSIGNMENT_REGION_TOTAL_SOCKETS,
     "rotate": rotate,
     "rotate_path": rotate_path,
     "world_pos": world_pos,
@@ -616,8 +621,12 @@ define([], function() {
     "grid_distance": grid_distance,
     "sgpos": sgpos,
     "is_neighbor": is_neighbor,
+    "ugpos": ugpos,
+    "sub_ultra": sub_ultra,
     "extract_subtile": extract_subtile,
     "neighbor": neighbor,
+    "is_canonical": is_canonical,
+    "is_valid_subindex": is_valid_subindex,
     "canonical_sgapos": canonical_sgapos,
     "supergrid_alternate": supergrid_alternate,
     "next_edge": next_edge,
