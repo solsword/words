@@ -311,9 +311,9 @@ define(["./locale"], function(locale, finalize) {
     // Turn the array into a string:
     glyphs = glyphs.join("");
 
-    // For uncased domains, convert the glyph sequence to lower case:
+    // For uncased domains, convert the glyph sequence to upper case:
     if (!dom.cased) {
-      glyphs = locale.lower(glyphs, dom.locale);
+      glyphs = locale.upper(glyphs, dom.locale);
     }
 
     var original = glyphs;
@@ -343,7 +343,7 @@ define(["./locale"], function(locale, finalize) {
         var against = test_entry[0];
         // TODO: Permit any ordering in domain files for unordered domains?
         if (!dom.cased) {
-          against = locale.lower(against, dom.locale);
+          against = locale.upper(against, dom.locale);
         }
         if (against === original) {
           entry = test_entry;
@@ -356,7 +356,7 @@ define(["./locale"], function(locale, finalize) {
           var test_entry = dom.entries[idx];
           var against = test_entry[0];
           if (!dom.cased) {
-            against = locale.lower(against, dom.locale);
+            against = locale.upper(against, dom.locale);
           }
           if (against === original) {
             entry = test_entry;

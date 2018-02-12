@@ -87,6 +87,13 @@ require(["../locale"], function (locale) {
         }
 
         var entry = json.entries[i];
+
+        if (!json.cased) {
+          // normalize to upper-case
+          entry[0] = locale.upper(entry[0], json.locale);
+          entry[1] = locale.upper(entry[1], json.locale);
+        }
+
         var gl = entry[0]; // glyphs list
         var f = entry[2]; // word frequency
 
@@ -95,12 +102,12 @@ require(["../locale"], function (locale) {
             f = 1;
           }
 
-          var g = gl[j]; // this glyph
-
           // This because glyph counts are used for generation:
           if (!json.cased) {
-            g = locale.upper(g, json.locale);
+            gl[j] = locale.upper(gl[j], json.locale);
           }
+
+          var g = gl[j]; // this glyph
 
           // Count glyph:
           if (json.glyph_counts.hasOwnProperty(g)) {

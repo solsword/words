@@ -2,7 +2,7 @@
 // Generates hex grid supertiles for word puzzling.
 
 define(
-["./dict", "./grid", "./anarchy", "./caching"],
+["./dict", "./grid", "./anarchy", "./caching", "./locale"],
 function(dict, grid, anarchy, caching) {
 
   // Whether or not to issue warnings to the console.
@@ -210,8 +210,6 @@ function(dict, grid, anarchy, caching) {
       );
     }
   }
-  console.log("ALL EP:");
-  console.log(EDGE_PERMUTATIONS);
 
   function domains_list(domain_or_combo) {
     // Returns an array of all domains in the given group or combo.
@@ -929,8 +927,6 @@ function(dict, grid, anarchy, caching) {
     );
     r = anarchy.lfsr(r);
 
-    console.log("?: " + asg[2] + ", " + r);
-    console.log("IDX: " + idx);
     if (idx < lesser_total) { // one of the per-index assignments
       var ct_idx = 0;
       for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
@@ -978,8 +974,6 @@ function(dict, grid, anarchy, caching) {
     //
     // TODO: Merge cut-equal paths to avoid biasing shape distribution of
     // shorter words?
-    console.log("FPc: " + site + " / " + min_length);
-    console.log(permutations);
     var result = [];
     for (var i = 0; i < permutations.length; ++i) {
       if (
@@ -995,7 +989,6 @@ function(dict, grid, anarchy, caching) {
         );
       }
     }
-    console.log("FPl: " + result.length);
     return result;
   }
 
@@ -1008,14 +1001,12 @@ function(dict, grid, anarchy, caching) {
     var chosen;
     // Choose a permutation:
     if (socket == 3) { // the central socket
-      console.log("F CENTER");
       var filtered = filter_permutations(
         CENTER_PERMUTATIONS,
         -1,
         glyphs.length - 1 // path connects glyphs
       );
       var cidx = anarchy.idist(r, 0, filtered.length);
-      console.log("IW cidx (fl): " + cidx + " (" + filtered.length + ")");
       chosen = filtered[cidx]
     } else { // an edge socket
       var xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
@@ -1027,28 +1018,25 @@ function(dict, grid, anarchy, caching) {
         site = xo[1];
       }
 
-      console.log("F Edge (" + socket + ")");
       var filtered = filter_permutations(
         EDGE_PERMUTATIONS[socket],
         site,
         glyphs.length - 1 // path connects glyphs
       );
       // TODO: How can we end up with > 5 glyphs?!?
-      console.log("IW glyphs: " + glyphs);
-      console.log("IW gl: " + (glyphs.length - 1));
       var cidx = anarchy.idist(r, 0, filtered.length);
-      console.log("IW cidx (fl): " + cidx + " (" + filtered.length + ")");
       chosen = filtered[cidx]
     }
-
-    console.log("Chosen:")
-    console.log(chosen)
 
     // Finally, punch in the glyphs:
     var pos = chosen[1];
     var path = chosen[2];
     for (var i = 0; i < glyphs.length; ++i) {
       supertile.glyphs[pos[0] + pos[1]*7] = glyphs[i];
+      // TODO: DEBUG
+      if (!grid.is_valid_subindex(pos)) {
+        console.log("Invalid subindex: " + pos);
+      }
       result.push(pos);
       if (i < glyphs.length - 1) {
         pos = grid.neighbor(pos, path[i]);
@@ -1073,12 +1061,31 @@ function(dict, grid, anarchy, caching) {
     // TODO: Use base-plane info (needs extra arg above).
     var default_domain = "base";
 
+    // Look up colors for this supertile
+    // TODO: DEBUG
+    // result["colors"] = colors_for_domains(domains_list(default_domain));
+    result["colors"] = [];
+    if (anarchy.posmod(sgp[0], 2)) {
+      result["colors"].push("rd");
+    }
+    if (anarchy.posmod(sgp[1], 2)) {
+      result["colors"].push("bl");
+    }
+    if (result["colors"] == undefined) {
+      return undefined;
+    }
+
+    // Generate an ulocked mask:
+    result["unlocked"] = generate_unlocked(seed);
+    seed = anarchy.lfsr(seed);
+
     for (var i = 0; i < 49; ++i) {
       result.glyphs[i] = undefined;
       result.domains[i] = undefined;
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
+    var empty_count = 37;
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       var ugp = grid.ugpos(sgap); // socket index is ignored
@@ -1113,9 +1120,13 @@ function(dict, grid, anarchy, caching) {
       var glyphs = entry[0].slice();
       var maxlen = 10;
       if (socket == 3) { // embed in center of tile
-        console.log("OW: " + glyphs);
         maxlen = 7;
+        if (glyphs.length > maxlen) {
+          // TODO: Better here!
+          glyphs = glyphs.slice(0, maxlen);
+        }
         var touched = inlay_word(result, glyphs, socket, r);
+        empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
           glyph_domains[touched[i][0] + touched[i][1]*7] = dom;
         }
@@ -1136,13 +1147,13 @@ function(dict, grid, anarchy, caching) {
           var cut = anarchy.idist(r, min_cut, max_cut + 1);
         }
         r = anarchy.lfsr(r);
-        console.log("OW: " + glyphs);
         if (flip ^ grid.is_canonical(socket)) { // take first half
           glyphs = glyphs.slice(0, cut);
         } else {
           glyphs = glyphs.slice(cut);
         }
         var touched = inlay_word(result, glyphs, socket, r);
+        empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
           glyph_domains[touched[i][0] + touched[i][1]*7] = dom;
         }
@@ -1150,20 +1161,30 @@ function(dict, grid, anarchy, caching) {
     }
     r = anarchy.lfsr(r);
 
+    console.log("");
+    console.log("SGpos: " + sgp);
+    console.log("Left to fill: " + empty_count);
+
     // Now that each socket has been inlaid, fill remaining spots with letters
     // according to unigram, bigram, and trigram probabilities.
     var sseed = r;
     var baseline_counts = {}; // combined glyph counts caches
     var binary_counts = {};
     var trinary_counts = {};
+    var found_missing = 0;
+    var tested = 0;
     for (var i = 0; i < 49; ++i) {
       var u = anarchy.cohort_shuffle(i, 49, sseed); // iterate in shuffled order
+      // TODO: Fix cohort_shuffle!
+      console.log("U=" + u);
       var x = i % 7;
       var y = Math.floor(i / 7);
       if (!grid.is_valid_subindex([x, y])) { // skip out-of-bounds indices
         continue;
       }
+      tested += 1;
       if (result.glyphs[u] == undefined) { // need to fill it in
+        found_missing += 1;
         var neighbors = []; // list filled-in neighbors
         var nbdoms = []; // list their domains
         for (var j = 0; j < 6; ++j) {
@@ -1175,6 +1196,7 @@ function(dict, grid, anarchy, caching) {
             nbdoms.push(glyph_domains[ni]);
           }
         }
+
         // Simplify mixed-domain neighbors list to single-domain + glyphs list:
         var nbdom = undefined;
         var nbglyphs = undefined;
@@ -1228,7 +1250,13 @@ function(dict, grid, anarchy, caching) {
             unicounts = combined_counts(domains_list(nbdom));
             baseline_counts[nbdom] = unicounts;
           }
+          /*
+           * DEBUG
           result.glyphs[u] = sample_glyph(r, undefined, unicounts);
+          */
+          result.glyphs[u] = '_';
+          console.log("underscore @ " + x + ", " + y);
+          empty_count -= 1;
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length == 1) {
           if (baseline_counts.hasOwnProperty(nbdom)) {
@@ -1243,12 +1271,17 @@ function(dict, grid, anarchy, caching) {
             bicounts = combined_bicounts(domains_list(nbdom));
             binary_counts[nbdom] = bicounts;
           }
+          /*
           result.glyphs[u] = sample_glyph(
             r,
             nbglyphs[0],
             unicounts,
             bicounts
           );
+          */
+          result.glyphs[u] = '_';
+          console.log("underscore @ " + x + ", " + y);
+          empty_count -= 1;
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length >= 2) {
           // TODO: Shuffle first here?
@@ -1271,6 +1304,7 @@ function(dict, grid, anarchy, caching) {
             tricounts = combined_tricounts(domains_list(nbdom));
             trinary_counts[nbdom] = tricounts;
           }
+          /*
           result.glyphs[u] = sample_glyph(
             r,
             nbglyphs,
@@ -1278,10 +1312,18 @@ function(dict, grid, anarchy, caching) {
             bicounts,
             tricounts
           );
+          */
+          result.glyphs[u] = '_';
+          console.log("underscore @ " + x + ", " + y);
+          empty_count -= 1;
           r = anarchy.lfsr(r);
         }
       }
     }
+
+    console.log("Tested: " + tested);
+    console.log("Found unfilled: " + found_missing);
+    console.log("Left to fill: " + empty_count);
 
     // all glyphs have been filled in, we're done here!
     return result;
@@ -1298,10 +1340,14 @@ function(dict, grid, anarchy, caching) {
   }
 
   function colors_for_domains(domains) {
-    // Returns a color value for a domain list.
+    // Returns a color value for a domain list, or undefined if one or more of
+    // the given domains aren't loaded yet.
     var result = [];
     domains.forEach(function (d) {
       var dom = dict.lookup_domain(d);
+      if (dom == undefined) {
+        return undefined;
+      }
       dom.colors.forEach(function (c) {
         result.push(c);
       });
