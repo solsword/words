@@ -39,7 +39,7 @@ define([], function() {
     return (
       (x >>> distance)
     | (fall_off << shift_by)
-    );
+    ) >>> 0;
   }
 
   function rev_circular_shift(x, distance) {
@@ -63,7 +63,7 @@ define([], function() {
     var m = mask(where);
     var lower = x & m;
     var shift_by = ID_BITS - where;
-    return x ^ (lower << shift_by);
+    return (x ^ (lower << shift_by)) >>> 0;
   }
   // fold is its own inverse.
 

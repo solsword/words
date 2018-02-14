@@ -2,7 +2,7 @@
 // Generates hex grid supertiles for word puzzling.
 
 define(
-["./dict", "./grid", "./anarchy", "./caching", "./locale"],
+["./dict", "./grid", "anarchy", "./caching", "./locale"],
 function(dict, grid, anarchy, caching) {
 
   // Whether or not to issue warnings to the console.
