@@ -52,7 +52,7 @@ define([], function() {
     return (
       (x << distance)
     | (fall_off >>> shift_by)
-    );
+    ) >>> 0;
   }
 
   function fold(x, where) {
@@ -73,7 +73,7 @@ define([], function() {
     // Flops each 1/2 byte with the adjacent 1/2 byte.
     var left = x & FLOP_MASK;
     var right = x & ~FLOP_MASK;
-    return (right << 4) | (left >>> 4);
+    return ((right << 4) | (left >>> 4)) >>> 0;
   }
   // flop is its own inverse.
 
@@ -84,7 +84,7 @@ define([], function() {
     if (trigger) {
       r ^= 0x03040610;
     }
-    return r;
+    return r >>> 0;
   }
 
   function rev_scramble(x) {
@@ -95,7 +95,7 @@ define([], function() {
       // pr ^= rev_circular_shift(0x03040610, 1);
       pr ^= 0x06080c20;
     }
-    return pr;
+    return pr >>> 0;
   }
 
   function scramble_seed(s) {
@@ -128,7 +128,7 @@ define([], function() {
     x = fold(x, seed + 89); // prime
     x = circular_shift(x, seed + 107); // prime
     x = scramble(x);
-    return x;
+    return x >>> 0;
   }
 
   function rev_prng(x, seed) {
@@ -145,7 +145,7 @@ define([], function() {
     x = flop(x);
     x = fold(x, seed + 3); // prime
     x ^= seed;
-    return x;
+    return x >>> 0;
   }
 
   function lfsr(x) {
@@ -168,8 +168,9 @@ define([], function() {
   }
 
   function idist(x, start, end) {
-    // Even distribution over the given integer range, including start but
-    // excluding end. Distribution bias is about one part in (range/2^31).
+    // Even distribution over the given integer range, including the lower end
+    // but excluding the higher end (even if the lower end is given second).
+    // Distribution bias is about one part in (range/2^31).
     return Math.floor(udist(x) * (end - start)) + start;
   }
 
@@ -195,7 +196,7 @@ define([], function() {
   function cohort_and_inner(outer, cohort_size) {
     // Returns an array containing both the cohort number and inner index for
     // the given outer index and cohort size.
-    return [which_cohort(outer, cohort_size), cohort_inner(outer, cohort_size)];
+    return [ cohort(outer, cohort_size), cohort_inner(outer, cohort_size) ];
   }
 
   function cohort_outer(cohort, inner, cohort_size) {
@@ -233,16 +234,17 @@ define([], function() {
       split += posmod(seed, quarter);
     }
     var after = cohort_size - split;
-    split += posmod((after + 1), 2); // force an odd split point
+    split += posmod(after + 1, 2); // force an odd split point
+    after = cohort_size - split;
 
     var fold_to = half - Math.floor(after / 2);
 
     if (inner < fold_to) { // first region
       return inner >>> 0;
-    } else if (inner >= split) { // second region
+    } else if (inner < split) { // second region
       return (inner + after) >>> 0; // push out past fold region
     } else { // fold region
-      return (fold_to + (inner - split)) >>> 0;
+      return (inner - split + fold_to) >>> 0;
     }
   }
 
@@ -256,15 +258,16 @@ define([], function() {
     }
     var after = cohort_size - split;
     split += posmod((after + 1), 2); // force an odd split point
+    after = cohort_size - split;
 
     var fold_to = half - Math.floor(after / 2);
 
     if (inner < fold_to) { // first region
       return inner >>> 0;
-    } else if (inner > half + Math.floor(after / 2)) { // second region
-      return (inner - after) >>> 0;
+    } else if (inner < fold_to + after) { // second region
+      return (inner - fold_to + split) >>> 0;
     } else {
-      return (split + inner - fold_to) >>> 0;
+      return (inner - after) >>> 0;
     }
   }
 
@@ -313,7 +316,7 @@ define([], function() {
     if (posmod(inner, 2)) {
       target = cohort_spin(
         Math.floor(even / 2),
-        Math.floor((cohort_size + (1 - posmod(cohort_size, 2))) / 2),
+        Math.floor(cohort_size / 2),
         seed + 464185
       );
       return (2 * target + 1) >>> 0;
@@ -334,7 +337,7 @@ define([], function() {
     if (posmod(inner, 2)) {
       target = rev_cohort_spin(
         Math.floor(even / 2),
-        Math.floor((cohort_size = (1 - posmod(cohort_size, 2))) / 2),
+        Math.floor(cohort_size / 2),
         seed + 464185
       );
       return 2 * target + 1;
@@ -398,7 +401,7 @@ define([], function() {
     var region = posmod((inner - leftovers), region_size);
 
     if (inner < leftovers) { // leftovers back to the end:
-      return (regions * reigon_size + inner) >>> 0;
+      return (regions * region_size + inner) >>> 0;
     } else {
       return (region * regions + index) >>> 0;
     }
