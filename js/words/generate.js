@@ -1086,6 +1086,9 @@ function(dict, grid, anarchy, caching) {
 
     // Pick a word for each socket and embed it (or the relevant part of it).
     var empty_count = 37;
+    // TODO: DEBUG
+    var obs1 = [];
+    var obs2 = [];
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       var ugp = grid.ugpos(sgap); // socket index is ignored
@@ -1129,6 +1132,12 @@ function(dict, grid, anarchy, caching) {
         empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
           glyph_domains[touched[i][0] + touched[i][1]*7] = dom;
+          var nnn = touched[i][0] + touched[i][1]*7;
+          if (obs1[nnn] == undefined) {
+            obs1[nnn] = 1;
+          } else {
+            obs1[nnn] += 1;
+          }
         }
       } else {
         // pick embedding direction & portion to embed
@@ -1156,6 +1165,12 @@ function(dict, grid, anarchy, caching) {
         empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
           glyph_domains[touched[i][0] + touched[i][1]*7] = dom;
+          var nnn = touched[i][0] + touched[i][1]*7;
+          if (obs2[nnn] == undefined) {
+            obs2[nnn] = 1;
+          } else {
+            obs2[nnn] += 1;
+          }
         }
       }
     }
@@ -1164,6 +1179,27 @@ function(dict, grid, anarchy, caching) {
     console.log("");
     console.log("SGpos: " + sgp);
     console.log("Left to fill: " + empty_count);
+    console.log(obs1);
+    console.log(obs2);
+
+    var str = "";
+    for (var ii = 0; ii < 7; ++ii) {
+      for (var jj = 0; jj < 7; ++jj) {
+        var iidx = ii + jj*7;
+        if (obs1[iidx] != undefined) {
+          str += obs1[iidx];
+        } else {
+          str += " ";
+        }
+        if (obs2[iidx] != undefined) {
+          str += obs2[iidx];
+        } else {
+          str += " ";
+        }
+      }
+      str += "\n";
+    }
+    console.log(str);
 
     // Now that each socket has been inlaid, fill remaining spots with letters
     // according to unigram, bigram, and trigram probabilities.
@@ -1173,10 +1209,15 @@ function(dict, grid, anarchy, caching) {
     var trinary_counts = {};
     var found_missing = 0;
     var tested = 0;
+    // TODO: DEBUG
+    var obs = [];
     for (var i = 0; i < 49; ++i) {
       var u = anarchy.cohort_shuffle(i, 49, sseed); // iterate in shuffled order
-      // TODO: Fix cohort_shuffle!
-      console.log("U=" + u);
+      if (obs[u] == undefined) {
+        obs[u] = 1;
+      } else {
+        obs[u] += 1;
+      }
       var x = i % 7;
       var y = Math.floor(i / 7);
       if (!grid.is_valid_subindex([x, y])) { // skip out-of-bounds indices
@@ -1320,6 +1361,7 @@ function(dict, grid, anarchy, caching) {
         }
       }
     }
+    console.log(obs);
 
     console.log("Tested: " + tested);
     console.log("Found unfilled: " + found_missing);
