@@ -380,13 +380,6 @@ define([], function() {
     result["glyph"] = supertile.glyphs[idx];
     result["colors"] = supertile.colors[idx].slice();
     result["domain"] = supertile.domains[idx];
-    var ord = rxy[0] + SUPERTILE_SIZE * rxy[1];
-    if (ord >= 32) {
-      ord -= 32;
-      result["unlocked"] = supertile["unlocked"][1] & (1 << ord);
-    } else {
-      result["unlocked"] = supertile["unlocked"][0] & (1 << ord);
-    }
     return result;
   }
 

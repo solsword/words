@@ -171,7 +171,6 @@ function(draw, content, grid, dict, generate, menu) {
     combined_swipe.forEach(function (gp) {
       var tile = content.tile_at(gp);
       if (tile != null) {
-        console.log(tile);
         generate.domains_list(tile.domain).forEach(function (d) {
           domains.add(d);
         });
@@ -450,6 +449,12 @@ function(draw, content, grid, dict, generate, menu) {
       CTX.viewport_scale = 1.0;
     }
     DO_REDRAW = 0;
+
+    // Unlock initial tiles
+    content.unlock_tile([0, 0]);
+    content.unlock_tile([1, 0]);
+    content.unlock_tile([0, 1]);
+    content.unlock_tile([-1, -1]);
 
     // kick off animation
     window.requestAnimationFrame(animate);
@@ -735,15 +740,12 @@ function(draw, content, grid, dict, generate, menu) {
     }
     DO_REDRAW = undefined;
 
-    console.log("DRAW");
-
     // draw the test supertile
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
     for (var i = 0; i < GRID_TEST_DATA.length; ++i) {
       var item = GRID_TEST_DATA[i];
       var sgp = [ item[0][0], item[0][1], 0, 0 ];
       var st = item[1];
-      console.log(st);
       draw.draw_supertile(CTX, sgp, st);
     }
 

@@ -6,6 +6,12 @@ define(["./grid", "./generate"], function(grid, generate) {
   var SUPERTILES = {};
   var QUEUED = {};
 
+  // The map and list of currently-unlocked tiles:
+  var UNLOCKED = [];
+
+  // How many tiles can be unlocked at once.
+  var UNLOCK_LIMIT = 30;
+
   // Current global seed
   var SEED = 173;
 
@@ -15,9 +21,6 @@ define(["./grid", "./generate"], function(grid, generate) {
   // How long since the most-recent request for a tile before we give up on
   // generating it (maybe it's off-window by now?)
   var GEN_GIVEUP = 1000;
-
-  // How long to wait before re-attempting a tile unlock:
-  var UNLOCK_BACKOFF = 80;
   
   function set_seed(seed) {
     // Sets the global generation seed
@@ -32,7 +35,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     //   spos: the supergrid-position of this tile.
     //   colors: a list of up to 6 draw.PALETTE codes for this tile.
     //   glyph: the glyph on this title.
-    //   unlocked: true or false whether this tile is unlocked.
+    //   domain: the domain for this tile.
     //
     // If the appropriate supergrid tile is not yet loaded, it will be
     // generated. While generation is ongoing, this function will return an
@@ -48,8 +51,7 @@ define(["./grid", "./generate"], function(grid, generate) {
         "spos": [sgp[0], sgp[1]],
         "colors": [],
         "domain": undefined,
-        "glyph": undefined,
-        "unlocked": undefined
+        "glyph": undefined
       };
     }
     var result = grid.extract_subtile(st, [sgp[2], sgp[3]]);
@@ -91,37 +93,29 @@ define(["./grid", "./generate"], function(grid, generate) {
   }
 
   function is_unlocked(gp) {
-    // Checks whether the given grid position is unlocked or not. Returns
-    // undefined on unloaded positions.
-    var st = fetch_supertile(gp);
-    if (st == null) {
-      return undefined;
+    // Checks whether the given grid position is unlocked or not.
+    for (var i = 0; i < UNLOCKED.length; ++i) {
+      if (UNLOCKED[i][0] == gp[0] && UNLOCKED[i][1] == gp[1]) {
+        return true;
+      }
     }
-    var sgp = grid.sgpos(gp);
-    var ord = sgp[2] + sgp[3]*7;
-    if (ord >= 32) {
-      ord -= 32;
-      return (1 << ord) & st["unlocked"][1];
-    } else {
-      return (1 << ord) & st["unlocked"][0];
-    }
+    return false;
   }
 
   function unlock_tile(gp) {
-    // Unlocks the given grid position
-    var st = fetch_supertile(gp);
-    if (st == null) {
-      // reschedule indefinitely if stymied
-      setTimeout(unlock_tile, UNLOCK_BACKOFF, gp);
-      return;
+    // Unlocks the given grid position. Depending on UNLOCK_LIMIT, may lock the
+    // oldest unlocked position.
+    for (var i = 0; i < UNLOCKED.length; ++i) {
+      if (UNLOCKED[i][0] == gp[0] && UNLOCKED[i][1] == gp[1]) {
+        break;
+      }
     }
-    var sgp = grid.sgpos(gp);
-    var ord = sgp[2] + sgp[3]*7;
-    if (ord >= 32) {
-      ord -= 32;
-      st["unlocked"][1] |= (1 << ord);
-    } else {
-      st["unlocked"][0] |= (1 << ord);
+    if (i < UNLOCKED.length) {
+      UNLOCKED.splice(i, 1);
+    }
+    UNLOCKED.push([gp[0], gp[1]]);
+    if (UNLOCKED.length > UNLOCK_LIMIT) {
+      UNLOCKED.shift();
     }
   }
 

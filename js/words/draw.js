@@ -145,19 +145,13 @@ define(["./grid", "./content"], function(grid, content) {
       for (var y = 0; y < grid.SUPERTILE_SIZE; ++y) {
         if (grid.is_valid_subindex([x, y])) {
           var idx = x + y * grid.SUPERTILE_SIZE;
+          var gp = [ base_pos[0] + x, base_pos[1] + y ];
           var tile = {
-            "pos": [ base_pos[0] + x, base_pos[1] + y ],
+            "pos": gp,
             "colors": supertile.colors[idx],
             "glyph": supertile.glyphs[idx],
-            "unlocked": false,
+            "domain": supertile.domains[idx],
           }
-          if (idx >= 32) {
-            idx -= 32;
-            tile["unlocked"] = supertile["unlocked"][1] & (1 << idx);
-          } else {
-            tile["unlocked"] = supertile["unlocked"][0] & (1 << idx);
-          }
-
           draw_tile(ctx, tile);
         }
       }
@@ -168,6 +162,7 @@ define(["./grid", "./content"], function(grid, content) {
     var wpos = grid.world_pos(tile["pos"]);
     var colors = tile["colors"];
     var glyph = tile["glyph"];
+    var unlocked = content.is_unlocked(tile["pos"]);
 
     var vpos = view_pos(ctx, wpos);
 
@@ -285,7 +280,7 @@ define(["./grid", "./content"], function(grid, content) {
 
       // Inner circle
       var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
-      if (tile["unlocked"]) {
+      if (unlocked) {
         ctx.fillStyle = TILE_COLORS["unlocked-pad"];
       } else {
         ctx.fillStyle = TILE_COLORS["pad"];
@@ -295,7 +290,7 @@ define(["./grid", "./content"], function(grid, content) {
       ctx.fill();
 
       // Circle edge
-      if (tile["unlocked"]) {
+      if (unlocked) {
         ctx.strokeStyle = TILE_COLORS["unlocked-circle"];
       } else {
         ctx.strokeStyle = TILE_COLORS["circle"];

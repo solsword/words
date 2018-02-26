@@ -57,10 +57,6 @@ function(dict, grid, anarchy, caching) {
     "اللغة_العربية_الفصحى"
   ]
 
-  // Limits on the number of unlocked tiles per supertile:
-  var MAX_UNLOCKED = 8;
-  var MIN_UNLOCKED = 5; // but they can miss and collide, of course
-
   // Socketing permutations:
   var CENTER_CENTER_PERMUTATIONS = [ // 2 reflections starting from the center:
     [ grid.N, grid.SE, grid.S, grid.SW, grid.NW, grid.N ],
@@ -1056,10 +1052,6 @@ function(dict, grid, anarchy, caching) {
     // TODO: Use base-plane info (needs extra arg above).
     var default_domain = "base";
 
-    // Generate an ulocked mask:
-    result["unlocked"] = generate_unlocked(seed);
-    seed = anarchy.lfsr(seed);
-
     // set glyphs, colors, and domains to undefined:
     for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
       result.glyphs[i] = undefined;
@@ -1126,7 +1118,7 @@ function(dict, grid, anarchy, caching) {
           var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
           result.domains[idx] = domain;
           // DEBUG
-          result.colors[idx].push("rd");
+          // result.colors[idx].push("rd");
         }
       } else {
         // pick embedding direction & portion to embed
@@ -1157,9 +1149,11 @@ function(dict, grid, anarchy, caching) {
           var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
           result.domains[idx] = domain;
           // DEBUG:
+          /*
           result.colors[idx].push(
             ["bl", "yl", "gn", "rd"][socket % 4]
           );
+          */
         }
       }
     }
@@ -1634,24 +1628,6 @@ function(dict, grid, anarchy, caching) {
     return result;
   }
 
-  function generate_unlocked(hash) {
-    // Generates an unlocked bitmask for a fresh supertile using the given hash.
-    var result = [ 0, 0 ];
-    hash = anarchy.lfsr(hash);
-    var n_unlocked = MIN_UNLOCKED + (hash % (MAX_UNLOCKED - MIN_UNLOCKED));
-    for (var i = 0; i < n_unlocked; ++i) {
-      hash = anarchy.lfsr(hash);
-      var ord = hash % (grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE);
-      if (ord >= 32) {
-        ord -= 32;
-        result[1] |= 1 << ord;
-      } else {
-        result[0] |= 1 << ord;
-      }
-    }
-    return result;
-  }
-
   // TODO: Get rid of this!
   function _generate_supertile(sp, seed) {
     // Takes a seed and a supertile position and generates the corresponding
@@ -1678,8 +1654,6 @@ function(dict, grid, anarchy, caching) {
     }
 
     result["colors"] = colors_for_domains(result["domains"]);
-
-    result["unlocked"] = generate_unlocked(smix);
 
     var gcounts = combined_counts(result["domains"]);
 
@@ -1719,7 +1693,6 @@ function(dict, grid, anarchy, caching) {
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "domains": [],
-      "unlocked": [ 0, 0 ],
     };
 
     for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
@@ -1728,10 +1701,6 @@ function(dict, grid, anarchy, caching) {
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
-    var empty_count = 37;
-    // TODO: DEBUG
-    var obs1 = [];
-    var obs2 = [];
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       var cs = sgap[2];
@@ -1771,15 +1740,9 @@ function(dict, grid, anarchy, caching) {
           glyphs = glyphs.slice(0, maxlen);
         }
         var touched = inlay_word(result, glyphs, socket, r);
-        empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
           var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
           result.colors[nnn] = tile_colors;
-          if (obs1[nnn] == undefined) {
-            obs1[nnn] = 1;
-          } else {
-            obs1[nnn] += 1;
-          }
         }
       } else {
         // pick embedding direction & portion to embed
@@ -1806,45 +1769,13 @@ function(dict, grid, anarchy, caching) {
           glyphs = glyphs.slice(cut);
         }
         var touched = inlay_word(result, glyphs, socket, r);
-        empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
           var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
           result.colors[nnn] = tile_colors;
-          if (obs2[nnn] == undefined) {
-            obs2[nnn] = 1;
-          } else {
-            obs2[nnn] += 1;
-          }
         }
       }
     }
     r = anarchy.lfsr(r);
-
-    console.log("");
-    console.log("SGpos: " + sgp);
-    console.log("Left to fill: " + empty_count);
-    console.log(obs1);
-    console.log(obs2);
-
-    var str = "";
-    for (var ii = 0; ii < grid.SUPERTILE_SIZE; ++ii) {
-      for (var jj = 0; jj < grid.SUPERTILE_SIZE; ++jj) {
-        var iidx = ii + jj*grid.SUPERTILE_SIZE;
-        if (obs1[iidx] != undefined) {
-          str += obs1[iidx];
-        } else {
-          str += "_";
-        }
-        if (obs2[iidx] != undefined) {
-          str += obs2[iidx];
-        } else {
-          str += "_";
-        }
-        str += ".";
-      }
-      str += "\n";
-    }
-    console.log(str);
 
     // TODO: Fill in remaining spots or not?
 
