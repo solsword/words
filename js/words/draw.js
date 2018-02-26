@@ -139,6 +139,30 @@ define(["./grid", "./content"], function(grid, content) {
     return !any_undefined;
   }
 
+  function draw_centered_supertile(ctx, sgp, supertile) {
+    for (var x = 0; x < grid.SUPERTILE_SIZE; ++x) {
+      for (var y = 0; y < grid.SUPERTILE_SIZE; ++y) {
+        if (grid.is_valid_subindex([x, y])) {
+          var idx = x + y * grid.SUPERTILE_SIZE;
+          var tile = {
+            "pos": [x, y], // TODO: Construct actual positions?
+            "colors": [],
+            "glyph": supertile.glyphs[idx],
+            "unlocked": false,
+          }
+          if (idx >= 32) {
+            ord -= 32;
+            tile["unlocked"] = supertile["unlocked"][1] & (1 << ord);
+          } else {
+            tile["unlocked"] = supertile["unlocked"][0] & (1 << ord);
+          }
+
+          draw_tile(ctx, tile);
+        }
+      }
+    }
+  }
+
   function draw_tile(ctx, tile) {
     var wpos = grid.world_pos(tile["pos"]);
     var colors = tile["colors"];
@@ -432,6 +456,7 @@ define(["./grid", "./content"], function(grid, content) {
     "FONT_SIZE": FONT_SIZE,
     "interp_color": interp_color,
     "draw_tiles": draw_tiles,
+    "draw_centered_supertile": draw_centered_supertile,
     "view_pos": view_pos,
     "world_pos": world_pos,
     "draw_swipe": draw_swipe,

@@ -2,8 +2,8 @@
 // Word game.
 
 define(
-["./draw", "./content", "./grid", "./dict", "./menu"],
-function(draw, content, grid, dict, menu) {
+["./draw", "./content", "./grid", "./dict", "./generate", "./menu"],
+function(draw, content, grid, dict, generate, menu) {
 
   var VIEWPORT_SIZE = 800.0;
 
@@ -44,6 +44,9 @@ function(draw, content, grid, dict, menu) {
   // Timing:
   var MISSING_TILE_RETRY = 10;
   var LOADING_RETRY = 10;
+
+  // Grid test:
+  var GRID_TEST_DATA = undefined;
 
   function find_word(word, gp) {
     DO_REDRAW = 0;
@@ -151,6 +154,9 @@ function(draw, content, grid, dict, menu) {
       }
       DO_REDRAW = 0;
     }
+  }
+
+  var GRID_TEST_COMMANDS = {
   }
 
   function clear_selection() {
@@ -662,7 +668,89 @@ function(draw, content, grid, dict, menu) {
     window.requestAnimationFrame(animate);
   }
 
+  function test_grid() {
+    // set up canvas context
+    CANVAS = document.getElementById("canvas");
+    CTX = CANVAS.getContext("2d");
+    update_canvas_size();
+    CTX.viewport_size = VIEWPORT_SIZE;
+    CTX.viewport_center = [0, 0];
+    var screensize = Math.min(window.innerWidth, window.innerHeight);
+    if (screensize < 500) {
+      // Smaller devices
+      CTX.viewport_scale = 2.0;
+    } else {
+      CTX.viewport_scale = 1.0;
+    }
+    DO_REDRAW = 0;
+
+    // set up test data:
+    // TODO: Keybinding to swap seeds?
+    GRID_TEST_DATA = generate.generate_test_supertile(28012);
+
+    // kick off animation
+    window.requestAnimationFrame(animate_grid_test);
+
+    // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
+    // consecutive one to do anything.
+    var timer_id = undefined;
+    window.addEventListener("resize", function() {
+      if (timer_id != undefined) {
+        clearTimeout(timer_id);
+        timer_id = undefined;
+      }
+      timer_id = setTimeout(
+        function () {
+          timer_id = undefined;
+          update_canvas_size();
+        },
+        RESIZE_TIMEOUT
+      );
+    });
+
+    document.onkeydown = function (e) {
+      if (GRID_TEST_COMMANDS.hasOwnProperty(e.key)) {
+        GRID_TEST_COMMANDS[e.key](e);
+      }
+    }
+  }
+
+  function animate_grid_test(now) {
+    if (DO_REDRAW == undefined) {
+      window.requestAnimationFrame(animate_grid_test);
+      return;
+    } else if (DO_REDRAW > 0) {
+      DO_REDRAW -= 1;
+      window.requestAnimationFrame(animate_grid_test);
+      return;
+    }
+    DO_REDRAW = undefined;
+
+    // draw the test supertile
+    CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
+    draw.draw_centered_supertile(GRID_TEST_DATA);
+
+    // Draw loading bars for domains:
+    var loading = dict.LOADING;
+    var lks = [];
+    for (var l in loading) {
+      if (loading.hasOwnProperty(l)) {
+        lks.push(l);
+      }
+    }
+    if (lks.length > 0) {
+      lks.sort();
+      if (draw.draw_loading(CTX, lks, loading)) {
+        DO_REDRAW = LOADING_RETRY;
+      }
+    }
+
+    // reschedule ourselves
+    window.requestAnimationFrame(animate_grid_test);
+  }
+
   return {
-    "start_game": start_game
+    "start_game": start_game,
+    "test_grid": test_grid
   };
 });

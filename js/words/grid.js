@@ -42,6 +42,9 @@ define([], function() {
   // Hex index of the center of a supergrid tile:
   var SG_CENTER = [3, 3]; 
 
+  // Supertile size
+  var SUPERTILE_SIZE = 7;
+
   // Number of canonical sockets per supergrid tile, and number of total
   // sockets including non-canonical shared sockets.
   var ASSIGNMENT_SOCKETS = 4;
@@ -298,6 +301,7 @@ define([], function() {
     var x = gp[0];
     var y = gp[1];
 
+    // TODO: Replace magic numbers here!
     var skew_x = (x / 3 - y / 7) / (7/3 - 4/7);
     var skew_y = (x / 3) - skew_x * (7/3);
 
@@ -358,9 +362,9 @@ define([], function() {
     // that the relative coordinates should be in-bounds, like those returned
     // from sgpos.
     var result = {};
-    result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*7];
+    result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*SUPERTILE_SIZE];
     result["colors"] = supertile["colors"].slice();
-    var ord = rxy[0] + 7 * rxy[1];
+    var ord = rxy[0] + SUPERTILE_SIZE * rxy[1];
     if (ord >= 32) {
       ord -= 32;
       result["unlocked"] = supertile["unlocked"][1] & (1 << ord);
