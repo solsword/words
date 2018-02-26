@@ -101,6 +101,7 @@ require(["../locale"], function (locale) {
           if (f == undefined) {
             f = 1;
           }
+          var w = f / l;
 
           // This because glyph counts are used for generation:
           if (!json.cased) {
@@ -111,16 +112,16 @@ require(["../locale"], function (locale) {
 
           // Count glyph:
           if (json.glyph_counts.hasOwnProperty(g)) {
-            json.glyph_counts[g] += f / l;
+            json.glyph_counts[g] += w;
           } else {
-            json.glyph_counts[g] = f / l;
+            json.glyph_counts[g] = w;
           }
-          json.total_glyph_count += f / l;
+          json.total_glyph_count += w;
 
           // Count bigrams/trigrams:
           if (json.ordered) {
             if (j < gl.length - 1) {
-              var bi = gl.slice(i, i+2);
+              var bi = gl.slice(j, j+2);
               if (json.bigram_counts.hasOwnProperty(bi[0])) {
                 var bg_entry = json.bigram_counts[bi[0]];
               } else {
@@ -128,19 +129,19 @@ require(["../locale"], function (locale) {
                 json.bigram_counts[bi[0]] = bg_entry;
               }
               if (bg_entry.hasOwnProperty(bi[1])) {
-                bg_entry[bi[1]] += f / l;
+                bg_entry[bi[1]] += w;
               } else {
-                bg_entry[bi[1]] = f / l;
+                bg_entry[bi[1]] = w;
               }
-              json.total_bigram_count += f / l;
+              json.total_bigram_count += w;
             }
             if (j < gl.length - 2) {
-              var tri = gl.slice(i, i+3);
-              if (json.trigram_counts.hasOwnProperty(bi[0])) {
-                var tr_entry = json.bigram_counts[tri[0]];
+              var tri = gl.slice(j, j+3);
+              if (json.trigram_counts.hasOwnProperty(tri[0])) {
+                var tr_entry = json.trigram_counts[tri[0]];
               } else {
                 var tr_entry = {};
-                json.bigram_counts[tri[0]] = tr_entry;
+                json.trigram_counts[tri[0]] = tr_entry;
               }
               if (tr_entry.hasOwnProperty(tri[1])) {
                 tr_entry = tr_entry[tri[1]];
@@ -150,11 +151,11 @@ require(["../locale"], function (locale) {
                 tr_entry = new_entry;
               }
               if (tr_entry.hasOwnProperty(tri[2])) {
-                tr_entry[tri[2]] += f / l;
+                tr_entry[tri[2]] += w;
               } else {
-                tr_entry[tri[2]] = f / l;
+                tr_entry[tri[2]] = w;
               }
-              json.total_trigram_count += f / l;
+              json.total_trigram_count += w;
             }
           } else { // unordered: count all pairs
             for (var k = j+1; k < gl.length; ++k) {
@@ -167,31 +168,31 @@ require(["../locale"], function (locale) {
               // Enter in canonical order:
               if (json.pair_counts.hasOwnProperty(pair[0])) {
                 var pr_entry = json.pair_counts[pair[0]];
-                json.pair_counts[pair[0]] += f / l;
+                json.pair_counts[pair[0]] += w;
               } else {
                 var pr_entry = {}
                 json.pair_counts[pair[0]] = pr_entry;
               }
               if (pr_entry.hasOwnProperty(pair[1])) {
-                pr_entry[pair[1]] += f / l;
+                pr_entry[pair[1]] += w;
               } else {
-                pr_entry[pair[1]] = f / l;
+                pr_entry[pair[1]] = w;
               }
-              json.total_pair_count += f / l;
+              json.total_pair_count += w;
               // Enter reversed:
               if (json.pair_counts.hasOwnProperty(pair[1])) {
                 var pr_entry = json.pair_counts[pair[1]];
-                json.pair_counts[pair[1]] += f / l;
+                json.pair_counts[pair[1]] += w;
               } else {
                 var pr_entry = {}
                 json.pair_counts[pair[1]] = pr_entry;
               }
               if (pr_entry.hasOwnProperty(pair[0])) {
-                pr_entry[pair[0]] += f / l;
+                pr_entry[pair[0]] += w;
               } else {
-                pr_entry[pair[0]] = f / l;
+                pr_entry[pair[0]] = w;
               }
-              json.total_pair_count += f / l;
+              json.total_pair_count += w;
             }
           }
         }

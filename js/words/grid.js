@@ -336,6 +336,20 @@ define([], function() {
     return [ skew_x, skew_y, r_x, r_y ];
   }
 
+  function gpos(sgp) {
+    // The inverse of sgpos, takes a supergrid position including relative
+    // interior position and returns the corresponding global position.
+
+    // supertile offset vectors:
+    var vx = [7, 4];
+    var vy = [3, 7];
+
+    var gx = sgp[0] * vx[0] + sgp[1] * vy[0] + sgp[2];
+    var gy = sgp[0] * vx[1] + sgp[1] * vy[1] + sgp[3];
+
+    return [gx, gy]; 
+  }
+
   function ugpos(sgp) {
     // Extracts an ultra-grid position from a super-grid position. Just uses
     // modulus math. Returns x, y, sub_x, sub_y.
@@ -362,8 +376,10 @@ define([], function() {
     // that the relative coordinates should be in-bounds, like those returned
     // from sgpos.
     var result = {};
-    result["glyph"] = supertile["glyphs"][rxy[0] + rxy[1]*SUPERTILE_SIZE];
-    result["colors"] = supertile["colors"].slice();
+    var idx = rxy[0] + rxy[1] * SUPERTILE_SIZE;
+    result["glyph"] = supertile.glyphs[idx];
+    result["colors"] = supertile.colors[idx].slice();
+    result["domain"] = supertile.domains[idx];
     var ord = rxy[0] + SUPERTILE_SIZE * rxy[1];
     if (ord >= 32) {
       ord -= 32;
@@ -467,7 +483,7 @@ define([], function() {
     } else if (asg_pos == 2) { // take from a neighbor
       y += 1;
     } else if (asg_pos > 3) {
-      asg_pos -= 3;
+      asg_pos -= 4;
     }
     return [ x, y, asg_pos ];
   }
@@ -606,6 +622,7 @@ define([], function() {
     "NW": NW,
     "SW": SW,
     "SG_CENTER": SG_CENTER,
+    "SUPERTILE_SIZE": SUPERTILE_SIZE,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
     "COMBINED_SOCKETS": COMBINED_SOCKETS,
     "SK_CENTER": SK_CENTER,
@@ -624,6 +641,7 @@ define([], function() {
     "grid_pos": grid_pos,
     "grid_distance": grid_distance,
     "sgpos": sgpos,
+    "gpos": gpos,
     "is_neighbor": is_neighbor,
     "ugpos": ugpos,
     "sub_ultra": sub_ultra,

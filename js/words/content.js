@@ -47,6 +47,7 @@ define(["./grid", "./generate"], function(grid, generate) {
         "pos": gp.slice(),
         "spos": [sgp[0], sgp[1]],
         "colors": [],
+        "domain": undefined,
         "glyph": undefined,
         "unlocked": undefined
       };

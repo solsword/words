@@ -125,12 +125,12 @@ function(dict, grid, anarchy, caching) {
 
   // Add rotations to compute center permutations:
   var CENTER_PERMUTATIONS = [];
+  var start = grid.neighbor(grid.SG_CENTER, grid.N);
   for (var i = 0; i < 6; ++i) {
     for (var j = 0; j < CENTER_CENTER_PERMUTATIONS.length; ++j) {
       var rotated = grid.rotate_path(CENTER_CENTER_PERMUTATIONS[j], i);
       CENTER_PERMUTATIONS.push([0, grid.SG_CENTER, rotated]);
     }
-    var start = grid.neighbor(grid.SG_CENTER, grid.N);
     for (var j = 0; j < CENTER_EDGE_PERMUTATIONS.length; ++j) {
       var rotated = grid.rotate_path(CENTER_EDGE_PERMUTATIONS[j], i);
       CENTER_PERMUTATIONS.push([j+1, start, rotated]);
@@ -942,7 +942,7 @@ function(dict, grid, anarchy, caching) {
         ct_idx = lesser_counttable.length - 1;
         idx %= dom.entries.length;
       }
-      return dom.entries(idx); // all words get equal representation
+      return dom.entries[idx]; // all words get equal representation
     } else {
       idx -= lesser_total;
       idx %= grand_total;
@@ -1033,10 +1033,6 @@ function(dict, grid, anarchy, caching) {
     var path = chosen[2];
     for (var i = 0; i < glyphs.length; ++i) {
       supertile.glyphs[pos[0] + pos[1]*grid.SUPERTILE_SIZE] = glyphs[i];
-      // TODO: DEBUG
-      if (!grid.is_valid_subindex(pos)) {
-        console.log("Invalid subindex: " + pos);
-      }
       result.push(pos);
       if (i < glyphs.length - 1) {
         pos = grid.neighbor(pos, path[i]);
@@ -1052,42 +1048,26 @@ function(dict, grid, anarchy, caching) {
     // position. Returns undefined if there's missing information.
 
     var result = {
-      "glyphs": Array(49),
-      "domains": []
+      "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+      "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+      "domains": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
     };
-
-    var glyph_domains = Array(49);
 
     // TODO: Use base-plane info (needs extra arg above).
     var default_domain = "base";
-
-    // Look up colors for this supertile
-    // TODO: DEBUG
-    // result["colors"] = colors_for_domains(domains_list(default_domain));
-    result["colors"] = [];
-    if (anarchy.posmod(sgp[0], 2)) {
-      result["colors"].push("rd");
-    }
-    if (anarchy.posmod(sgp[1], 2)) {
-      result["colors"].push("bl");
-    }
-    if (result["colors"] == undefined) {
-      return undefined;
-    }
 
     // Generate an ulocked mask:
     result["unlocked"] = generate_unlocked(seed);
     seed = anarchy.lfsr(seed);
 
-    for (var i = 0; i < 49; ++i) {
+    // set glyphs, colors, and domains to undefined:
+    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
       result.glyphs[i] = undefined;
+      result.colors[i] = [];
+      result.domains[i] = undefined;
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
-    var empty_count = 37;
-    // TODO: DEBUG
-    var obs1 = [];
-    var obs2 = [];
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       var ugp = grid.ugpos(sgap); // socket index is ignored
@@ -1111,9 +1091,23 @@ function(dict, grid, anarchy, caching) {
       var l_seed = sghash(seed, asg);
       var r = anarchy.lfsr(l_seed);
 
-      var dom = MULTIPLANAR_DOMAINS[mpo % MULTIPLANAR_DOMAINS.length];
-      result.domains.push(dom); // add to result domains
-      var entry = pick_word(domains_list(dom), asg, l_seed);
+      var domain = MULTIPLANAR_DOMAINS[mpo % MULTIPLANAR_DOMAINS.length];
+
+      // Ensure domain(s) are loaded:
+      var dl = domains_list(domain);
+      var any_undef = false;
+      for (var i = 0; i < dl.length; ++i) {
+        var def = dict.lookup_domain(dl[i]);
+        if (def == undefined) {
+          any_undef = true;
+        }
+      }
+      if (any_undef) {
+        return undefined;
+      }
+
+      // Pick a word for this socket:
+      var entry = pick_word(dl, asg, l_seed);
       if (entry == undefined) {
         return undefined;
       }
@@ -1128,15 +1122,11 @@ function(dict, grid, anarchy, caching) {
           glyphs = glyphs.slice(0, maxlen);
         }
         var touched = inlay_word(result, glyphs, socket, r);
-        empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
-          glyph_domains[touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE] =dom;
-          var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
-          if (obs1[nnn] == undefined) {
-            obs1[nnn] = 1;
-          } else {
-            obs1[nnn] += 1;
-          }
+          var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
+          result.domains[idx] = domain;
+          // DEBUG
+          result.colors[idx].push("rd");
         }
       } else {
         // pick embedding direction & portion to embed
@@ -1157,48 +1147,23 @@ function(dict, grid, anarchy, caching) {
         r = anarchy.lfsr(r);
         if (flip ^ grid.is_canonical(socket)) { // take first half
           glyphs = glyphs.slice(0, cut);
+          // and reverse ordering
+          glyphs = glyphs.split("").reverse().join("");
         } else {
           glyphs = glyphs.slice(cut);
         }
         var touched = inlay_word(result, glyphs, socket, r);
-        empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
-          glyph_domains[touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE] =dom;
-          var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
-          if (obs2[nnn] == undefined) {
-            obs2[nnn] = 1;
-          } else {
-            obs2[nnn] += 1;
-          }
+          var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
+          result.domains[idx] = domain;
+          // DEBUG:
+          result.colors[idx].push(
+            ["bl", "yl", "gn", "rd"][socket % 4]
+          );
         }
       }
     }
     r = anarchy.lfsr(r);
-
-    console.log("");
-    console.log("SGpos: " + sgp);
-    console.log("Left to fill: " + empty_count);
-    console.log(obs1);
-    console.log(obs2);
-
-    var str = "";
-    for (var ii = 0; ii < grid.SUPERTILE_SIZE; ++ii) {
-      for (var jj = 0; jj < grid.SUPERTILE_SIZE; ++jj) {
-        var iidx = ii + jj*grid.SUPERTILE_SIZE;
-        if (obs1[iidx] != undefined) {
-          str += obs1[iidx];
-        } else {
-          str += " ";
-        }
-        if (obs2[iidx] != undefined) {
-          str += obs2[iidx];
-        } else {
-          str += " ";
-        }
-      }
-      str += "\n";
-    }
-    console.log(str);
 
     // Now that each socket has been inlaid, fill remaining spots with letters
     // according to unigram, bigram, and trigram probabilities.
@@ -1206,25 +1171,18 @@ function(dict, grid, anarchy, caching) {
     var baseline_counts = {}; // combined glyph counts caches
     var binary_counts = {};
     var trinary_counts = {};
-    var found_missing = 0;
-    var tested = 0;
-    // TODO: DEBUG
-    var obs = [];
-    for (var i = 0; i < 49; ++i) {
-      var u = anarchy.cohort_shuffle(i, 49, sseed); // iterate in shuffled order
-      if (obs[u] == undefined) {
-        obs[u] = 1;
-      } else {
-        obs[u] += 1;
-      }
-      var x = i % grid.SUPERTILE_SIZE;
-      var y = Math.floor(i / grid.SUPERTILE_SIZE);
+    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+      var u = anarchy.cohort_shuffle(
+        i,
+        grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE,
+        sseed
+      ); // iterate in shuffled order
+      var x = u % grid.SUPERTILE_SIZE;
+      var y = Math.floor(u / grid.SUPERTILE_SIZE);
       if (!grid.is_valid_subindex([x, y])) { // skip out-of-bounds indices
         continue;
       }
-      tested += 1;
       if (result.glyphs[u] == undefined) { // need to fill it in
-        found_missing += 1;
         var neighbors = []; // list filled-in neighbors
         var nbdoms = []; // list their domains
         for (var j = 0; j < 6; ++j) {
@@ -1233,7 +1191,7 @@ function(dict, grid, anarchy, caching) {
           var ng = result.glyphs[ni];
           if (ng != undefined) {
             neighbors.push(ng);
-            nbdoms.push(glyph_domains[ni]);
+            nbdoms.push(result.domains[ni]);
           }
         }
 
@@ -1279,7 +1237,7 @@ function(dict, grid, anarchy, caching) {
         }
 
         // Now that we have single-domain neighbors, pick a glyph:
-        glyph_domains[u] = nbdom;
+        result.domains[u] = nbdom;
         var unicounts = undefined;
         var bicounts = undefined;
         var tricounts = undefined;
@@ -1290,13 +1248,7 @@ function(dict, grid, anarchy, caching) {
             unicounts = combined_counts(domains_list(nbdom));
             baseline_counts[nbdom] = unicounts;
           }
-          /*
-           * DEBUG
           result.glyphs[u] = sample_glyph(r, undefined, unicounts);
-          */
-          result.glyphs[u] = '_';
-          console.log("underscore @ " + x + ", " + y);
-          empty_count -= 1;
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length == 1) {
           if (baseline_counts.hasOwnProperty(nbdom)) {
@@ -1311,17 +1263,12 @@ function(dict, grid, anarchy, caching) {
             bicounts = combined_bicounts(domains_list(nbdom));
             binary_counts[nbdom] = bicounts;
           }
-          /*
           result.glyphs[u] = sample_glyph(
             r,
             nbglyphs[0],
             unicounts,
             bicounts
           );
-          */
-          result.glyphs[u] = '_';
-          console.log("underscore @ " + x + ", " + y);
-          empty_count -= 1;
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length >= 2) {
           // TODO: Shuffle first here?
@@ -1344,7 +1291,6 @@ function(dict, grid, anarchy, caching) {
             tricounts = combined_tricounts(domains_list(nbdom));
             trinary_counts[nbdom] = tricounts;
           }
-          /*
           result.glyphs[u] = sample_glyph(
             r,
             nbglyphs,
@@ -1352,19 +1298,10 @@ function(dict, grid, anarchy, caching) {
             bicounts,
             tricounts
           );
-          */
-          result.glyphs[u] = '_';
-          console.log("underscore @ " + x + ", " + y);
-          empty_count -= 1;
           r = anarchy.lfsr(r);
         }
       }
     }
-    console.log(obs);
-
-    console.log("Tested: " + tested);
-    console.log("Found unfilled: " + found_missing);
-    console.log("Left to fill: " + empty_count);
 
     // all glyphs have been filled in, we're done here!
     return result;
@@ -1704,7 +1641,7 @@ function(dict, grid, anarchy, caching) {
     var n_unlocked = MIN_UNLOCKED + (hash % (MAX_UNLOCKED - MIN_UNLOCKED));
     for (var i = 0; i < n_unlocked; ++i) {
       hash = anarchy.lfsr(hash);
-      var ord = hash % 49;
+      var ord = hash % (grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE);
       if (ord >= 32) {
         ord -= 32;
         result[1] |= 1 << ord;
@@ -1725,7 +1662,7 @@ function(dict, grid, anarchy, caching) {
     var smix = sghash(seed, sp);
 
     var result = {
-      "glyphs": Array(49),
+      "glyphs": Array((grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE)),
       "domains": generate_domains(seed, sp)
     };
 
@@ -1774,22 +1711,20 @@ function(dict, grid, anarchy, caching) {
     var domains = generate_domains(seed, sp);
   }
 
-  function generate_test_supertile(seed) {
-    // Generates a test supertile, using the given seed.
+  function generate_test_supertile(sgp, seed) {
+    // Generates a test supertile, using the given position and seed.
 
     var r = seed;
     var result = {
-      "glyphs": Array(49),
+      "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+      "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "domains": [],
-      "colors": [],
       "unlocked": [ 0, 0 ],
     };
 
-    var sgp = [0, 0];
-
-    for (var i = 0; i < 49; ++i) {
+    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
       result.glyphs[i] = undefined;
-      result.domains[i] = undefined;
+      result.colors[i] = [];
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
@@ -1802,15 +1737,30 @@ function(dict, grid, anarchy, caching) {
       var cs = sgap[2];
       var ugp = grid.ugpos(sgap); // socket index is ignored
 
-      var glyphs = "" + cs;
-      for (
-        var i = 0;
-        i < 4 + (sgap[0] % 3) + (sgap[1] % 3) + (r % 3);
-        ++i
-      ) {
-        glyphs += "" + cs;
-      }
-      r = anarchy.lfsr(r);
+      var l_seed = sghash(seed, sgap);
+      var r = anarchy.lfsr(l_seed);
+
+      var glyphs = [
+        ["0a", "0b", "0c", "0d", "0e", "0f", "0g", "0h"],
+        ["1a", "1b", "1c", "1d", "1e", "1f", "1g", "1h"],
+        ["2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"],
+        ["3a", "3b", "3c", "3d", "3e", "3f", "3g", "3h"],
+        ["4a", "4b", "4c", "4d", "4e", "4f", "4g", "4h"],
+        ["5a", "5b", "5c", "5d", "5e", "5f", "5g", "5h"],
+        ["6a", "6b", "6c", "6d", "6e", "6f", "6g", "6h"],
+        ["7a", "7b", "7c", "7d", "7e", "7f", "7g", "7h"],
+        ["8a", "8b", "8c", "8d", "8e", "8f", "8g", "8h"],
+        ["9a", "9b", "9c", "9d", "9e", "9f", "9g", "9h"],
+      ][cs];
+      var tile_colors = [
+        ["bl"],
+        ["yl"],
+        ["rd"],
+        ["gn"],
+        ["lb"],
+        ["lg"],
+        ["gr"],
+      ][cs];
 
       // TODO: Handle longer words gracefully
       var maxlen = 10;
@@ -1823,7 +1773,8 @@ function(dict, grid, anarchy, caching) {
         var touched = inlay_word(result, glyphs, socket, r);
         empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
-          var nnn = touched[i][0] + touched[i][1]*7;
+          var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
+          result.colors[nnn] = tile_colors;
           if (obs1[nnn] == undefined) {
             obs1[nnn] = 1;
           } else {
@@ -1849,13 +1800,16 @@ function(dict, grid, anarchy, caching) {
         r = anarchy.lfsr(r);
         if (flip ^ grid.is_canonical(socket)) { // take first half
           glyphs = glyphs.slice(0, cut);
+          // and reverse ordering
+          glyphs = glyphs.reverse();
         } else {
           glyphs = glyphs.slice(cut);
         }
         var touched = inlay_word(result, glyphs, socket, r);
         empty_count -= touched.length;
         for (var i = 0; i < touched.length; ++i) {
-          var nnn = touched[i][0] + touched[i][1]*7;
+          var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
+          result.colors[nnn] = tile_colors;
           if (obs2[nnn] == undefined) {
             obs2[nnn] = 1;
           } else {
@@ -1879,13 +1833,14 @@ function(dict, grid, anarchy, caching) {
         if (obs1[iidx] != undefined) {
           str += obs1[iidx];
         } else {
-          str += " ";
+          str += "_";
         }
         if (obs2[iidx] != undefined) {
           str += obs2[iidx];
         } else {
-          str += " ";
+          str += "_";
         }
+        str += ".";
       }
       str += "\n";
     }
@@ -1902,6 +1857,7 @@ function(dict, grid, anarchy, caching) {
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
+    "domains_list": domains_list,
     "ultratile_punctuation_parameters": ultratile_punctuation_parameters,
     "ultratile_muliplanar_info": ultratile_muliplanar_info,
     "generate_test_supertile": generate_test_supertile,

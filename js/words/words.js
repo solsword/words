@@ -169,9 +169,10 @@ function(draw, content, grid, dict, generate, menu) {
     var combined_swipe = combine_arrays(CURRENT_SWIPES);
     var domains = new Set();
     combined_swipe.forEach(function (gp) {
-      var st = content.fetch_supertile(gp);
-      if (st != null) {
-        st.domains.forEach(function (d) {
+      var tile = content.tile_at(gp);
+      if (tile != null) {
+        console.log(tile);
+        generate.domains_list(tile.domain).forEach(function (d) {
           domains.add(d);
         });
       }
@@ -686,7 +687,15 @@ function(draw, content, grid, dict, generate, menu) {
 
     // set up test data:
     // TODO: Keybinding to swap seeds?
-    GRID_TEST_DATA = generate.generate_test_supertile(28012);
+    GRID_TEST_DATA = [
+      [ [0, 0], generate.generate_test_supertile([0, 0], 28012) ],
+      [ [1, 0], generate.generate_test_supertile([1, 0], 28012) ],
+      [ [-1, 0], generate.generate_test_supertile([-1, 0], 28012) ],
+      [ [0, 1], generate.generate_test_supertile([0, 1], 28012) ],
+      [ [-1, 1], generate.generate_test_supertile([-1, 1], 28012) ],
+      [ [0, -1], generate.generate_test_supertile([0, -1], 28012) ],
+      [ [1, -1], generate.generate_test_supertile([1, -1], 28012) ],
+    ];
 
     // kick off animation
     window.requestAnimationFrame(animate_grid_test);
@@ -726,9 +735,17 @@ function(draw, content, grid, dict, generate, menu) {
     }
     DO_REDRAW = undefined;
 
+    console.log("DRAW");
+
     // draw the test supertile
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
-    draw.draw_centered_supertile(GRID_TEST_DATA);
+    for (var i = 0; i < GRID_TEST_DATA.length; ++i) {
+      var item = GRID_TEST_DATA[i];
+      var sgp = [ item[0][0], item[0][1], 0, 0 ];
+      var st = item[1];
+      console.log(st);
+      draw.draw_supertile(CTX, sgp, st);
+    }
 
     // Draw loading bars for domains:
     var loading = dict.LOADING;

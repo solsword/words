@@ -321,13 +321,16 @@ define(["./locale"], function(locale, finalize) {
     // Now search the domain's index:
     var index = dom.index;
     var g = glyphs[0];
-    while (index.hasOwnProperty(g) && glyphs.length > 0) {
+    var i = 0;
+    while (index.hasOwnProperty(g)) {
       index = index[g];
-      glyphs = glyphs.slice(1);
-      if (glyphs.length > 0) {
-        g = glyphs[0];
-      } else {
+      i += 1;
+      g = glyphs[i];
+
+      if (g == undefined) {
+        // no more glyphs to use
         g = null;
+        break;
       }
       if (Array.isArray(index)) {
         // no more indices to search
