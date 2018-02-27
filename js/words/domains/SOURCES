@@ -4,8 +4,8 @@ WordNet (see LICENSE-wordnet):
   noun.lst
   verb.lst
 
-Wikipedia (see LICENSE-wikipedia):
-  <none right now>
+Wikipedia (Wiktionary) (see LICENSE-wikipedia):
+  かんたんなひらがな.lst
 
 Classic Arabic word list (see LICENSE-classic-arabic):
-  العربية_classic.lst: https://sourceforge.net/projects/classical-arabic-corpus/
+  اللغة_العربية_الفصحى.lst: https://sourceforge.net/projects/classical-arabic-corpus/

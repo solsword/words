@@ -46,7 +46,8 @@ function(dict, grid, anarchy, caching) {
   var MULTIPLANAR_DOMAINS = [
     "base",
     "türk",
-    "اللغة_العربية_الفصحى"
+    "اللغة_العربية_الفصحى",
+    "かんたんなひらがな",
   ];
 
   var BASE_PERMUTATIONS = [
@@ -585,9 +586,15 @@ function(dict, grid, anarchy, caching) {
             continue; // this inclusion will just be small
           } else {
             blocked.push(i); // must keep expanding!
+            continue;
           }
         }
         var loc = queues[i].shift();
+        if (isNaN(loc)) {
+          console.log("NAN");
+          console.log(queues);
+          return undefined;
+        }
 
         if (blocked.length > 0) {
           here = blocked.shift(); // steal the expansion point!
@@ -601,8 +608,10 @@ function(dict, grid, anarchy, caching) {
         left -= 1;
 
         // add neighbors to queue if possible:
-        var x = (loc / grid.ASSIGNMENT_SOCKETS) % grid.ULTRAGRID_SIZE;
-        var y = (loc / grid.ASSIGNMENT_SOCKETS) / grid.ULTRAGRID_SIZE;
+        var x = Math.floor(loc / grid.ASSIGNMENT_SOCKETS) % grid.ULTRAGRID_SIZE;
+        var y = Math.floor(
+          loc / (grid.ASSIGNMENT_SOCKETS * grid.ULTRAGRID_SIZE)
+        );
         var a = loc % grid.ASSIGNMENT_SOCKETS;
         var neighbors = grid.supergrid_asg_neighbors([x, y, a]);
         for (var j = 0; j < neighbors.length; ++j) {
@@ -952,12 +961,6 @@ function(dict, grid, anarchy, caching) {
     var cidx = anarchy.idist(r, 0, filtered.length);
     chosen = filtered[cidx]
 
-    console.log("F: " + (glyphs.length - 1) + " ? " + socket);
-    console.log(SOCKET_PERMUTATIONS[socket]);
-    console.log(filtered);
-    console.log(cidx);
-    console.log(chosen);
-
     // Finally, punch in the glyphs:
     var pos = chosen[1];
     var path = chosen[2];
@@ -1065,14 +1068,13 @@ function(dict, grid, anarchy, caching) {
       } else {
         glyphs = glyphs.slice(cut);
       }
-      console.log("L: " + glyphs.length);
       var touched = inlay_word(result, glyphs, socket, r);
       for (var i = 0; i < touched.length; ++i) {
         var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
         result.domains[idx] = domain;
         result.colors[idx] = colors_for_domains(dl);
         // DEBUG:
-        //*
+        /*
         result.colors[idx].push(
           ["bl", "yl", "gn"][socket % 3]
         );

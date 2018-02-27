@@ -12,6 +12,18 @@ requirejs(
       document.body.innerHTML += "<div>" + m + "</div>";
     }
 
+    function check_tensors(test, solution) {
+      if (Array.isArray(solution)) {
+        var passed = true;
+        for (var i = 0; i < solution.length; ++i) {
+          passed = passed && check_tensors(test[i], solution[i]);
+        }
+        return passed;
+      } else {
+        return test == solution;
+      }
+    }
+
     VALUE_TESTS = {
       "rotation": [
         [ grid.rotate(grid.NE, 1), grid.SE ],
@@ -27,6 +39,20 @@ requirejs(
         [ grid.rotate(grid.N, 4), grid.SW ],
         [ grid.rotate(grid.N, 5), grid.NW ],
         [ grid.rotate(grid.N, 6), grid.N ],
+      ],
+      "canonical_sgapos": [
+        [ grid.canonical_sgapos([ 0, 0, 0 ]), [0, 0, 0] ],
+        [ grid.canonical_sgapos([ 0, 0, 1 ]), [0, 0, 1] ],
+        [ grid.canonical_sgapos([ 0, 0, 2 ]), [0, 0, 2] ],
+        [ grid.canonical_sgapos([ 0, 0, 3 ]), [1, 0, 0] ],
+        [ grid.canonical_sgapos([ 0, 0, 4 ]), [1, -1, 1] ],
+        [ grid.canonical_sgapos([ 0, 0, 5 ]), [0, -1, 2] ],
+        [ grid.canonical_sgapos([ 111, 111, 0 ]), [111, 111, 0] ],
+        [ grid.canonical_sgapos([ 111, 111, 1 ]), [111, 111, 1] ],
+        [ grid.canonical_sgapos([ 111, 111, 2 ]), [111, 111, 2] ],
+        [ grid.canonical_sgapos([ 111, 111, 3 ]), [112, 111, 0] ],
+        [ grid.canonical_sgapos([ 111, 111, 4 ]), [112, 110, 1] ],
+        [ grid.canonical_sgapos([ 111, 111, 5 ]), [111, 110, 2] ],
       ],
     }
 
@@ -52,6 +78,35 @@ requirejs(
         }
         return result;
       },
+      "asg_neighbors": function () {
+        var result = 0;
+        // Test next/prev edge functions:
+        for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
+          var t = grid.next_edge(grid.prev_edge(socket));
+          if (t != socket) {
+            display_message("Socket next/prev irrev [" + socket + "] → " + t);
+            result += 1;
+          }
+        }
+
+        // Test full neighbors:
+        var nb = grid.supergrid_asg_neighbors([0, 0, 0]);
+        var sol = [
+          [ 0, -1, 2 ],
+          [ 0, 0, 1 ],
+          [ -1, 0, 2 ],
+          [ 0, -1, 1 ],
+        ];
+        if (!check_tensors(nb, sol)) {
+          display_message("Asg neighbors failed!");
+          result += 1;
+        }
+        if (result != 0) {
+          console.log("Supergrid neighbors:");
+          console.log(nb);
+        }
+        return result;
+      },
     }
     
     function run_value_tests() {
@@ -61,7 +116,7 @@ requirejs(
           var test_count = VALUE_TESTS[t].length;
           var passed = 0;
           VALUE_TESTS[t].forEach(function (sub_t, index) {
-            if (sub_t[0] == sub_t[1]) {
+            if (check_tensors(sub_t[0], sub_t[1])) {
               passed += 1;
             } else {
               display_message("Test failed: " + t + "." + index);

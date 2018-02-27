@@ -468,14 +468,15 @@ define([], function() {
     var x = sgap[0];
     var y = sgap[1];
     var asg_pos = sgap[2];
-    if (asg_pos == 0) { // take from a neighbor
-      x -= 1;
-    } else if (asg_pos == 1) { // take from a neighbor
-      x -= 1;
-      y += 1;
-    } else if (asg_pos == 2) { // take from a neighbor
-      y += 1;
-    } else {
+    if (asg_pos == 3) { // take from a neighbor
+      x += 1;
+      asg_pos -= 3;
+    } else if (asg_pos == 4) { // take from a neighbor
+      x += 1;
+      y -= 1;
+      asg_pos -= 3;
+    } else if (asg_pos == 5) { // take from a neighbor
+      y -= 1;
       asg_pos -= 3;
     }
     return [ x, y, asg_pos ];
@@ -523,6 +524,11 @@ define([], function() {
     // the given position. Each entry has three values: supergrid x,y and
     // assignment position. There are always four possible neighbors, and they
     // are returned in canonical form.
+    if (WARNINGS && isNaN(sgap[2])) {
+      console.log(
+        "Warning: Assignment position is NaN in supergrid_asg_neighbors."
+      );
+    }
     var alt = supergrid_alternate(sgap);
     return [
       // adjacent edges on original supergrid tile:
