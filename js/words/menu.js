@@ -1,7 +1,7 @@
 // menu.js
 // Menu system for HTML5 canvas.
 
-define(["./draw"], function(draw) {
+define(["./draw", "./locale"], function(draw, locale) {
   var MENUS = [];
 
   var MYCLICK = false;
@@ -684,7 +684,11 @@ define(["./draw"], function(draw) {
         return;
       }
       if (this.base_url) {
-        var target = this.base_url.replace("<word>", this.words[line]);
+        // TODO: Contextual case preservation?
+        var target = this.base_url.replace(
+          "<word>",
+          locale.lower(this.words[line])
+        );
         window.open(target);
       }
     } else if (rp[0] >= sb_min && rp[0] <= sb_max) {

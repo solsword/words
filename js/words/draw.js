@@ -20,8 +20,9 @@ define(["./grid", "./content"], function(grid, content) {
             "circle": "#555",
                "pad": "#444",
              "glyph": "#bbb",
-      "unlocked-pad": "#555",
-   "unlocked-circle": "#999"
+      "unlocked-pad": "#777",
+   "unlocked-circle": "#eee",
+    "unlocked-glyph": "#fff",
   };
 
   var LOADING_COLORS = {
@@ -301,7 +302,11 @@ define(["./grid", "./content"], function(grid, content) {
       ctx.stroke();
 
       // Letter
-      ctx.fillStyle = TILE_COLORS["glyph"];
+      if (unlocked) {
+        ctx.fillStyle = TILE_COLORS["unlocked-glyph"];
+      } else {
+        ctx.fillStyle = TILE_COLORS["glyph"];
+      }
       ctx.fillText(glyph, vpos[0], vpos[1]);
     }
   }

@@ -27,154 +27,93 @@ function(dict, grid, anarchy, caching) {
   var INCLUSION_ROUGHNESS = 0.75;
 
   // Min/max sizes for inclusions (measured in assignment slots).
-  // TODO: Use these?
   var INCLUSION_MIN_SIZE = 6;
   var INCLUSION_MAX_SIZE = 35;
 
   // Number of possible connections from each plane:
   var MULTIPLANAR_CONNECTIONS = 64;
 
-  // Cache sizes for various things:
+  // Cache size for multiplanar info:
   var MULTIPLANAR_INFO_CACHE_SIZE = 4096;
 
   // All known combined domains.
   var DOMAIN_COMBOS = {
     //"base": [ "türk" ],
     "base": [ "adj", "adv", "noun", "verb" ]
-  }
-
-  // Relative frequency of different domains.
-  var DOMAIN_WEIGHTS = {
-    "türk": 5,
-    "اللغة_العربية_الفصحى": 5,
-    "base": 50
-  }
+  };
 
   // TODO: Better here!
   var MULTIPLANAR_DOMAINS = [
     "base",
     "türk",
     "اللغة_العربية_الفصحى"
-  ]
-
-  // Socketing permutations:
-  var CENTER_CENTER_PERMUTATIONS = [ // 2 reflections starting from the center:
-    [ grid.N, grid.SE, grid.S, grid.SW, grid.NW, grid.N ],
-    [ grid.N, grid.SW, grid.S, grid.SE, grid.NE, grid.N ]
   ];
 
-  var CENTER_EDGE_PERMUTATIONS = [ // 36 reflections starting from the north:
-    // center last (2 w/ reflections)
-    [ grid.SE, grid.S, grid.SW, grid.NW, grid.N, grid.SE ],
+  var BASE_PERMUTATIONS = [
+    // 46, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
 
-    [ grid.SW, grid.S, grid.SE, grid.NE, grid.N, grid.SW ],
-
-    // immediate center (8 w/ reflections)
-    [ grid.S, grid.NE, grid.S, grid.SW, grid.NW, grid.N ],
-    [ grid.S, grid.SE, grid.N ],
-    [ grid.S, grid.SE, grid.SW, grid.NW, grid.N ],
-    [ grid.S, grid.S, grid.NE, grid.N ],
-
-    [ grid.S, grid.S, grid.NW, grid.N ],
-    [ grid.S, grid.SW, grid.SE, grid.NE, grid.N ],
-    [ grid.S, grid.SW, grid.N ],
-    [ grid.S, grid.NW, grid.S, grid.SE, grid.NE, grid.N ],
-
-    // center after 1 step around (12 w/ reflections)
-    [ grid.SE, grid.SW, grid.SE, grid.SW, grid.NW, grid.N ],
-    [ grid.SE, grid.SW, grid.S, grid.NE ],
-    [ grid.SE, grid.SW, grid.S, grid.NW, grid.N ],
-    [ grid.SE, grid.SW, grid.SW, grid.SE, grid.NE ],
-    [ grid.SE, grid.SW, grid.SW, grid.N ],
-    [ grid.SE, grid.SW, grid.NW, grid.S, grid.SE, grid.NE ],
-
-    [ grid.SW, grid.SE, grid.SW, grid.SE, grid.NE, grid.N ],
-    [ grid.SW, grid.SE, grid.S, grid.NW ],
-    [ grid.SW, grid.SE, grid.S, grid.NE, grid.N ],
-    [ grid.SW, grid.SE, grid.SE, grid.SW, grid.NW ],
-    [ grid.SW, grid.SE, grid.SE, grid.N ],
-    [ grid.SW, grid.SE, grid.NE, grid.S, grid.SW, grid.NW ],
-
-    // center after 2 steps around (8 w/ reflections)
-    [ grid.SE, grid.S, grid.NW, grid.S, grid.NW, grid.N ],
-    [ grid.SE, grid.S, grid.NW, grid.SW, grid.SE ],
-    [ grid.SE, grid.S, grid.NW, grid.SW, grid.N ],
-    [ grid.SE, grid.S, grid.NW, grid.NW, grid.S, grid.SE ],
-
-    [ grid.SW, grid.S, grid.NE, grid.S, grid.NE, grid.N ],
-    [ grid.SW, grid.S, grid.NE, grid.SE, grid.SW ],
-    [ grid.SW, grid.S, grid.NE, grid.SE, grid.N ],
-    [ grid.SW, grid.S, grid.NE, grid.NE, grid.S, grid.SW ],
-
-    // center after 3 steps around (4 w/ reflections)
-    [ grid.SE, grid.S, grid.SW, grid.N, grid.NW, grid.S ],
-    [ grid.SE, grid.S, grid.SW, grid.N, grid.SW, grid.N ],
-
-    [ grid.SW, grid.S, grid.SE, grid.N, grid.NE, grid.S ],
-    [ grid.SW, grid.S, grid.SE, grid.N, grid.SE, grid.N ],
-
-    // center after 4 steps around (2 w/ reflections)
-    [ grid.SE, grid.S, grid.SW, grid.NW, grid.NE, grid.NW ],
-
-    [ grid.SW, grid.S, grid.SE, grid.NE, grid.NW, grid.NE ],
-  ];
-
-  // Add rotations to compute center permutations:
-  var CENTER_PERMUTATIONS = [];
-  var start = grid.neighbor(grid.SG_CENTER, grid.N);
-  for (var i = 0; i < 6; ++i) {
-    for (var j = 0; j < CENTER_CENTER_PERMUTATIONS.length; ++j) {
-      var rotated = grid.rotate_path(CENTER_CENTER_PERMUTATIONS[j], i);
-      CENTER_PERMUTATIONS.push([0, grid.SG_CENTER, rotated]);
-    }
-    for (var j = 0; j < CENTER_EDGE_PERMUTATIONS.length; ++j) {
-      var rotated = grid.rotate_path(CENTER_EDGE_PERMUTATIONS[j], i);
-      CENTER_PERMUTATIONS.push([j+1, start, rotated]);
-    }
-    start = grid.neighbor(
-      start,
-      CENTER_EDGE_PERMUTATIONS[0][i % CENTER_EDGE_PERMUTATIONS[0].length]
-    );
-  }
-
-  var EDGE_BASE_PERMUTATIONS = [
-    // 20, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
-    // 8 from the top-left
-    [0, [ grid.NE, grid.S, grid.NE, grid.S ]],
-    [0, [ grid.NE, grid.S, grid.SE, grid.N ]],
+    // 16 from the top-left
+    [0, [ grid.NE, grid.NE, grid.S, grid.SW, grid.SE ]],
+    [0, [ grid.NE, grid.NE, grid.S, grid.S, grid.NW ]],
+    [0, [ grid.NE, grid.SE, grid.N ]],
     [0, [ grid.NE, grid.SE, grid.SW, grid.SE ]],
     [0, [ grid.NE, grid.SE, grid.S, grid.NW ]],
+    [0, [ grid.NE, grid.S, grid.SE, grid.N, grid.N ]],
+    [0, [ grid.NE, grid.S, grid.NE, grid.N ]],
+    [0, [ grid.NE, grid.S, grid.NE, grid.S ]],
+
+    [0, [ grid.SE, grid.N, grid.NE, grid.S, grid.S ]],
+    [0, [ grid.SE, grid.N, grid.SE, grid.N ]],
     [0, [ grid.SE, grid.N, grid.SE, grid.S ]],
-    [0, [ grid.SE, grid.NE, grid.NW ]],
+    [0, [ grid.SE, grid.NE, grid.NW, grid.NE ]],
+    [0, [ grid.SE, grid.NE, grid.N, grid.SW ]],
     [0, [ grid.SE, grid.NE, grid.S ]],
-    [0, [ grid.SE, grid.SE, grid.N, grid.NW ]],
+    [0, [ grid.SE, grid.SE, grid.N, grid.NW, grid.NE ]],
+    [0, [ grid.SE, grid.SE, grid.N, grid.N, grid.SW ]],
 
-    // 6 from the middle
+    // 14 from the middle
+    [1, [ grid.NW, grid.NE, grid.NE, grid.S, grid.S ]],
+    [1, [ grid.NW, grid.NE, grid.SE, grid.N ]],
     [1, [ grid.NW, grid.NE, grid.SE, grid.S ]],
-    [1, [ grid.N, grid.SW ]],
-    [1, [ grid.N, grid.SE, grid.S ]],
-    [1, [ grid.NE, grid.NW, grid.SW ]],
-    [1, [ grid.NE, grid.S ]],
-    [1, [ grid.SE, grid.N, grid.NW, grid.SW ]],
 
-    // 8 from the bottom-right
+    [1, [ grid.N, grid.SW ]],
+    [1, [ grid.N, grid.NE, grid.S, grid.S ]],
+    [1, [ grid.N, grid.SE, grid.N ]],
+    [1, [ grid.N, grid.SE, grid.S ]],
+
+    [1, [ grid.NE, grid.S ]],
+    [1, [ grid.NE, grid.NW, grid.SW ]],
+    [1, [ grid.NE, grid.NW, grid.NE ]],
+    [1, [ grid.NE, grid.N, grid.SW, grid.SW ]],
+
+    [1, [ grid.SE, grid.N, grid.NW, grid.SW ]],
+    [1, [ grid.SE, grid.N, grid.NW, grid.NE ]],
+    [1, [ grid.SE, grid.N, grid.N, grid.SW, grid.SW ]],
+
+    // 16 from the bottom-right
+    [2, [ grid.NW, grid.NW, grid.NE, grid.NE, grid.S ]],
+    [2, [ grid.NW, grid.NW, grid.NE, grid.SE, grid.N ]],
+    [2, [ grid.NW, grid.N, grid.SW ]],
+    [2, [ grid.NW, grid.N, grid.NE, grid.S ]],
+    [2, [ grid.NW, grid.N, grid.SE, grid.N ]],
+    [2, [ grid.NW, grid.NE, grid.NW, grid.SW ]],
+    [2, [ grid.NW, grid.NE, grid.NW, grid.NE ]],
+    [2, [ grid.NW, grid.NE, grid.N, grid.SW, grid.SW ]],
+
+    [2, [ grid.N, grid.SW, grid.NW, grid.NE, grid.NE ]],
     [2, [ grid.N, grid.SW, grid.N, grid.SW ]],
-    [2, [ grid.N, grid.SW, grid.NW, grid.NE ]],
+    [2, [ grid.N, grid.SW, grid.N, grid.NE ]],
     [2, [ grid.N, grid.NW, grid.SW, grid.SE ]],
     [2, [ grid.N, grid.NW, grid.S, grid.NW ]],
-    [2, [ grid.NW, grid.NW, grid.NE, grid.SE ]],
-    [2, [ grid.NW, grid.N, grid.SW ]],
-    [2, [ grid.NW, grid.N, grid.SE ]],
-    [2, [ grid.NW, grid.NE, grid.NW, grid.SW ]],
+    [2, [ grid.N, grid.NW, grid.NE ]],
+    [2, [ grid.N, grid.N, grid.SW, grid.SW, grid.SE ]],
+    [2, [ grid.N, grid.N, grid.SW, grid.S, grid.NW ]],
   ]
 
   var EDGE_SOCKET_ANCHORS = [
     [ [0, 3], [0, 2], [0, 1] ],
     [ [3, 6], [2, 5], [1, 4] ],
     [ [6, 6], [5, 6], [4, 6] ],
-
-    undefined, // none for the center
-
     [ [6, 3], [6, 4], [6, 5] ],
     [ [3, 0], [4, 1], [5, 2] ],
     [ [0, 0], [1, 0], [2, 0] ],
@@ -188,20 +127,16 @@ function(dict, grid, anarchy, caching) {
   ];
 
   // Add rotations to compute per-socket permutations:
-  var EDGE_PERMUTATIONS = [];
-  var rotated = EDGE_BASE_PERMUTATIONS;
+  var SOCKET_PERMUTATIONS = [];
+  var rotated = BASE_PERMUTATIONS;
   for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
-    EDGE_PERMUTATIONS.push([]);
-    if (socket == grid.SK_CENTER) {
-      // skip the center
-      continue;
-    }
+    SOCKET_PERMUTATIONS.push([]);
     for (var i = 0; i < rotated.length; ++i) {
       var site = rotated[i][0];
       var path = rotated[i][1];
       // Base is defined for socket 6, so rotate before appending:
       rotated[i] = [ site, grid.rotate_path(path, 1) ];
-      EDGE_PERMUTATIONS[socket].push(
+      SOCKET_PERMUTATIONS[socket].push(
         [ rotated[i][0], EDGE_SOCKET_ANCHORS[socket][site], rotated[i][1] ]
       );
     }
@@ -622,8 +557,8 @@ function(dict, grid, anarchy, caching) {
     for (var i = 0; i < n_inclusions; ++i) {
       // random (non-overlapping) seed from core sockets:
       iseeds[i] = (
-        ULTRATILE_PRE_CORE
-      + anarchy.cohort_shuffle(i, ULTRATILE_CORE_SOCKETS, r)
+        grid.ULTRATILE_PRE_CORE
+      + anarchy.cohort_shuffle(i, grid.ULTRATILE_CORE_SOCKETS, r)
       );
       r = anarchy.lfsr(r);
 
@@ -995,34 +930,33 @@ function(dict, grid, anarchy, caching) {
     var result = [];
     var r = anarchy.lfsr(seed + 1892831081);
     var chosen;
-    // Choose a permutation:
-    if (socket == 3) { // the central socket
-      var filtered = filter_permutations(
-        CENTER_PERMUTATIONS,
-        -1,
-        glyphs.length - 1 // path connects glyphs
-      );
-      var cidx = anarchy.idist(r, 0, filtered.length);
-      chosen = filtered[cidx]
-    } else { // an edge socket
-      var xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
-      r = anarchy.lfsr(r);
-      var site = 2;
-      if (grid.is_canonical(socket)) {
-        site = xo[0];
-      } else {
-        site = xo[1];
-      }
 
-      var filtered = filter_permutations(
-        EDGE_PERMUTATIONS[socket],
-        site,
-        glyphs.length - 1 // path connects glyphs
-      );
-      // TODO: How can we end up with > 5 glyphs?!?
-      var cidx = anarchy.idist(r, 0, filtered.length);
-      chosen = filtered[cidx]
+    // Choose a permutation:
+
+    // First pick the crossover point:
+    var xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
+    r = anarchy.lfsr(r);
+    var site = 2;
+    if (grid.is_canonical(socket)) {
+      site = xo[0];
+    } else {
+      site = xo[1];
     }
+
+    var filtered = filter_permutations(
+      SOCKET_PERMUTATIONS[socket],
+      site,
+      glyphs.length - 1 // path connects glyphs
+    );
+    // TODO: How can we end up with > 5 glyphs?!?
+    var cidx = anarchy.idist(r, 0, filtered.length);
+    chosen = filtered[cidx]
+
+    console.log("F: " + (glyphs.length - 1) + " ? " + socket);
+    console.log(SOCKET_PERMUTATIONS[socket]);
+    console.log(filtered);
+    console.log(cidx);
+    console.log(chosen);
 
     // Finally, punch in the glyphs:
     var pos = chosen[1];
@@ -1106,55 +1040,43 @@ function(dict, grid, anarchy, caching) {
 
       // TODO: Handle longer words gracefully
       var glyphs = entry[0].slice();
-      var maxlen = 10;
-      if (socket == 3) { // embed in center of tile
-        maxlen = 7;
-        if (glyphs.length > maxlen) {
-          // TODO: Better here!
-          glyphs = glyphs.slice(0, maxlen);
-        }
-        var touched = inlay_word(result, glyphs, socket, r);
-        for (var i = 0; i < touched.length; ++i) {
-          var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
-          result.domains[idx] = domain;
-          // DEBUG
-          // result.colors[idx].push("rd");
-        }
+      var maxlen = 12;
+
+      // pick embedding direction & portion to embed
+      var flip = (r % 2) == 0;
+      r = anarchy.lfsr(r);
+      var half_max = Math.floor(maxlen / 2);
+      var min_cut = glyphs.length - half_max;
+      var max_cut = half_max;
+      if (min_cut == max_cut) {
+        var cut = min_cut;
+      } else if (min_cut > max_cut) {
+        // TODO: Handle these overlength words properly!
+        glyphs = glyphs.slice(0, maxlen);
+        cut = half_max;
       } else {
-        // pick embedding direction & portion to embed
-        var flip = (r % 2) == 0;
-        r = anarchy.lfsr(r);
-        var half_max = Math.floor(maxlen / 2);
-        var min_cut = glyphs.length - half_max;
-        var max_cut = half_max;
-        if (min_cut == max_cut) {
-          var cut = min_cut;
-        } else if (min_cut > max_cut) {
-          // TODO: Handle these overlength words properly!
-          glyphs = glyphs.slice(0, maxlen);
-          cut = half_max;
-        } else {
-          var cut = anarchy.idist(r, min_cut, max_cut + 1);
-        }
-        r = anarchy.lfsr(r);
-        if (flip ^ grid.is_canonical(socket)) { // take first half
-          glyphs = glyphs.slice(0, cut);
-          // and reverse ordering
-          glyphs = glyphs.split("").reverse().join("");
-        } else {
-          glyphs = glyphs.slice(cut);
-        }
-        var touched = inlay_word(result, glyphs, socket, r);
-        for (var i = 0; i < touched.length; ++i) {
-          var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
-          result.domains[idx] = domain;
-          // DEBUG:
-          /*
-          result.colors[idx].push(
-            ["bl", "yl", "gn", "rd"][socket % 4]
-          );
-          */
-        }
+        var cut = anarchy.idist(r, min_cut, max_cut + 1);
+      }
+      r = anarchy.lfsr(r);
+      if (flip ^ grid.is_canonical(socket)) { // take first half
+        glyphs = glyphs.slice(0, cut);
+        // and reverse ordering
+        glyphs = glyphs.split("").reverse().join("");
+      } else {
+        glyphs = glyphs.slice(cut);
+      }
+      console.log("L: " + glyphs.length);
+      var touched = inlay_word(result, glyphs, socket, r);
+      for (var i = 0; i < touched.length; ++i) {
+        var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
+        result.domains[idx] = domain;
+        result.colors[idx] = colors_for_domains(dl);
+        // DEBUG:
+        //*
+        result.colors[idx].push(
+          ["bl", "yl", "gn"][socket % 3]
+        );
+        // */
       }
     }
     r = anarchy.lfsr(r);
@@ -1203,7 +1125,7 @@ function(dict, grid, anarchy, caching) {
             nbdom = nbdoms[0];
             nbglyphs = neighbors.slice();
           } else {
-            var ri = r % 2;
+            var ri = (r & 0x10) >>> 4; // check an arbitrary bit
             r = anarchy.lfsr(r);
             nbdom = nbdoms[ri];
             nbglyphs = [ neighbors[ri] ];
@@ -1232,6 +1154,7 @@ function(dict, grid, anarchy, caching) {
 
         // Now that we have single-domain neighbors, pick a glyph:
         result.domains[u] = nbdom;
+        result.colors[u] = colors_for_domains(domains_list(nbdom));
         var unicounts = undefined;
         var bicounts = undefined;
         var tricounts = undefined;
@@ -1298,16 +1221,6 @@ function(dict, grid, anarchy, caching) {
     }
 
     // all glyphs have been filled in, we're done here!
-    return result;
-  }
-
-  function generate_domains(seed, spos) {
-    // Generates the domain list for the given supergrid position according to
-    // the given seed.
-    var smix = sghash(seed + 1, spos);
-
-    var domain = sample_table(DOMAIN_WEIGHTS, smix);
-    result = domains_list(domain);
     return result;
   }
 
@@ -1628,63 +1541,6 @@ function(dict, grid, anarchy, caching) {
     return result;
   }
 
-  // TODO: Get rid of this!
-  function _generate_supertile(sp, seed) {
-    // Takes a seed and a supertile position and generates the corresponding
-    // supertile. If a required domain is not-yet-loaded, this will return
-    // undefined, and the generation process should be re-initiated.
-    //
-    // TODO: Uses globally-known edge content to generate guaranteed inroads.
-    var smix = sghash(seed, sp);
-
-    var result = {
-      "glyphs": Array((grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE)),
-      "domains": generate_domains(seed, sp)
-    };
-
-    var any_missing = false;
-    result["domains"].forEach(function (d) {
-      var dom = dict.lookup_domain(d);
-      if (dom == undefined) {
-        any_missing = true;
-      }
-    });
-    if (any_missing) {
-      return undefined;
-    }
-
-    result["colors"] = colors_for_domains(result["domains"]);
-
-    var gcounts = combined_counts(result["domains"]);
-
-    for (var x = 0; x < grid.SUPERTILE_SIZE; ++x) {
-      smix = mix_seeds(smix, x, 950384);
-      for (var y = 0; y < grid.SUPERTILE_SIZE; ++y) {
-        // Skip out-of-bounds regions:
-        if (
-          (x < 3 && y > 3 + x)
-       || (x > 3 && y < x - 3)
-        ) {
-          continue;
-        }
-        // Mix the seed and sample a glyph: 
-        smix = mix_seeds(smix, y, 3264615);
-        result["glyphs"][x + y*grid.SUPERTILE_SIZE] = sample_glyph(
-          gcounts,
-          smix
-        );
-      }
-    }
-
-    return result;
-  }
-
-  function supertile_base_glyph(seed, sp, rp) {
-    // The first level of supertile glyph generation ensures supertile
-    // connectivity via edge-crossing words.
-    var domains = generate_domains(seed, sp);
-  }
-
   function generate_test_supertile(sgp, seed) {
     // Generates a test supertile, using the given position and seed.
 
@@ -1733,46 +1589,34 @@ function(dict, grid, anarchy, caching) {
 
       // TODO: Handle longer words gracefully
       var maxlen = 10;
-      if (socket == 3) { // embed in center of tile
-        maxlen = 7;
-        if (glyphs.length > maxlen) {
-          // TODO: Better here!
-          glyphs = glyphs.slice(0, maxlen);
-        }
-        var touched = inlay_word(result, glyphs, socket, r);
-        for (var i = 0; i < touched.length; ++i) {
-          var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
-          result.colors[nnn] = tile_colors;
-        }
+
+      // pick embedding direction & portion to embed
+      var flip = (r % 2) == 0;
+      r = anarchy.lfsr(r);
+      var half_max = Math.floor(maxlen / 2);
+      var min_cut = glyphs.length - half_max;
+      var max_cut = half_max;
+      if (min_cut == max_cut) {
+        var cut = min_cut;
+      } else if (min_cut > max_cut) {
+        // TODO: Handle these overlength words properly!
+        glyphs = glyphs.slice(0, maxlen);
+        cut = half_max;
       } else {
-        // pick embedding direction & portion to embed
-        var flip = (r % 2) == 0;
-        r = anarchy.lfsr(r);
-        var half_max = Math.floor(maxlen / 2);
-        var min_cut = glyphs.length - half_max;
-        var max_cut = half_max;
-        if (min_cut == max_cut) {
-          var cut = min_cut;
-        } else if (min_cut > max_cut) {
-          // TODO: Handle these overlength words properly!
-          glyphs = glyphs.slice(0, maxlen);
-          cut = half_max;
-        } else {
-          var cut = anarchy.idist(r, min_cut, max_cut + 1);
-        }
-        r = anarchy.lfsr(r);
-        if (flip ^ grid.is_canonical(socket)) { // take first half
-          glyphs = glyphs.slice(0, cut);
-          // and reverse ordering
-          glyphs = glyphs.reverse();
-        } else {
-          glyphs = glyphs.slice(cut);
-        }
-        var touched = inlay_word(result, glyphs, socket, r);
-        for (var i = 0; i < touched.length; ++i) {
-          var nnn = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
-          result.colors[nnn] = tile_colors;
-        }
+        var cut = anarchy.idist(r, min_cut, max_cut + 1);
+      }
+      r = anarchy.lfsr(r);
+      if (flip ^ grid.is_canonical(socket)) { // take first half
+        glyphs = glyphs.slice(0, cut);
+        // and reverse ordering
+        glyphs = glyphs.reverse();
+      } else {
+        glyphs = glyphs.slice(cut);
+      }
+      var touched = inlay_word(result, glyphs, socket, r);
+      for (var i = 0; i < touched.length; ++i) {
+        var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
+        result.colors[idx] = tile_colors;
       }
     }
     r = anarchy.lfsr(r);

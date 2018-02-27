@@ -2,6 +2,9 @@
 // Hex grid code.
 
 define([], function() {
+  // Whether to log warnings:
+  var WARNINGS = true;
+
   // Grid size in pixels
   var GRID_SIZE = 45;
 
@@ -47,11 +50,8 @@ define([], function() {
 
   // Number of canonical sockets per supergrid tile, and number of total
   // sockets including non-canonical shared sockets.
-  var ASSIGNMENT_SOCKETS = 4;
-  var COMBINED_SOCKETS = 7;
-
-  // The central socket:
-  var SK_CENTER = 3;
+  var ASSIGNMENT_SOCKETS = 3;
+  var COMBINED_SOCKETS = 6;
 
   // How big are ultragrid units?
   var ULTRAGRID_SIZE = 12;
@@ -402,7 +402,7 @@ define([], function() {
   function is_canonical(socket) {
     // Takes just a socket index and returns whether or not it's a canonical
     // index or a non-canonical index (see canonical_sgapos below).
-    return (socket >= 0 && socket <= 3);
+    return (socket >= 0 && socket <= 2);
   }
 
   function is_valid_subindex(gp) {
@@ -444,11 +444,11 @@ define([], function() {
 
   function canonical_sgapos(sgap) {
     // Converts an arbitrary supergrid+assignment position combination to the
-    // corresponding canonical combination. Assignment positions 4, 5, and 6
-    // are mirrored to positions 0, 1, an 2, while positions 0--3 are
-    // unchanged. The return value is an array with supergrid x,y followed by
-    // canonical assignment position. The assignment positions are as follows,
-    // with positions 0--3 being canonical:
+    // corresponding canonical combination. Assignment positions 3, 4, and 5
+    // are mirrored to positions 0, 1, an 2, while those three are unchanged.
+    // The return value is an array with supergrid x,y followed by canonical
+    // assignment position. The assignment positions are as follows, with
+    // positions 0--2 being canonical:
     //
     //
     //                     1     ###     2
@@ -457,13 +457,13 @@ define([], function() {
     //                  ###               ###
     //                  #                   #
     //                  #                   #
-    //                0 #         3         # 4
+    //                0 #                   # 3
     //                  #                   #
     //                  #                   #
     //                  ###               ###
     //                     ###         ###
     //                        ###   ###
-    //                      6    ###     5
+    //                      5    ###     4
     //
     var x = sgap[0];
     var y = sgap[1];
@@ -475,8 +475,8 @@ define([], function() {
       y += 1;
     } else if (asg_pos == 2) { // take from a neighbor
       y += 1;
-    } else if (asg_pos > 3) {
-      asg_pos -= 4;
+    } else {
+      asg_pos -= 3;
     }
     return [ x, y, asg_pos ];
   }
@@ -487,86 +487,60 @@ define([], function() {
     // the given asg_position is 6 (center).
     var asg_pos = sgap[2];
     if (asg_pos == 0) {
-      return [ sgap[0] - 1, sgap[1], 4 ];
+      return [ sgap[0] - 1, sgap[1], 3 ];
     } else if (asg_pos == 1) {
-      return [ sgap[0] - 1, sgap[1] + 1, 5 ];
+      return [ sgap[0] - 1, sgap[1] + 1, 4 ];
     } else if (asg_pos == 2) {
-      return [ sgap[0], sgap[1] + 1, 6 ];
-
-    } else if (asg_pos == 4) {
+      return [ sgap[0], sgap[1] + 1, 5 ];
+    } else if (asg_pos == 3) {
       return [ sgap[0] + 1, sgap[1], 0 ];
-    } else if (asg_pos == 5) {
+    } else if (asg_pos == 4) {
       return [ sgap[0] + 1, sgap[1] - 1, 1 ];
-    } else if (asg_pos == 6) {
+    } else if (asg_pos == 5) {
       return [ sgap[0], sgap[1] - 1, 2 ];
 
     } else {
       // neighbor via asg_pos 3 (center) it just yourself
+      if (WARNINGS) {
+        console.log("Warning: invalid assignment position " + asg_pos);
+      }
       return [ sgap[0], sgap[1], asg_pos ];
     }
   }
 
   function next_edge(asg_pos) {
-    // Computes the next edge index for an assignment position, ignoring the
-    // center position (the next edge for the center is the first edge).
-    if (asg_pos == 3 || asg_pos == 6) {
-      return 0;
-    } else if (asg_pos == 2) {
-      return 4;
-    } else {
-      return asg_pos + 1;
-    }
+    // Computes the next edge index for an assignment position.
+    return (asg_pos + 1) % COMBINED_SOCKETS;
   }
 
   function prev_edge(asg_pos) {
-    // Computes the previous edge index for an assignment position, ignoring
-    // the center position (the previous edge for the center is the last edge).
-    if (asg_pos == 3 || asg_pos == 0) {
-      return 6;
-    } else if (asg_pos == 4) {
-      return 2;
-    } else {
-      return asg_pos - 1;
-    }
+    // Computes the previous edge index for an assignment position.
+    return (asg_pos + (COMBINED_SOCKETS - 1)) % COMBINED_SOCKETS;
   }
 
   function supergrid_asg_neighbors(sgap) {
     // Returns a list of supergrid/assignment positions which are adjacent to
     // the given position. Each entry has three values: supergrid x,y and
-    // assignment position. There are always six possible neighbors, and they
+    // assignment position. There are always four possible neighbors, and they
     // are returned in canonical form.
-    if (sgap[2] == 3) { // center: all 6 edges are the neighbors
-      return [
-        canonical_sgapos([ sgap[0], sgap[1], 0 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 1 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 2 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 4 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 5 ]),
-        canonical_sgapos([ sgap[0], sgap[1], 6 ])
-      ];
-    } else {
-      var alt = supergrid_alternate(sgap);
-      return [
-        // adjacent edges on original supergrid tile:
-        canonical_sgapos([ sgap[0], sgap[1], prev_edge(sgap[2]) ]),
-        canonical_sgapos([ sgap[0], sgap[1], next_edge(sgap[2]) ]),
-        // adjacent edges on alternate supergrid tile:
-        canonical_sgapos([ alt[0], alt[1], prev_edge(alt[2]) ]),
-        canonical_sgapos([ alt[0], alt[1], next_edge(alt[2]) ]),
-        // centers of original and alternate tiles:
-        [ sgap[0], sgap[1], 3 ],
-        [ alt[0], alt[1], 3 ]
-      ];
-    }
+    var alt = supergrid_alternate(sgap);
+    return [
+      // adjacent edges on original supergrid tile:
+      canonical_sgapos([ sgap[0], sgap[1], prev_edge(sgap[2]) ]),
+      canonical_sgapos([ sgap[0], sgap[1], next_edge(sgap[2]) ]),
+      // adjacent edges on alternate supergrid tile:
+      canonical_sgapos([ alt[0], alt[1], prev_edge(alt[2]) ]),
+      canonical_sgapos([ alt[0], alt[1], next_edge(alt[2]) ])
+    ];
   }
 
   function agpos(sgap) {
     // Takes a supergrid position and an assignment position and returns the
     // assignment grid position plus assignment grid number of that position on
     // that supergrid tile. Note that each assignment grid number is assigned
-    // to two supergrid tiles, except the center position. For example, the
-    // position-4 grid number for the tile at (0, 0) is also the position-0
-    // grid number for the tile at (1, 0) because those tiles share that edge.
+    // to two supergrid tiles. For example, the position-3 grid number for the
+    // tile at (0, 0) is also the position-0 grid number for the tile at (1, 0)
+    // because those tiles share that edge.
     var cp = canonical_sgapos(sgap);
     var asg_x = cp[0] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
     var asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
@@ -618,7 +592,6 @@ define([], function() {
     "SUPERTILE_SIZE": SUPERTILE_SIZE,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
     "COMBINED_SOCKETS": COMBINED_SOCKETS,
-    "SK_CENTER": SK_CENTER,
     "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
     "ULTRATILE_SOCKETS": ULTRATILE_SOCKETS,
     "ULTRATILE_ROW_SOCKETS": ULTRATILE_ROW_SOCKETS,

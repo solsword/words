@@ -209,6 +209,8 @@ define(["./locale"], function(locale, finalize) {
         }
         if (freq == undefined) {
           freq = 1;
+        } else {
+          freq = parseInt(freq);
         }
         entries.push([glyphs, word, freq]);
         total_count += freq;
@@ -224,7 +226,7 @@ define(["./locale"], function(locale, finalize) {
         counttable[i] = 0;
       }
       var hf_entries = 0;
-      var freq =  undefined;
+      var freq = undefined;
       for (var i = 0; i < entries.length; ++i) {
         freq = entries[i][2];
         if (freq >= DOMAIN_FREQUENCY_BINS) {
@@ -403,6 +405,7 @@ define(["./locale"], function(locale, finalize) {
         var count = DOMAIN_FREQUENCY_BINS - i;
         if (n < domain.count_sums[i]) { // it's in this bin
           var inside = n - domain.count_sums[i-1];
+          var idx = index + Math.floor(inside / count);
           return domain.entries[index + Math.floor(inside / count)];
         } else {
           index += Math.floor(

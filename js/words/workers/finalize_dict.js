@@ -22,7 +22,7 @@ require(["../locale"], function (locale) {
       if (entry[0].length <= position) {
         // This entry is too short
         if (result.hasOwnProperty("")) {
-          reuslt[""].push(idx);
+          result[""].push(idx);
         } else {
           nkeys += 1;
           result[""] = [ idx ];
@@ -110,7 +110,7 @@ require(["../locale"], function (locale) {
 
           var g = gl[j]; // this glyph
 
-          // Count glyph:
+          // Count glyphs:
           if (json.glyph_counts.hasOwnProperty(g)) {
             json.glyph_counts[g] += w;
           } else {
@@ -121,39 +121,39 @@ require(["../locale"], function (locale) {
           // Count bigrams/trigrams:
           if (json.ordered) {
             if (j < gl.length - 1) {
-              var bi = gl.slice(j, j+2);
-              if (json.bigram_counts.hasOwnProperty(bi[0])) {
-                var bg_entry = json.bigram_counts[bi[0]];
+              var b2 = gl[j+1];
+              if (json.bigram_counts.hasOwnProperty(g)) {
+                var bg_entry = json.bigram_counts[g];
               } else {
                 var bg_entry = {};
-                json.bigram_counts[bi[0]] = bg_entry;
+                json.bigram_counts[g] = bg_entry;
               }
-              if (bg_entry.hasOwnProperty(bi[1])) {
-                bg_entry[bi[1]] += w;
+              if (bg_entry.hasOwnProperty(b2)) {
+                bg_entry[b2] += w;
               } else {
-                bg_entry[bi[1]] = w;
+                bg_entry[b2] = w;
               }
               json.total_bigram_count += w;
             }
             if (j < gl.length - 2) {
-              var tri = gl.slice(j, j+3);
-              if (json.trigram_counts.hasOwnProperty(tri[0])) {
-                var tr_entry = json.trigram_counts[tri[0]];
+              var t3 = gl[j+2];
+              if (json.trigram_counts.hasOwnProperty(g)) {
+                var tr_entry = json.trigram_counts[g];
               } else {
                 var tr_entry = {};
-                json.trigram_counts[tri[0]] = tr_entry;
+                json.trigram_counts[g] = tr_entry;
               }
-              if (tr_entry.hasOwnProperty(tri[1])) {
-                tr_entry = tr_entry[tri[1]];
+              if (tr_entry.hasOwnProperty(b2)) {
+                tr_entry = tr_entry[b2];
               } else {
                 new_entry = {}
-                tr_entry[tri[1]] = new_entry;
+                tr_entry[b2] = new_entry;
                 tr_entry = new_entry;
               }
-              if (tr_entry.hasOwnProperty(tri[2])) {
-                tr_entry[tri[2]] += w;
+              if (tr_entry.hasOwnProperty(t3)) {
+                tr_entry[t3] += w;
               } else {
-                tr_entry[tri[2]] = w;
+                tr_entry[t3] = w;
               }
               json.total_trigram_count += w;
             }

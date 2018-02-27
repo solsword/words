@@ -561,6 +561,7 @@ define([], function() {
         segment,
         split[0],
         split[1],
+        segment_capacity,
         roughness,
         seed
       );
@@ -569,6 +570,7 @@ define([], function() {
         segment - split[1],
         total - split[0],
         n_segments - split[1],
+        segment_capacity,
         roughness,
         seed
       );
