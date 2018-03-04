@@ -11,6 +11,10 @@ function(dict, grid, anarchy, caching) {
   // Whether to show sockets using tile colors or not.
   var DEBUG_SHOW_SOCKETS = false;
 
+  function toggle_socket_colors() {
+    DEBUG_SHOW_SOCKETS = !DEBUG_SHOW_SOCKETS;
+  }
+
   // Smoothing for table sampling.
   var SMOOTHING = 1.5;
 
@@ -1633,7 +1637,7 @@ function(dict, grid, anarchy, caching) {
 
   return {
     "WARNINGS": WARNINGS,
-    "DEBUG_SHOW_SOCKETS": DEBUG_SHOW_SOCKETS,
+    "toggle_socket_colors": toggle_socket_colors,
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
