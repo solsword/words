@@ -1074,7 +1074,7 @@ function(dict, grid, anarchy, caching) {
         result.domains[idx] = domain;
         result.colors[idx] = colors_for_domains(dl);
         // DEBUG:
-        /*
+        //*
         result.colors[idx].push(
           ["bl", "yl", "gn"][socket % 3]
         );

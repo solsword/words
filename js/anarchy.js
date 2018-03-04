@@ -30,7 +30,7 @@ define([], function() {
     return Math.pow(2, n*8) * 255;
   }
 
-  function circular_shift(x, distance) {
+  function swirl(x, distance) {
     // Circular bit shift; distance is capped at 3/4 of ID_BITS
     distance = posmod(distance, Math.floor(3 * ID_BITS / 4));
     var m = mask(distance);
@@ -42,7 +42,7 @@ define([], function() {
     ) >>> 0;
   }
 
-  function rev_circular_shift(x, distance) {
+  function rev_swirl(x, distance) {
     // Inverse circular shift (see above).
     distance = posmod(distance, Math.floor(3 * ID_BITS / 4));
     var m = mask(distance);
@@ -80,7 +80,7 @@ define([], function() {
   function scramble(x) {
     // Implements a reversible linear-feedback-shift-register-like operation.
     var trigger = x & 0x80200003;
-    var r = circular_shift(x, 1);
+    var r = swirl(x, 1);
     if (trigger) {
       r ^= 0x03040610;
     }
@@ -89,10 +89,10 @@ define([], function() {
 
   function rev_scramble(x) {
     // Inverse of scramble (see above).
-    var pr = rev_circular_shift(x, 1);
+    var pr = rev_swirl(x, 1);
     var trigger = pr & 0x80200003;
     if (trigger) {
-      // pr ^= rev_circular_shift(0x03040610, 1);
+      // pr ^= rev_swirl(0x03040610, 1);
       pr ^= 0x06080c20;
     }
     return pr >>> 0;
@@ -106,7 +106,7 @@ define([], function() {
     s = ((s + 1) * (3 + posmod(s, 23))) >>> 0;
     s = fold(s, 11) >>> 0; // prime
     s = scramble(s) >>> 0;
-    s = circular_shift(s, s + 23) >>> 0; // prime
+    s = swirl(s, s + 23) >>> 0; // prime
     s = scramble(s) >>> 0;
     s ^= posmod(s, 153) * scramble(s);
     s = s >>> 0;
@@ -124,9 +124,9 @@ define([], function() {
     x ^= seed;
     x = fold(x, seed + 3); // prime
     x = flop(x);
-    x = circular_shift(x, seed + 37); // prime
+    x = swirl(x, seed + 37); // prime
     x = fold(x, seed + 89); // prime
-    x = circular_shift(x, seed + 107); // prime
+    x = swirl(x, seed + 107); // prime
     x = scramble(x);
     return x >>> 0;
   }
@@ -139,9 +139,9 @@ define([], function() {
 
     // value unscrambling:
     x = rev_scramble(x);
-    x = rev_circular_shift(x, seed + 107); // prime
+    x = rev_swirl(x, seed + 107); // prime
     x = fold(x, seed + 89); // prime
-    x = rev_circular_shift(x, seed + 37); // prime
+    x = rev_swirl(x, seed + 37); // prime
     x = flop(x);
     x = fold(x, seed + 3); // prime
     x ^= seed;
@@ -709,8 +709,8 @@ define([], function() {
     "posmod": posmod,
     "mask": mask,
     "byte_mask": byte_mask,
-    "circular_shift": circular_shift,
-    "rev_circular_shift": rev_circular_shift,
+    "swirl": swirl,
+    "rev_swirl": rev_swirl,
     "fold": fold,
     "flop": flop,
     "scramble": scramble,
