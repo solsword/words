@@ -124,7 +124,7 @@ function(draw, content, grid, dict, generate, menu) {
       });
     },
     // DEBUG
-    "`": function (e) {
+    "s": function (e) {
       generate.DEBUG_SHOW_SOCKETS = !generate.DEBUG_SHOW_SOCKETS;
     }, // toggle socket colors
     " ": test_selection, // spacebar checks current word
