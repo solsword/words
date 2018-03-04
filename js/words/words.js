@@ -123,6 +123,10 @@ function(draw, content, grid, dict, generate, menu) {
         find_word(w, [0, 0]);
       });
     },
+    // DEBUG
+    "`": function (e) {
+      generate.DEBUG_SHOW_SOCKETS = !generate.DEBUG_SHOW_SOCKETS;
+    }, // toggle socket colors
     " ": test_selection, // spacebar checks current word
     "Escape": clear_selection, // escape removes all current selections
     // tab recenters view on current/last swipe head

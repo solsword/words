@@ -8,6 +8,9 @@ function(dict, grid, anarchy, caching) {
   // Whether or not to issue warnings to the console.
   var WARNINGS = true;
 
+  // Whether to show sockets using tile colors or not.
+  var DEBUG_SHOW_SOCKETS = false;
+
   // Smoothing for table sampling.
   var SMOOTHING = 1.5;
 
@@ -46,7 +49,7 @@ function(dict, grid, anarchy, caching) {
   var MULTIPLANAR_DOMAINS = [
     "base",
     "türk",
-    "اللغة_العربية_الفصحى",
+    //"اللغة_العربية_الفصحى", Too large for demo
     "かんたんなひらがな",
   ];
 
@@ -1073,12 +1076,11 @@ function(dict, grid, anarchy, caching) {
         var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
         result.domains[idx] = domain;
         result.colors[idx] = colors_for_domains(dl);
-        // DEBUG:
-        //*
-        result.colors[idx].push(
-          ["bl", "yl", "gn"][socket % 3]
-        );
-        // */
+        if (DEBUG_SHOW_SOCKETS) {
+          result.colors[idx].push(
+            ["bl", "yl", "gn"][socket % 3]
+          );
+        }
       }
     }
     r = anarchy.lfsr(r);
@@ -1631,6 +1633,7 @@ function(dict, grid, anarchy, caching) {
 
   return {
     "WARNINGS": WARNINGS,
+    "DEBUG_SHOW_SOCKETS": DEBUG_SHOW_SOCKETS,
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
