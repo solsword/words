@@ -982,10 +982,11 @@ function(dict, grid, anarchy, caching) {
     return result;
   }
 
-  function generate_supertile(sgp, seed) {
+  function generate_supertile(dimension, sgp, seed) {
     // Given that the necessary domain(s) and multiplanar info are all
     // available, generates the glyph contents of the supertile at the given
-    // position. Returns undefined if there's missing information.
+    // position in the given dimension. Returns undefined if there's missing
+    // information.
 
     var result = {
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
@@ -993,8 +994,13 @@ function(dict, grid, anarchy, caching) {
       "domains": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
     };
 
-    // TODO: Use base-plane info (needs extra arg above).
-    var default_domain = "base";
+    var default_domain = MULTIPLANAR_DOMAINS[
+      dimension % MULTIPLANAR_DOMAINS.length
+    ];
+
+    for (var i = 0; i < dimension + 3; ++i) {
+      seed = anarchy.prng(seed);
+    }
 
     // set glyphs, colors, and domains to undefined:
     for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
@@ -1027,7 +1033,8 @@ function(dict, grid, anarchy, caching) {
       var l_seed = sghash(seed, asg);
       var r = anarchy.lfsr(l_seed);
 
-      var domain = MULTIPLANAR_DOMAINS[mpo % MULTIPLANAR_DOMAINS.length];
+      var mdim = (dimension + mpo) % MULTIPLANAR_DOMAINS.length;
+      var domain = MULTIPLANAR_DOMAINS[mdim];
 
       // Ensure domain(s) are loaded:
       var dl = domains_list(domain);
@@ -1637,6 +1644,7 @@ function(dict, grid, anarchy, caching) {
 
   return {
     "WARNINGS": WARNINGS,
+    "MULTIPLANAR_DOMAINS": MULTIPLANAR_DOMAINS,
     "toggle_socket_colors": toggle_socket_colors,
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,

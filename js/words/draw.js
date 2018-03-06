@@ -120,7 +120,7 @@ define(["./grid", "./content"], function(grid, content) {
     return [tl[0], tl[1], br[0], br[1]];
   }
 
-  function draw_tiles(ctx) {
+  function draw_tiles(dimension, ctx) {
     // Draws tiles for the given context. Returns true if all tiles were drawn,
     // or false if there was at least one undefined tile.
     // TODO: Chunk rendering...
@@ -129,7 +129,7 @@ define(["./grid", "./content"], function(grid, content) {
     ctx.textBaseline = "middle";
     ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px " + FONT_FACE;
 
-    tiles = content.list_tiles(edges);
+    tiles = content.list_tiles(dimension, edges);
     var any_undefined = false;
     tiles.forEach(function(tile) {
       draw_tile(ctx, tile);

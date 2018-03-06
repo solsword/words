@@ -12,6 +12,8 @@ function(draw, content, grid, dict, generate, menu) {
   var CURRENT_SWIPES = [];
   var LAST_POSITION = [0, 0];
 
+  var CURRENT_DIMENSION = 0;
+
   // Mouse scroll correction factors:
   var PIXELS_PER_LINE = 18;
   var LINES_PER_PAGE = 40;
@@ -67,61 +69,10 @@ function(draw, content, grid, dict, generate, menu) {
 
   var COMMANDS = {
     // DEBUG:
-    "z": function (e) {
-      [
-        "a",
-        "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h",
-        "i",
-        "j",
-        "k",
-        "l",
-        "m",
-        "n",
-        "o",
-        "p",
-        "q",
-        "r",
-        "s",
-        "t",
-        "u",
-        "v",
-        "x",
-        "y",
-        "z",
-        "aa",
-        "ab",
-        "ac",
-        "ad",
-        "ae",
-        "af",
-        "ag",
-        "ah",
-        "ai",
-        "aj",
-        "ak",
-        "al",
-        "am",
-        "an",
-        "ao",
-        "ap",
-        "aq",
-        "ar",
-        "as",
-        "at",
-        "au",
-        "av",
-        "ax",
-        "ay",
-        "az",
-      ].forEach(function (w) {
-        find_word(w, [0, 0]);
-      });
+    "d": function (e) {
+      CURRENT_DIMENSION += 1;
+      CURRENT_DIMENSION %= generate.MULTIPLANAR_DOMAINS.length;
+      DO_REDRAW = 0;
     },
     // DEBUG
     "s": function (e) { generate.toggle_socket_colors(); },
@@ -171,7 +122,7 @@ function(draw, content, grid, dict, generate, menu) {
     var combined_swipe = combine_arrays(CURRENT_SWIPES);
     var domains = new Set();
     combined_swipe.forEach(function (gp) {
-      var tile = content.tile_at(gp);
+      var tile = content.tile_at(CURRENT_DIMENSION, gp);
       if (tile != null) {
         generate.domains_list(tile.domain).forEach(function (d) {
           domains.add(d);
@@ -270,7 +221,7 @@ function(draw, content, grid, dict, generate, menu) {
     var glyphs = []
     CURRENT_SWIPES.forEach(function (sw) {
       sw.forEach(function (gp) {
-        var g = content.tile_at(gp)["glyph"];
+        var g = content.tile_at(CURRENT_DIMENSION, gp)["glyph"];
         if (g == undefined) { // should never happen in theory:
           console.log(
             "InternalError: update_current_glyphs found undefined glyph at: "
@@ -303,7 +254,7 @@ function(draw, content, grid, dict, generate, menu) {
     if (
       !is_selected(gpos)
       && (head == null || grid.is_neighbor(head, gpos))
-      && content.tile_at(gpos)["glyph"] != undefined
+      && content.tile_at(CURRENT_DIMENSION, gpos)["glyph"] != undefined
     ) {
       CURRENT_SWIPES.push([gpos]);
       update_current_glyphs();
@@ -405,7 +356,7 @@ function(draw, content, grid, dict, generate, menu) {
         // loaded:
         if (
           head == null || grid.is_neighbor(head, gpos)
-          && content.tile_at(gpos)["glyph"] != undefined
+          && content.tile_at(CURRENT_DIMENSION, gpos)["glyph"] != undefined
         ) {
           // add them if they're a neighbor of the head
           latest_swipe.push(gpos);
@@ -626,7 +577,7 @@ function(draw, content, grid, dict, generate, menu) {
     DO_REDRAW = undefined;
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
-    if (!draw.draw_tiles(CTX)) {
+    if (!draw.draw_tiles(CURRENT_DIMENSION, CTX)) {
       DO_REDRAW = MISSING_TILE_RETRY;
     };
     if (CURRENT_SWIPES.length > 0) {

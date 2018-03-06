@@ -6,6 +6,10 @@ define(["./grid", "./generate"], function(grid, generate) {
   var SUPERTILES = {};
   var QUEUED = {};
 
+  // How many supertiles to cache at once. Needs to be large enough to fill the
+  // screen at least.
+  var SUPERTILE_CACHE_SIZE = grid.ULTRAGRID_SIZE * grid.ULTRAGRID_SIZE * 2;
+
   // The map and list of currently-unlocked tiles:
   var UNLOCKED = [];
 
@@ -27,7 +31,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     SEED = seed;
   }
 
-  function tile_at(gp) {
+  function tile_at(dimension, gp) {
     // Returns a tile object for the given location. A tile object has the
     // following attributes:
     //
@@ -44,7 +48,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     // 'glyph' property.
 
     var sgp = grid.sgpos(gp);
-    var st = fetch_supertile(gp);
+    var st = fetch_supertile(dimension, gp);
     if (st == null) {
       return {
         "pos": gp.slice(),
@@ -60,35 +64,62 @@ define(["./grid", "./generate"], function(grid, generate) {
     return result;
   }
 
-  function eventually_generate_supertile(sgp, accumulated) {
-    var sgk = "" + sgp[0] + "," + sgp[1];
+  function cache_supertile(key, st) {
+    var oldest = undefined;
+    var old_age = undefined;
+    var count = 0;
+    for (var k in SUPERTILES) {
+      if (SUPERTILES.hasOwnProperty(k)) {
+        var entry = SUPERTILES[k];
+        entry[1] += 1;
+        count += 1;
+        if (old_age == undefined || entry[1] >= old_age) {
+          old_age = entry[1];
+          oldest = k;
+        }
+      }
+    }
+    if (count > SUPERTILE_CACHE_SIZE && oldest != undefined) {
+      delete SUPERTILES[oldest];
+    }
+    if (QUEUED.hasOwnProperty(key)) {
+      delete QUEUED[key];
+    }
+    SUPERTILES[key] = [st, 0];
+  }
+
+  function supertile_key(dimension, sgp) {
+    return "" + dimension + ":" + sgp[0] + "," + sgp[1];
+  }
+
+  function eventually_generate_supertile(dimension, sgp, accumulated) {
+    var sgk = supertile_key(dimension, sgp);
     if (accumulated > GEN_GIVEUP) {
       delete QUEUED[sgk]; // allow re-queue
       return;
     }
-    var st = generate.generate_supertile([sgp[0], sgp[1]], SEED);
+    var st = generate.generate_supertile(dimension, [sgp[0], sgp[1]], SEED);
     if (st != undefined) {
-      SUPERTILES[sgk] = st;
+      cache_supertile(sgk, st);
     } else {
-      setTimeout(eventually_generate_supertile, GEN_BACKOFF, sgp);
+      setTimeout(eventually_generate_supertile, GEN_BACKOFF, dimension, sgp);
     }
   }
 
-  function fetch_supertile(gp) {
-    // Takes a grid pos and returns the corresponding supertile, or null if
-    // that supertile isn't generated yet.
+  function fetch_supertile(dimension, gp) {
+    // Takes a dimension and a grid pos and returns the corresponding
+    // supertile, or null if that supertile isn't generated yet.
     var sgp = grid.sgpos(gp);
-    var sgk = "" + sgp[0] + "," + sgp[1];
+    var sgk = supertile_key(dimension, sgp);
     if (SUPERTILES.hasOwnProperty(sgk)) {
-      return SUPERTILES[sgk];
+      return SUPERTILES[sgk][0];
     } else {
       if (!QUEUED[sgk]) {
         // async generate:
         QUEUED[sgk] = true;
-        setTimeout(eventually_generate_supertile, 0, sgp, 0);
+        setTimeout(eventually_generate_supertile, 0, dimension, sgp, 0);
       }
       return null; 
-      // TODO: Permanent storage?
     }
   }
 
@@ -119,7 +150,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     }
   }
 
-  function list_tiles(edges) {
+  function list_tiles(dimension, edges) {
     // Lists all tiles that overlap with a given world-coordinate box. Returns
     // an array of tile objects (see content.tile_at). The input edges array
     // should be ordered left, top, right, bottom and should be expressed in
@@ -164,7 +195,7 @@ define(["./grid", "./generate"], function(grid, generate) {
         y <= tl[1] + Math.floor((x - tl[0]) / 2);
         ++y
       ) {
-        result.push(tile_at([x, y]));
+        result.push(tile_at(dimension, [x, y]));
       }
     }
 
