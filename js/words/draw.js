@@ -17,12 +17,14 @@ define(["./grid", "./content"], function(grid, content) {
   var TILE_COLORS = {
            "outline": "#555",
              "inner": "#333",
-            "circle": "#555",
+               "rim": "#555",
                "pad": "#444",
              "glyph": "#bbb",
       "unlocked-pad": "#777",
-   "unlocked-circle": "#eee",
+      "unlocked-rim": "#eee",
     "unlocked-glyph": "#fff",
+      "included-pad": "#444",
+      "included-rim": "#666",
   };
 
   var LOADING_COLORS = {
@@ -43,6 +45,16 @@ define(["./grid", "./content"], function(grid, content) {
     "gn": "#6f6",
     "lg": "#af7",
   };
+
+  var BG_PALETTE = {
+    "gr": "#444",
+    "bl": "#224",
+    "lb": "#335",
+    "rd": "#422",
+    "yl": "#442",
+    "gn": "#242",
+    "lg": "#353",
+  }
 
   var CONTEXT_BOX = {
     "left": 20,
@@ -159,6 +171,197 @@ define(["./grid", "./content"], function(grid, content) {
     }
   }
 
+  function draw_pad_shape(ctx, shape, cx, cy, r) {
+    ctx.beginPath();
+    var olj = ctx.lineJoin;
+    ctx.lineJoin = "round";
+    switch (shape) {
+      default:
+      case 0: // circle
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        break;
+      case 1: // rectangle
+        ctx.moveTo(cx - 0.9 * r, cy - r);
+        ctx.lineTo(cx + 0.9 * r, cy - r);
+        ctx.lineTo(cx + 0.9 * r, cy + r);
+        ctx.lineTo(cx - 0.9 * r, cy + r);
+        ctx.closePath();
+        break;
+      case 2: // rectangle w/ rounded corners
+        var cr = r * 0.5;
+        var lt = cx - 0.9 * r;
+        var rt = cx + 0.9 * r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(lt + cr, tp);
+        ctx.lineTo(rt - cr, tp);
+        ctx.arc(rt - cr, tp + cr, cr, 3 * Math.PI / 2, 2 * Math.PI);
+        ctx.lineTo(rt, bt - cr);
+        ctx.arc(rt - cr, bt - cr, cr, 0, Math.PI / 2);
+        ctx.lineTo(lt + cr, bt);
+        ctx.arc(lt + cr, bt - cr, cr, Math.PI / 2, Math.PI);
+        ctx.lineTo(lt, tp + cr);
+        ctx.arc(lt + cr, tp + cr, cr, Math.PI, 3 * Math.PI / 2);
+        break;
+      case 3: // rectangle w/ corners indented
+        var cr = r * 0.4;
+        var lt = cx - 0.9 * r;
+        var rt = cx + 0.9 * r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(lt + cr, tp);
+        ctx.lineTo(rt - cr, tp);
+        ctx.arc(rt, tp, cr, Math.PI, Math.PI / 2, true);
+        ctx.lineTo(rt, bt - cr);
+        ctx.arc(rt, bt, cr, 3 * Math.PI / 2, Math.PI, true);
+        ctx.lineTo(lt + cr, bt);
+        ctx.arc(lt, bt, cr, 2 * Math.PI, 3 * Math.PI / 2, true);
+        ctx.lineTo(lt, tp + cr);
+        ctx.arc(lt, tp, cr, Math.PI / 2, 0, true);
+        break;
+      case 4: // rectangle w/ vertical sides indented
+        var cr = r * 0.3;
+        var lt = cx - 0.9 * r;
+        var rt = cx + 0.9 * r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(lt, tp);
+        ctx.lineTo(rt, tp);
+        ctx.lineTo(rt, cy - cr);
+        ctx.arc(rt, cy, cr, 3 * Math.PI / 2, Math.PI / 2, true);
+        ctx.lineTo(rt, bt);
+        ctx.lineTo(lt, bt);
+        ctx.lineTo(lt, cy + cr);
+        ctx.arc(lt, cy, cr, Math.PI / 2, 3 * Math.PI / 2, true);
+        ctx.closePath();
+        break;
+      case 5: // octagon
+        var cr = r * 0.55;
+        var lt = cx - 0.9 * r;
+        var rt = cx + 0.9 * r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(lt + cr, tp);
+        ctx.lineTo(rt - cr, tp);
+        ctx.lineTo(rt, tp + cr);
+        ctx.lineTo(rt, bt - cr);
+        ctx.lineTo(rt - cr, bt);
+        ctx.lineTo(lt + cr, bt);
+        ctx.lineTo(lt, bt - cr);
+        ctx.lineTo(lt, tp + cr);
+        ctx.closePath();
+        break;
+      case 6: // horizontal hexagon
+        var cr = r * 0.4;
+        var lt = cx - r;
+        var rt = cx + r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(lt + cr, tp);
+        ctx.lineTo(rt - cr, tp);
+        ctx.lineTo(rt, cy);
+        ctx.lineTo(rt - cr, bt);
+        ctx.lineTo(lt + cr, bt);
+        ctx.lineTo(lt, cy);
+        ctx.closePath();
+        break;
+      case 7: // vertical hexagon
+        var cr = r * 0.4;
+        var lt = cx - r;
+        var rt = cx + r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(cx, tp);
+        ctx.lineTo(rt, tp + cr);
+        ctx.lineTo(rt, bt - cr);
+        ctx.lineTo(cx, bt);
+        ctx.lineTo(lt, bt - cr);
+        ctx.lineTo(lt, tp + cr);
+        ctx.closePath();
+        break;
+      case 8: // upright pentagon
+        var cr = r * 0.4;
+        var lt = cx - r;
+        var rt = cx + r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(cx, tp);
+        ctx.lineTo(rt, tp + cr);
+        ctx.lineTo(rt - cr, bt);
+        ctx.lineTo(lt + cr, bt);
+        ctx.lineTo(lt, tp + cr);
+        ctx.closePath();
+        break;
+      case 9: // upside-down pentagon
+        var cr = r * 0.4;
+        var lt = cx - r;
+        var rt = cx + r;
+        var tp = cy - r;
+        var bt = cy + r;
+        ctx.moveTo(lt + cr, tp);
+        ctx.lineTo(rt - cr, tp);
+        ctx.lineTo(rt, bt - cr);
+        ctx.lineTo(cx, bt);
+        ctx.lineTo(lt, bt - cr);
+        ctx.closePath();
+        break;
+      case 10: // rectangle with out-bent sides
+        var cr = r * 0.4;
+        var lt = cx - r;
+        var rt = cx + r;
+        var tp = cy - r;
+        var bt = cy + r;
+        var angle = Math.PI / 4;
+        ctx.moveTo(lt + cr, tp);
+        ctx.lineTo(rt - cr, tp);
+        ctx.arc(
+          cx - cr,
+          cy,
+          r + cr,
+          -angle,
+          angle
+        );
+        ctx.lineTo(lt + cr, bt);
+        ctx.arc(
+          cx + cr,
+          cy,
+          r + cr,
+          Math.PI - angle,
+          Math.PI + angle
+        );
+        ctx.closePath();
+        break;
+      case 11: // rectangle with out-bent top & bottom
+        var cr = r * 0.4;
+        var lt = cx - r;
+        var rt = cx + r;
+        var tp = cy - r;
+        var bt = cy + r;
+        var angle = Math.PI / 4;
+        ctx.moveTo(lt, tp + cr);
+        ctx.arc(
+          cx,
+          cy + cr,
+          r + cr,
+          (3 * Math.PI / 2) - angle,
+          (3 * Math.PI / 2) + angle
+        );
+        ctx.lineTo(rt, bt - cr);
+        ctx.arc(
+          cx,
+          cy - cr,
+          r + cr,
+          (Math.PI / 2) - angle,
+          (Math.PI / 2) + angle
+        );
+        ctx.closePath();
+        break;
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.lineJoin = olj;
+  }
+
   function draw_tile(ctx, tile) {
     var wpos = grid.world_pos(tile["pos"]);
     var colors = tile["colors"];
@@ -224,7 +427,8 @@ define(["./grid", "./content"], function(grid, content) {
 
       // Hexagon highlight
       ctx.lineWidth=3;
-      if (colors.length > 0) {
+      // DEBUG TODO
+      if (colors.length > 0 && false) {
         var side_colors = [];
         if (colors.length <= 3 || colors.length >= 6) {
           colors.forEach(function (c) {
@@ -280,26 +484,31 @@ define(["./grid", "./content"], function(grid, content) {
       }
 
       // Inner circle
-      var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
-      if (unlocked) {
-        ctx.fillStyle = TILE_COLORS["unlocked-pad"];
+      //var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
+      var r = grid.GRID_EDGE * 0.58 * ctx.viewport_scale;
+      /* DEBUG TODO
+      if (colors.length > 0) {
+        ctx.fillStyle = BG_PALETTE[colors[0]];
       } else {
         ctx.fillStyle = TILE_COLORS["pad"];
       }
-      ctx.beginPath();
-      ctx.arc(vpos[0], vpos[1], r, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Circle edge
+      // */
+      //* DEBUG
       if (unlocked) {
-        ctx.strokeStyle = TILE_COLORS["unlocked-circle"];
+        ctx.fillStyle = TILE_COLORS["unlocked-pad"];
+        ctx.strokeStyle = TILE_COLORS["unlocked-rim"];
+      } else if (colors.length > 0) {
+        ctx.fillStyle = TILE_COLORS["included-pad"];
+        ctx.strokeStyle = TILE_COLORS["included-rim"];
       } else {
-        ctx.strokeStyle = TILE_COLORS["circle"];
+        ctx.fillStyle = TILE_COLORS["pad"];
+        ctx.strokeStyle = TILE_COLORS["rim"];
       }
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(vpos[0], vpos[1], r*0.95, 0, 2*Math.PI);
-      ctx.stroke();
+      // */
+      var shape = colors.length == 0;
+      // DEBUG:
+      var shape = 11;
+      draw_pad_shape(ctx, shape, vpos[0], vpos[1], r);
 
       // Letter
       if (unlocked) {
