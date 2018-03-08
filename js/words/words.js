@@ -2,8 +2,16 @@
 // Word game.
 
 define(
-["./draw", "./content", "./grid", "./dict", "./generate", "./menu"],
-function(draw, content, grid, dict, generate, menu) {
+[
+  "./draw",
+  "./content",
+  "./grid",
+  "./dimensions",
+  "./dict",
+  "./generate",
+  "./menu"
+],
+function(draw, content, grid, dimensions, dict, generate, menu) {
 
   var VIEWPORT_SIZE = 800.0;
 
@@ -71,7 +79,7 @@ function(draw, content, grid, dict, generate, menu) {
     // DEBUG:
     "d": function (e) {
       CURRENT_DIMENSION += 1;
-      CURRENT_DIMENSION %= generate.MULTIPLANAR_DOMAINS.length;
+      CURRENT_DIMENSION %= dimensions.MULTIPLANAR_DOMAINS.length;
       DO_REDRAW = 0;
     },
     // DEBUG

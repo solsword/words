@@ -1,7 +1,9 @@
 // draw.js
 // Drawing code for words game.
 
-define(["./grid", "./content"], function(grid, content) {
+define(
+  ["./grid", "./content"],
+  function(grid, content) {
 
   var HIGHLIGHT_COLOR = "#fff";
   var TRAIL_COLOR = "#ddd";
@@ -23,8 +25,8 @@ define(["./grid", "./content"], function(grid, content) {
       "unlocked-pad": "#777",
       "unlocked-rim": "#eee",
     "unlocked-glyph": "#fff",
-      "included-pad": "#444",
-      "included-rim": "#666",
+      "included-pad": "#555",
+      "included-rim": "#777",
   };
 
   var LOADING_COLORS = {
@@ -171,192 +173,418 @@ define(["./grid", "./content"], function(grid, content) {
     }
   }
 
-  function draw_pad_shape(ctx, shape, cx, cy, r) {
-    ctx.beginPath();
-    var olj = ctx.lineJoin;
-    ctx.lineJoin = "round";
-    switch (shape) {
+  // Draws an edge of the given shape with the given center point, radius, and
+  // corner radius.
+  function draw_edge(ctx, e_shape, side, cx, cy, r, cr) {
+    ctx.save()
+    ctx.translate(cx, cy);
+    ctx.rotate((Math.PI / 2) * side);
+    var fx = -r + cr;
+    var fy = -r;
+    var tx = r - cr;
+    var ty = -r;
+    cx = 0;
+    cy = 0;
+    e_shape = ((e_shape % 17) + 17) % 17;
+    // Draw the edge
+    switch (e_shape) {
       default:
-      case 0: // circle
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+      case 0: // straight line
+        ctx.lineTo(tx, ty);
         break;
-      case 1: // rectangle
-        ctx.moveTo(cx - 0.9 * r, cy - r);
-        ctx.lineTo(cx + 0.9 * r, cy - r);
-        ctx.lineTo(cx + 0.9 * r, cy + r);
-        ctx.lineTo(cx - 0.9 * r, cy + r);
-        ctx.closePath();
+
+      case 1: // two-segment outer line
+        var mx = fx + (tx - fx) / 2;
+        var my = fy + (ty - fy) / 2;
+
+        var px = mx - (cx - mx) * 0.2;
+        var py = my - (cy - my) * 0.2;
+
+        ctx.lineTo(px, py);
+        ctx.lineTo(tx, ty);
         break;
-      case 2: // rectangle w/ rounded corners
-        var cr = r * 0.5;
-        var lt = cx - 0.9 * r;
-        var rt = cx + 0.9 * r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(lt + cr, tp);
-        ctx.lineTo(rt - cr, tp);
-        ctx.arc(rt - cr, tp + cr, cr, 3 * Math.PI / 2, 2 * Math.PI);
-        ctx.lineTo(rt, bt - cr);
-        ctx.arc(rt - cr, bt - cr, cr, 0, Math.PI / 2);
-        ctx.lineTo(lt + cr, bt);
-        ctx.arc(lt + cr, bt - cr, cr, Math.PI / 2, Math.PI);
-        ctx.lineTo(lt, tp + cr);
-        ctx.arc(lt + cr, tp + cr, cr, Math.PI, 3 * Math.PI / 2);
+
+      case 2: // two-segment inner line
+        var mx = fx + (tx - fx) / 2;
+        var my = fy + (ty - fy) / 2;
+
+        var px = mx + (cx - mx) * 0.2;
+        var py = my + (cy - my) * 0.2;
+
+        ctx.lineTo(px, py);
+        ctx.lineTo(tx, ty);
         break;
-      case 3: // rectangle w/ corners indented
-        var cr = r * 0.4;
-        var lt = cx - 0.9 * r;
-        var rt = cx + 0.9 * r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(lt + cr, tp);
-        ctx.lineTo(rt - cr, tp);
-        ctx.arc(rt, tp, cr, Math.PI, Math.PI / 2, true);
-        ctx.lineTo(rt, bt - cr);
-        ctx.arc(rt, bt, cr, 3 * Math.PI / 2, Math.PI, true);
-        ctx.lineTo(lt + cr, bt);
-        ctx.arc(lt, bt, cr, 2 * Math.PI, 3 * Math.PI / 2, true);
-        ctx.lineTo(lt, tp + cr);
-        ctx.arc(lt, tp, cr, Math.PI / 2, 0, true);
+
+      case 3: // four-segment outer zig-zag
+        var mx = fx + (tx - fx) / 2;
+        var my = fy + (ty - fy) / 2;
+
+        var m1x = fx + (mx - fx) / 2;
+        var m1y = fy + (my - fy) / 2;
+
+        var p1x = m1x - (cx - mx) * 0.1;
+        var p1y = m1y - (cy - my) * 0.1;
+
+        var p2x = mx + (cx - mx) * 0.1;
+        var p2y = my + (cy - my) * 0.1;
+
+        var m2x = mx + (tx - mx) / 2;
+        var m2y = my + (ty - my) / 2;
+
+        var p3x = m2x - (cx - mx) * 0.1;
+        var p3y = m2y - (cy - my) * 0.1;
+
+        ctx.lineTo(p1x, p1y);
+        ctx.lineTo(p2x, p2y);
+        ctx.lineTo(p3x, p3y);
+        ctx.lineTo(tx, ty);
         break;
-      case 4: // rectangle w/ vertical sides indented
-        var cr = r * 0.3;
-        var lt = cx - 0.9 * r;
-        var rt = cx + 0.9 * r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(lt, tp);
-        ctx.lineTo(rt, tp);
-        ctx.lineTo(rt, cy - cr);
-        ctx.arc(rt, cy, cr, 3 * Math.PI / 2, Math.PI / 2, true);
-        ctx.lineTo(rt, bt);
-        ctx.lineTo(lt, bt);
-        ctx.lineTo(lt, cy + cr);
-        ctx.arc(lt, cy, cr, Math.PI / 2, 3 * Math.PI / 2, true);
-        ctx.closePath();
+
+      case 4: // four-segment inner zig-zag
+        var mx = fx + (tx - fx) / 2;
+        var my = fy + (ty - fy) / 2;
+
+        var m1x = fx + (mx - fx) / 2;
+        var m1y = fy + (my - fy) / 2;
+
+        var p1x = m1x + (cx - mx) * 0.1;
+        var p1y = m1y + (cy - my) * 0.1;
+
+        var p2x = mx - (cx - mx) * 0.1;
+        var p2y = my - (cy - my) * 0.1;
+
+        var m2x = mx + (tx - mx) / 2;
+        var m2y = my + (ty - my) / 2;
+
+        var p3x = m2x + (cx - mx) * 0.1;
+        var p3y = m2y + (cy - my) * 0.1;
+
+        ctx.lineTo(p1x, p1y);
+        ctx.lineTo(p2x, p2y);
+        ctx.lineTo(p3x, p3y);
+        ctx.lineTo(tx, ty);
         break;
-      case 5: // octagon
-        var cr = r * 0.55;
-        var lt = cx - 0.9 * r;
-        var rt = cx + 0.9 * r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(lt + cr, tp);
-        ctx.lineTo(rt - cr, tp);
-        ctx.lineTo(rt, tp + cr);
-        ctx.lineTo(rt, bt - cr);
-        ctx.lineTo(rt - cr, bt);
-        ctx.lineTo(lt + cr, bt);
-        ctx.lineTo(lt, bt - cr);
-        ctx.lineTo(lt, tp + cr);
-        ctx.closePath();
-        break;
-      case 6: // horizontal hexagon
-        var cr = r * 0.4;
-        var lt = cx - r;
-        var rt = cx + r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(lt + cr, tp);
-        ctx.lineTo(rt - cr, tp);
-        ctx.lineTo(rt, cy);
-        ctx.lineTo(rt - cr, bt);
-        ctx.lineTo(lt + cr, bt);
-        ctx.lineTo(lt, cy);
-        ctx.closePath();
-        break;
-      case 7: // vertical hexagon
-        var cr = r * 0.4;
-        var lt = cx - r;
-        var rt = cx + r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(cx, tp);
-        ctx.lineTo(rt, tp + cr);
-        ctx.lineTo(rt, bt - cr);
-        ctx.lineTo(cx, bt);
-        ctx.lineTo(lt, bt - cr);
-        ctx.lineTo(lt, tp + cr);
-        ctx.closePath();
-        break;
-      case 8: // upright pentagon
-        var cr = r * 0.4;
-        var lt = cx - r;
-        var rt = cx + r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(cx, tp);
-        ctx.lineTo(rt, tp + cr);
-        ctx.lineTo(rt - cr, bt);
-        ctx.lineTo(lt + cr, bt);
-        ctx.lineTo(lt, tp + cr);
-        ctx.closePath();
-        break;
-      case 9: // upside-down pentagon
-        var cr = r * 0.4;
-        var lt = cx - r;
-        var rt = cx + r;
-        var tp = cy - r;
-        var bt = cy + r;
-        ctx.moveTo(lt + cr, tp);
-        ctx.lineTo(rt - cr, tp);
-        ctx.lineTo(rt, bt - cr);
-        ctx.lineTo(cx, bt);
-        ctx.lineTo(lt, bt - cr);
-        ctx.closePath();
-        break;
-      case 10: // rectangle with out-bent sides
-        var cr = r * 0.4;
-        var lt = cx - r;
-        var rt = cx + r;
-        var tp = cy - r;
-        var bt = cy + r;
-        var angle = Math.PI / 4;
-        ctx.moveTo(lt + cr, tp);
-        ctx.lineTo(rt - cr, tp);
+
+      case 5: // curved line
+        var angle = (Math.PI / 2) - Math.atan2(r + cr, r - cr);
+        var radius = Math.sqrt(Math.pow(r + cr, 2) + Math.pow(r - cr, 2));
+
         ctx.arc(
-          cx - cr,
-          cy,
-          r + cr,
-          -angle,
-          angle
-        );
-        ctx.lineTo(lt + cr, bt);
-        ctx.arc(
-          cx + cr,
-          cy,
-          r + cr,
-          Math.PI - angle,
-          Math.PI + angle
-        );
-        ctx.closePath();
-        break;
-      case 11: // rectangle with out-bent top & bottom
-        var cr = r * 0.4;
-        var lt = cx - r;
-        var rt = cx + r;
-        var tp = cy - r;
-        var bt = cy + r;
-        var angle = Math.PI / 4;
-        ctx.moveTo(lt, tp + cr);
-        ctx.arc(
-          cx,
-          cy + cr,
-          r + cr,
+          0,
+          cr,
+          radius,
           (3 * Math.PI / 2) - angle,
           (3 * Math.PI / 2) + angle
         );
-        ctx.lineTo(rt, bt - cr);
+        break;
+
+      case 6: // circular-indented line
+        var mx = (fx + tx) / 2;
+        var my = (fy + ty) / 2;
+        var dist = Math.sqrt(Math.pow(tx - fx, 2) + Math.pow(ty - fy, 2));
+        var ir = 0.14 * dist;
+        ctx.lineTo(fx + (tx - fx) * 0.43, fy + (ty - fy) * 0.43);
+        ctx.arc(mx, my, ir, Math.PI, 0, true); // ccw
+        ctx.lineTo(tx, ty);
+        break;
+
+      case 7: // circular-outdented line
+        var mx = (fx + tx) / 2;
+        var my = (fy + ty) / 2;
+        var dist = Math.sqrt(Math.pow(tx - fx, 2) + Math.pow(ty - fy, 2));
+        var ir = 0.2 * dist;
+        ctx.lineTo(fx + (tx - fx) * 0.4, fy + (ty - fy) * 0.4);
+        ctx.arc(mx, my, ir, Math.PI, 2 * Math.PI); // ccw
+        ctx.lineTo(tx, ty);
+        break;
+
+      case 8: // line with triangle indent
+        var mx = (fx + tx) / 2;
+        var my = (fy + ty) / 2;
+        var px = mx + (cx - mx) * 0.15;
+        var py = my + (cy - my) * 0.15;
+        var dist = Math.sqrt(Math.pow(tx - fx, 2) + Math.pow(ty - fy, 2));
+        ctx.lineTo(fx + (tx - fx) * 0.3, fy + (ty - fy) * 0.3);
+        ctx.lineTo(px, py);
+        ctx.lineTo(fx + (tx - fx) * 0.7, fy + (ty - fy) * 0.7);
+        ctx.lineTo(tx, ty);
+        break;
+
+      case 9: // line with triangle outdent
+        var mx = (fx + tx) / 2;
+        var my = (fy + ty) / 2;
+        var px = mx - (cx - mx) * 0.15;
+        var py = my - (cy - my) * 0.15;
+        var dist = Math.sqrt(Math.pow(tx - fx, 2) + Math.pow(ty - fy, 2));
+        ctx.lineTo(fx + (tx - fx) * 0.3, fy + (ty - fy) * 0.3);
+        ctx.lineTo(px, py);
+        ctx.lineTo(fx + (tx - fx) * 0.7, fy + (ty - fy) * 0.7);
+        ctx.lineTo(tx, ty);
+        break;
+
+      case 10: // line with square indent
+         // midpoint
+        var mx = (fx + tx) / 2;
+        var my = (fy + ty) / 2;
+        // indent start
+        var isx = fx + (tx - fx) * 0.3;
+        var isy = fy + (ty - fy) * 0.3;
+        // indent end
+        var iex = fx + (tx - fx) * 0.7;
+        var iey = fy + (ty - fy) * 0.7;
+
+        // points 1 and 2 of indent
+        var px1 = isx + (cx - mx) * 0.2;
+        var py1 = isy + (cy - my) * 0.2;
+        var px2 = iex + (cx - mx) * 0.2;
+        var py2 = iey + (cy - my) * 0.2;
+        ctx.lineTo(isx, isy);
+        ctx.lineTo(px1, py1);
+        ctx.lineTo(px2, py2);
+        ctx.lineTo(iex, iey);
+        ctx.lineTo(tx, ty);
+        break;
+
+      case 11: // line with square outdent
+         // midpoint
+        var mx = (fx + tx) / 2;
+        var my = (fy + ty) / 2;
+        // indent start
+        var isx = fx + (tx - fx) * 0.3;
+        var isy = fy + (ty - fy) * 0.3;
+        // indent end
+        var iex = fx + (tx - fx) * 0.7;
+        var iey = fy + (ty - fy) * 0.7;
+
+        // points 1 and 2 of indent
+        var px1 = isx - (cx - mx) * 0.2;
+        var py1 = isy - (cy - my) * 0.2;
+        var px2 = iex - (cx - mx) * 0.2;
+        var py2 = iey - (cy - my) * 0.2;
+        ctx.lineTo(isx, isy);
+        ctx.lineTo(px1, py1);
+        ctx.lineTo(px2, py2);
+        ctx.lineTo(iex, iey);
+        ctx.lineTo(tx, ty);
+        break;
+
+      case 12: // two bumps
+        var idist = r * 0.15;
+
+        var p1x = fx / 2;
+        var p1y = -r + idist;
+
+        var p2x = tx / 2;
+        var p2y = -r + idist;
+
+        var angle = Math.atan2(idist, fx - p1x) - (Math.PI / 2);
+
+        var radius = Math.sqrt(Math.pow(fx - p1x, 2) + Math.pow(fy - p1y, 2));
+
         ctx.arc(
-          cx,
-          cy - cr,
-          r + cr,
-          (Math.PI / 2) - angle,
-          (Math.PI / 2) + angle
+          p1x,
+          p1y,
+          radius,
+          (3 * Math.PI / 2) - angle,
+          (3 * Math.PI / 2) + angle
         );
-        ctx.closePath();
+        ctx.arc(
+          p2x,
+          p2y,
+          radius,
+          (3 * Math.PI / 2) - angle,
+          (3 * Math.PI / 2) + angle
+        );
+        break;
+
+      case 13: // two round indents
+        var idist = r * 0.15;
+
+        var p1x = fx / 2;
+        var p1y = -r - idist;
+
+        var p2x = tx / 2;
+        var p2y = -r - idist;
+
+        var angle = Math.atan2(idist, fx - p1x) - (Math.PI / 2);
+
+        var radius = Math.sqrt(Math.pow(fx - p1x, 2) + Math.pow(fy - p1y, 2));
+
+        ctx.arc(
+          p1x,
+          p1y,
+          radius,
+          (Math.PI / 2) + angle,
+          (Math.PI / 2) - angle,
+          true
+        );
+        ctx.arc(
+          p2x,
+          p2y,
+          radius,
+          (Math.PI / 2) + angle,
+          (Math.PI / 2) - angle,
+          true
+        );
+        break;
+
+      case 14: // three-curve wave
+        var idist = r * 0.15;
+
+        var sixth = (tx - fx) / 6;
+
+        var p1x = fx + sixth;
+        var p1y = -r + idist;
+
+        var p2x = 0;
+        var p2y = -r - idist;
+
+        var p3x = tx - sixth;
+        var p3y = -r + idist;
+
+        var angle = (Math.PI / 2) - Math.atan2(idist, sixth);
+
+        var radius = Math.sqrt(Math.pow(sixth, 2) + Math.pow(idist, 2));
+
+        ctx.arc(
+          p1x,
+          p1y,
+          radius,
+          (3 * Math.PI / 2) - angle,
+          (3 * Math.PI / 2) + angle
+        );
+        ctx.arc(
+          p2x,
+          p2y,
+          radius,
+          (Math.PI / 2) + angle,
+          (Math.PI / 2) - angle,
+          true
+        );
+        ctx.arc(
+          p3x,
+          p3y,
+          radius,
+          (3 * Math.PI / 2) - angle,
+          (3 * Math.PI / 2) + angle
+        );
+        break;
+
+      case 15: // inverted wave
+        var idist = r * 0.15;
+
+        var sixth = (tx - fx) / 6;
+
+        var p1x = fx + sixth;
+        var p1y = -r - idist;
+
+        var p2x = 0;
+        var p2y = -r + idist;
+
+        var p3x = tx - sixth;
+        var p3y = -r - idist;
+
+        var angle = (Math.PI / 2) - Math.atan2(idist, sixth);
+
+        var radius = Math.sqrt(Math.pow(sixth, 2) + Math.pow(idist, 2));
+
+        ctx.arc(
+          p1x,
+          p1y,
+          radius,
+          (Math.PI / 2) + angle,
+          (Math.PI / 2) - angle,
+          true
+        );
+        ctx.arc(
+          p2x,
+          p2y,
+          radius,
+          (3 * Math.PI / 2) - angle,
+          (3 * Math.PI / 2) + angle
+        );
+        ctx.arc(
+          p3x,
+          p3y,
+          radius,
+          (Math.PI / 2) + angle,
+          (Math.PI / 2) - angle,
+          true
+        );
+        break;
+
+      case 16: // inner trapezoid
+        var rad = cr/3;
+        ctx.lineTo(fx + rad, -r + rad);
+        ctx.lineTo(tx - rad, -r + rad);
+        ctx.lineTo(tx, ty);
         break;
     }
+    ctx.restore()
+  }
+
+  // Draws a corner of the given shape at the given points with the given
+  // orientation, corner point, radius, and corner radius.
+  function draw_corner(ctx, shape, ori, x, y, r, cr) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((Math.PI / 2) * ori);
+    shape = ((shape % 6) + 6) % 6;
+    // Draw the corner
+    switch (shape) {
+      default:
+      case 0: // square corner
+        ctx.lineTo(0, 0);
+        ctx.lineTo(0, cr);
+        break;
+      case 1: // arc corner (chopped is too similar)
+        var a1 = Math.atan2(r - cr, r) + 3 * Math.PI / 2;
+        var a2 = Math.atan2(r, r - cr) + 3 * Math.PI / 2;
+        var arc_r = Math.sqrt(Math.pow(r, 2) + Math.pow(r - cr, 2));
+        ctx.arc(-r, r, arc_r, a1, a2);
+        break;
+      case 2: // rounded corner
+        ctx.arc(-cr, cr, cr, 3 * Math.PI / 2, 2 * Math.PI);
+        break;
+      case 3: // rounded inner corner
+        ctx.arc(0, 0, cr, Math.PI, Math.PI / 2, true);
+        break;
+      case 4: // triangular inner corner
+        ctx.lineTo(-cr * 0.8, cr * 0.8);
+        ctx.lineTo(0, cr);
+        break;
+      case 5: // trapezoid outer corner
+        ctx.lineTo(-cr/2, -cr/6);
+        ctx.lineTo(cr/6, cr/2);
+        ctx.lineTo(0, cr);
+        break;
+    }
+    ctx.restore();
+  }
+
+  // Takes a context, an array of four shape integers, a center position, and a
+  // radius and draws a pad shape to put a glyph on. Stroking and/or filling
+  // this shape is up to the caller.
+  function draw_pad_shape(ctx, shape, cx, cy, r) {
+    ctx.beginPath();
+    var olj = ctx.lineJoin;
+    // ctx.lineJoin = "round";
+    // ctx.lineJoin = "mitre";
+    var cr = r * 0.4;
+    var lt = cx - r;
+    var rt = cx + r;
+    var tp = cy - r;
+    var bt = cy + r;
+    ctx.moveTo(lt + cr, tp);
+    draw_edge(ctx, shape[0], 0, cx, cy, r, cr);
+    draw_corner(ctx, shape[3], 0, rt, tp, r, cr);
+    draw_edge(ctx, shape[2], 1, cx, cy, r, cr);
+    draw_corner(ctx, shape[3], 1, rt, bt, r, cr);
+    draw_edge(ctx, shape[1], 2, cx, cy, r, cr);
+    draw_corner(ctx, shape[3], 2, lt, bt, r, cr);
+    draw_edge(ctx, shape[2], 3, cx, cy, r, cr);
+    draw_corner(ctx, shape[3], 3, lt, tp, r, cr);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
     ctx.lineJoin = olj;
@@ -427,7 +655,7 @@ define(["./grid", "./content"], function(grid, content) {
 
       // Hexagon highlight
       ctx.lineWidth=3;
-      // DEBUG TODO
+      // TODO DEBUG
       if (colors.length > 0 && false) {
         var side_colors = [];
         if (colors.length <= 3 || colors.length >= 6) {
@@ -454,7 +682,7 @@ define(["./grid", "./content"], function(grid, content) {
           ];
         } else {
           // Should be impossible
-          console.log("Internal Error: invalid colors length: " +colors.length);
+          console.log("Internal Error: invalid colors length: "+ colors.length);
         }
 
         for (var i = 0; i < grid.VERTICES.length; ++i) {
@@ -497,7 +725,7 @@ define(["./grid", "./content"], function(grid, content) {
       if (unlocked) {
         ctx.fillStyle = TILE_COLORS["unlocked-pad"];
         ctx.strokeStyle = TILE_COLORS["unlocked-rim"];
-      } else if (colors.length > 0) {
+      } else if (tile.is_inclusion) {
         ctx.fillStyle = TILE_COLORS["included-pad"];
         ctx.strokeStyle = TILE_COLORS["included-rim"];
       } else {
@@ -506,9 +734,13 @@ define(["./grid", "./content"], function(grid, content) {
       }
       // */
       var shape = colors.length == 0;
-      // DEBUG:
-      var shape = 11;
-      draw_pad_shape(ctx, shape, vpos[0], vpos[1], r);
+      draw_pad_shape(
+        ctx,
+        tile.shape,
+        vpos[0],
+        vpos[1],
+        r
+      );
 
       // Letter
       if (unlocked) {

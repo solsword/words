@@ -2,8 +2,8 @@
 // Generates hex grid supertiles for word puzzling.
 
 define(
-["anarchy", "./dict", "./grid", "./caching", "./locale"],
-function(anarchy, dict, grid, caching) {
+["anarchy", "./dict", "./grid", "./dimensions", "./caching"],
+function(anarchy, dict, grid, dimensions, caching) {
 
   // Whether or not to issue warnings to the console.
   var WARNINGS = true;
@@ -37,9 +37,6 @@ function(anarchy, dict, grid, caching) {
   var INCLUSION_MIN_SIZE = 6;
   var INCLUSION_MAX_SIZE = 35;
 
-  // Number of possible connections from each plane:
-  var MULTIPLANAR_CONNECTIONS = 64;
-
   // Cache size for multiplanar info:
   var MULTIPLANAR_INFO_CACHE_SIZE = 4096;
 
@@ -48,14 +45,6 @@ function(anarchy, dict, grid, caching) {
     //"base": [ "türk" ],
     "base": [ "adj", "adv", "noun", "verb" ]
   };
-
-  // TODO: Better here!
-  var MULTIPLANAR_DOMAINS = [
-    "base",
-    "türk",
-    //"اللغة_العربية_الفصحى", Too large for demo
-    "かんたんなひらがな",
-  ];
 
   var BASE_PERMUTATIONS = [
     // 46, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
@@ -575,7 +564,7 @@ function(anarchy, dict, grid, caching) {
 
       // TODO: better here
       // random multiplanar index
-      impi[i] = anarchy.idist(r, 0, MULTIPLANAR_CONNECTIONS);
+      impi[i] = anarchy.idist(r, 0, dimensions.MULTIPLANAR_CONNECTIONS);
       r = anarchy.lfsr(r);
 
       // seed is on the queue:
@@ -989,16 +978,16 @@ function(anarchy, dict, grid, caching) {
     // information.
 
     var result = {
+      "dimension": dimension,
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "domains": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
     };
 
-    var default_domain = MULTIPLANAR_DOMAINS[
-      dimension % MULTIPLANAR_DOMAINS.length
-    ];
+    var default_domain = dimensions.natural_domain(dimension);
 
-    for (var i = 0; i < dimension + 3; ++i) {
+    seed ^= dimension;
+    for (var i = 0; i < (dimension % 5) + 3; ++i) {
       seed = anarchy.prng(seed);
     }
 
@@ -1033,8 +1022,8 @@ function(anarchy, dict, grid, caching) {
       var l_seed = sghash(seed, asg);
       var r = anarchy.lfsr(l_seed);
 
-      var mdim = (dimension + mpo) % MULTIPLANAR_DOMAINS.length;
-      var domain = MULTIPLANAR_DOMAINS[mdim];
+      var mdim = dimensions.neighboring_dimension(dimension, mpo)
+      var domain = dimensions.natural_domain(mdim);
 
       // Ensure domain(s) are loaded:
       var dl = domains_list(domain);
@@ -1644,7 +1633,6 @@ function(anarchy, dict, grid, caching) {
 
   return {
     "WARNINGS": WARNINGS,
-    "MULTIPLANAR_DOMAINS": MULTIPLANAR_DOMAINS,
     "toggle_socket_colors": toggle_socket_colors,
     "sample_glyph": sample_glyph,
     "mix_seeds": mix_seeds,

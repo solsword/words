@@ -15,6 +15,21 @@ define([], function() {
     return ((x % y) + y) % y;
   }
 
+  // A string hashing function.
+  // See: https://stackoverflow.com/questions/7616461/generate-a-hash-from-string-in-javascript-jquery
+  function hash_string(s) {
+    var hash = 0, i, chr;
+    if (s.length === 0) {
+      return hash;
+    }
+    for (i = 0; i < s.length; i++) {
+      chr = s.charCodeAt(i);
+      hash = ((hash << 5) - hash) + chr;
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+  }
+
   function mask(bits) {
     // Creates a mask with the given number of 1 bits.
     // Avoids shift operator because of 32-bit limit, but watch out for
@@ -707,6 +722,7 @@ define([], function() {
 
   return {
     "posmod": posmod,
+    "hash_string": hash_string,
     "mask": mask,
     "byte_mask": byte_mask,
     "swirl": swirl,

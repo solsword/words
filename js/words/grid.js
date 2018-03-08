@@ -1,7 +1,7 @@
 // grid.js
 // Hex grid code.
 
-define([], function() {
+define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   // Whether to log warnings:
   var WARNINGS = true;
 
@@ -380,6 +380,12 @@ define([], function() {
     result["glyph"] = supertile.glyphs[idx];
     result["colors"] = supertile.colors[idx].slice();
     result["domain"] = supertile.domains[idx];
+    result["shape"] = dimensions.shape_for(
+      anarchy.hash_string(result.domain)
+    );
+    result["is_inclusion"] = (
+      result["domain"] != dimensions.natural_domain(supertile.dimension)
+    );
     return result;
   }
 
