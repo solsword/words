@@ -1075,7 +1075,8 @@ function(anarchy, dict, grid, dimensions, caching) {
       for (var i = 0; i < touched.length; ++i) {
         var idx = touched[i][0] + touched[i][1]*grid.SUPERTILE_SIZE;
         result.domains[idx] = domain;
-        result.colors[idx] = colors_for_domains(dl);
+        // TODO: Get rid of this?
+        //result.colors[idx] = colors_for_domains(dl);
         if (DEBUG_SHOW_SOCKETS) {
           result.colors[idx].push(
             ["bl", "yl", "gn"][socket % 3]
@@ -1158,7 +1159,8 @@ function(anarchy, dict, grid, dimensions, caching) {
 
         // Now that we have single-domain neighbors, pick a glyph:
         result.domains[u] = nbdom;
-        result.colors[u] = colors_for_domains(domains_list(nbdom));
+        // TODO: Get rid of this?
+        // result.colors[u] = colors_for_domains(domains_list(nbdom));
         var unicounts = undefined;
         var bicounts = undefined;
         var tricounts = undefined;

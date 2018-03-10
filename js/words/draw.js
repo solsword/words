@@ -656,7 +656,7 @@ define(
       // Hexagon highlight
       ctx.lineWidth=3;
       // TODO DEBUG
-      if (colors.length > 0 && false) {
+      if (colors.length > 0) {
         var side_colors = [];
         if (colors.length <= 3 || colors.length >= 6) {
           colors.forEach(function (c) {
