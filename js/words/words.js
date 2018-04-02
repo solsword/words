@@ -149,9 +149,7 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
       if (connected) {
         // Match is connected:
         // clear our swipes and glyphs and add to our words found
-        combined_swipe.forEach(function (gp) {
-          content.unlock_tile(gp);
-        });
+        content.unlock_path(combined_swipe);
         entries.forEach(function (e) {
           find_word(e[1], combined_swipe[0]);
         });
@@ -412,10 +410,12 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
     DO_REDRAW = 0;
 
     // Unlock initial tiles
-    content.unlock_tile([0, 0]);
-    content.unlock_tile([1, 0]);
-    content.unlock_tile([0, 1]);
-    content.unlock_tile([-1, -1]);
+    content.unlock_path([
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [-1, -1],
+    ]);
 
     // kick off animation
     window.requestAnimationFrame(animate);

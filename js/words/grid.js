@@ -42,11 +42,12 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   var SW = 4;
   var NW = 5;
 
-  // Hex index of the center of a supergrid tile:
-  var SG_CENTER = [3, 3]; 
-
   // Supertile size
   var SUPERTILE_SIZE = 7;
+
+  // Hex index & linear index of the center of a supergrid tile:
+  var SG_CENTER = [3, 3]; 
+  var SG_CENTER_LIN = 3 + 3*SUPERTILE_SIZE;
 
   // Number of canonical sockets per supergrid tile, and number of total
   // sockets including non-canonical shared sockets.
@@ -601,6 +602,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "NW": NW,
     "SW": SW,
     "SG_CENTER": SG_CENTER,
+    "SG_CENTER_LIN": SG_CENTER_LIN,
     "SUPERTILE_SIZE": SUPERTILE_SIZE,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
     "COMBINED_SOCKETS": COMBINED_SOCKETS,

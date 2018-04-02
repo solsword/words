@@ -1,7 +1,7 @@
 // content.js
 // Manages grid + generate code to create, store, and deliver content.
 
-define(["./grid", "./generate"], function(grid, generate) {
+define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
   // An object to hold generated supertile info.
   var SUPERTILES = {};
   var QUEUED = {};
@@ -10,11 +10,11 @@ define(["./grid", "./generate"], function(grid, generate) {
   // screen at least.
   var SUPERTILE_CACHE_SIZE = grid.ULTRAGRID_SIZE * grid.ULTRAGRID_SIZE * 2;
 
-  // The map and list of currently-unlocked tiles:
+  // The list of currently-unlocked words:
   var UNLOCKED = [];
 
   // How many tiles can be unlocked at once.
-  var UNLOCK_LIMIT = 30;
+  var UNLOCK_LIMIT = 5;
 
   // Current global seed
   var SEED = 173;
@@ -35,6 +35,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     // Returns a tile object for the given location. A tile object has the
     // following attributes:
     //
+    //   dimension: the dimension this tile is found in.
     //   pos: the grid-position of this tile.
     //   spos: the supergrid-position of this tile.
     //   colors: a list of up to 6 draw.PALETTE codes for this tile.
@@ -51,6 +52,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     var st = fetch_supertile(dimension, gp);
     if (st == null) {
       return {
+        "dimension": dimension,
         "pos": gp.slice(),
         "spos": [sgp[0], sgp[1]],
         "colors": [],
@@ -124,28 +126,57 @@ define(["./grid", "./generate"], function(grid, generate) {
     }
   }
 
-  function is_unlocked(gp) {
+  function is_unlocked(dimension, gp) {
     // Checks whether the given grid position is unlocked or not.
-    for (var i = 0; i < UNLOCKED.length; ++i) {
-      if (UNLOCKED[i][0] == gp[0] && UNLOCKED[i][1] == gp[1]) {
-        return true;
+    // TODO: This could be more efficient if multiple tiles were given at once.
+    var tile = tile_at(dimension, gp);
+    if (tile.domain == "__object__") {
+      // TODO: Infinite recursion?
+      var neighbors = [];
+      for (let i = 0; i < grid.NEIGHBORS.length; ++i) {
+        neighbors.push([
+          gp[0] + grid.NEIGHBORS[i][0],
+          gp[1] + grid.NEIGHBORS[i][1]
+        ]);
       }
+      for (let i = 0; i < UNLOCKED.length; ++i) {
+        var path = UNLOCKED[i];
+        for (let j = 0; j < path.length; ++j) {
+          for (let k = 0; k < neighbors.length; ++k) {
+            if (path[j][0] == neighbors[k][0] && path[j][1] == neighbors[k][1]){
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    } else {
+      for (let i = 0; i < UNLOCKED.length; ++i) {
+        var path = UNLOCKED[i];
+        for (let j = 0; j < path.length; ++j) {
+          if (path[j][0] == gp[0] && path[j][1] == gp[1]) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
-    return false;
   }
 
-  function unlock_tile(gp) {
-    // Unlocks the given grid position. Depending on UNLOCK_LIMIT, may lock the
-    // oldest unlocked position.
+  function unlock_path(path) {
+    // Unlocks the given path of grid positions. Depending on UNLOCK_LIMIT, may
+    // lock the oldest unlocked path.
     for (var i = 0; i < UNLOCKED.length; ++i) {
-      if (UNLOCKED[i][0] == gp[0] && UNLOCKED[i][1] == gp[1]) {
+      if (utils.is_equal(UNLOCKED[i], path)) {
         break;
       }
     }
     if (i < UNLOCKED.length) {
       UNLOCKED.splice(i, 1);
     }
-    UNLOCKED.push([gp[0], gp[1]]);
+
+    UNLOCKED.push(path.slice());
+
     if (UNLOCKED.length > UNLOCK_LIMIT) {
       UNLOCKED.shift();
     }
@@ -158,8 +189,8 @@ define(["./grid", "./generate"], function(grid, generate) {
     // world coordinates. Missing tiles may be included in the list.
 
     // Compute grid coordinates:
-    tl = grid.grid_pos([ edges[0], edges[1] ])
-    br = grid.grid_pos([ edges[2], edges[3] ])
+    tl = grid.grid_pos([ edges[0], edges[1] ]);
+    br = grid.grid_pos([ edges[2], edges[3] ]);
 
     // Compute centers of containing cells:
     tlc = grid.world_pos(tl);
@@ -208,7 +239,7 @@ define(["./grid", "./generate"], function(grid, generate) {
     "tile_at": tile_at,
     "fetch_supertile": fetch_supertile,
     "is_unlocked": is_unlocked,
-    "unlock_tile": unlock_tile,
+    "unlock_path": unlock_path,
     "list_tiles": list_tiles
   };
 });

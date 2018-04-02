@@ -998,6 +998,11 @@ function(anarchy, dict, grid, dimensions, caching) {
       result.domains[i] = undefined;
     }
 
+    // Add an active element to the center:
+    result.glyphs[grid.SG_CENTER_LIN] = "_";
+    result.domains[grid.SG_CENTER_LIN] = "__object__";
+    // TODO: HERE
+
     // Pick a word for each socket and embed it (or the relevant part of it).
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);

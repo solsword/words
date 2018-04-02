@@ -594,7 +594,8 @@ define(
     var wpos = grid.world_pos(tile["pos"]);
     var colors = tile["colors"];
     var glyph = tile["glyph"];
-    var unlocked = content.is_unlocked(tile["pos"]);
+    var domain = tile["domain"];
+    var unlocked = content.is_unlocked(tile["dimension"], wpos);
 
     var vpos = view_pos(ctx, wpos);
 
@@ -627,7 +628,42 @@ define(
       ctx.fillStyle = TILE_COLORS["pad"];
       ctx.fillText('?', vpos[0], vpos[1]);
 
-    } else { // a loaded tile: the works
+    } else if (domain == "__object__") { // an active object
+      ctx.strokeStyle = TILE_COLORS["pad"];
+      ctx.fillStyle = TILE_COLORS["inner"];
+
+      ctx.lineWidth=2;
+
+      ctx.beginPath();
+      once = true;
+      grid.VERTICES.forEach(function (vertex) {
+        vertex = vertex.slice();
+        vertex[0] += wpos[0];
+        vertex[1] += wpos[1];
+
+        var vv = view_pos(ctx, vertex);
+        if (once) {
+          ctx.moveTo(vv[0], vv[1]);
+          once = false;
+        } else {
+          ctx.lineTo(vv[0], vv[1]);
+        }
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // The glyph:
+      if (unlocked) {
+        ctx.fillStyle = TILE_COLORS["unlocked-pad"];
+      } else {
+        ctx.fillStyle = TILE_COLORS["pad"];
+      }
+      ctx.fillText(glyph, vpos[0], vpos[1]);
+
+      // TODO: More special here!
+
+    } else { // a loaded normal tile: the works
       // Outer hexagon
       ctx.strokeStyle = TILE_COLORS["outline"];
       ctx.fillStyle = TILE_COLORS["inner"];
