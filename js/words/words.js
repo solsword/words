@@ -687,6 +687,8 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       } else if (which == "auxiliary") {
         handle_auxiliary_up(CTX, e);
       } // otherwise ignore this click
+      // TODO: Does this help?
+      SCROLL_REFERENT = undefined;
     }
     document.ontouchcancel = document.onmouseup
 
