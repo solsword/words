@@ -562,6 +562,32 @@ define(
     ctx.restore();
   }
 
+  function draw_hex_rim(ctx, wpos) {
+    ctx.strokeStyle = TILE_COLORS["outline"];
+    ctx.fillStyle = TILE_COLORS["inner"];
+
+    ctx.lineWidth=2;
+
+    ctx.beginPath();
+    once = true;
+    grid.VERTICES.forEach(function (vertex) {
+      vertex = vertex.slice();
+      vertex[0] += wpos[0];
+      vertex[1] += wpos[1];
+
+      var vv = view_pos(ctx, vertex);
+      if (once) {
+        ctx.moveTo(vv[0], vv[1]);
+        once = false;
+      } else {
+        ctx.lineTo(vv[0], vv[1]);
+      }
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
   // Takes a context, an array of four shape integers, a center position, and a
   // radius and draws a pad shape to put a glyph on. Stroking and/or filling
   // this shape is up to the caller.
@@ -591,71 +617,28 @@ define(
   }
 
   function draw_tile(ctx, tile) {
-    var wpos = grid.world_pos(tile["pos"]);
+    var gpos = tile["pos"];
+    var wpos = grid.world_pos(gpos);
     var colors = tile["colors"];
     var glyph = tile["glyph"];
     var domain = tile["domain"];
-    var unlocked = content.is_unlocked(tile["dimension"], wpos);
 
     var vpos = view_pos(ctx, wpos);
 
+    // No matter what goes inside, draw the rim + background:
+    draw_hex_rim(ctx, wpos);
+
     if (glyph == undefined) { // an unloaded tile: just draw a dim '?'
-      ctx.strokeStyle = TILE_COLORS["pad"];
-      ctx.fillStyle = TILE_COLORS["inner"];
-
-      ctx.lineWidth=2;
-
-      ctx.beginPath();
-      once = true;
-      grid.VERTICES.forEach(function (vertex) {
-        vertex = vertex.slice();
-        vertex[0] += wpos[0];
-        vertex[1] += wpos[1];
-
-        var vv = view_pos(ctx, vertex);
-        if (once) {
-          ctx.moveTo(vv[0], vv[1]);
-          once = false;
-        } else {
-          ctx.lineTo(vv[0], vv[1]);
-        }
-      });
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
       // The question mark:
       ctx.fillStyle = TILE_COLORS["pad"];
       ctx.fillText('?', vpos[0], vpos[1]);
 
     } else if (domain == "__object__") { // an active object
-      ctx.strokeStyle = TILE_COLORS["pad"];
-      ctx.fillStyle = TILE_COLORS["inner"];
-
-      ctx.lineWidth=2;
-
-      ctx.beginPath();
-      once = true;
-      grid.VERTICES.forEach(function (vertex) {
-        vertex = vertex.slice();
-        vertex[0] += wpos[0];
-        vertex[1] += wpos[1];
-
-        var vv = view_pos(ctx, vertex);
-        if (once) {
-          ctx.moveTo(vv[0], vv[1]);
-          once = false;
-        } else {
-          ctx.lineTo(vv[0], vv[1]);
-        }
-      });
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      var energized = content.is_energized(tile["dimension"], gpos);
 
       // The glyph:
-      if (unlocked) {
-        ctx.fillStyle = TILE_COLORS["unlocked-pad"];
+      if (energized) {
+        ctx.fillStyle = TILE_COLORS["unlocked-glyph"];
       } else {
         ctx.fillStyle = TILE_COLORS["pad"];
       }
@@ -664,30 +647,7 @@ define(
       // TODO: More special here!
 
     } else { // a loaded normal tile: the works
-      // Outer hexagon
-      ctx.strokeStyle = TILE_COLORS["outline"];
-      ctx.fillStyle = TILE_COLORS["inner"];
-
-      ctx.lineWidth=2;
-
-      ctx.beginPath();
-      once = true;
-      grid.VERTICES.forEach(function (vertex) {
-        vertex = vertex.slice();
-        vertex[0] += wpos[0];
-        vertex[1] += wpos[1];
-
-        var vv = view_pos(ctx, vertex);
-        if (once) {
-          ctx.moveTo(vv[0], vv[1]);
-          once = false;
-        } else {
-          ctx.lineTo(vv[0], vv[1]);
-        }
-      });
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      var unlocked = content.is_unlocked(tile["dimension"], gpos);
 
       // Hexagon highlight
       ctx.lineWidth=3;

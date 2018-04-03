@@ -1,7 +1,7 @@
 // dict.js
 // Dictionary implementation.
 
-define(["./locale"], function(locale, finalize) {
+define(["./locale"], function(locale) {
 
   // Whether or not to issue console warnings.
   var WARNINGS = true;

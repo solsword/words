@@ -10,11 +10,13 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
   // screen at least.
   var SUPERTILE_CACHE_SIZE = grid.ULTRAGRID_SIZE * grid.ULTRAGRID_SIZE * 2;
 
-  // The list of currently-unlocked words:
+  // The list of currently-unlocked words, and the limit for that list:
   var UNLOCKED = [];
-
-  // How many tiles can be unlocked at once.
   var UNLOCK_LIMIT = 5;
+
+  // He list of currently energized tiles and the limit for that list:
+  var ENERGIZED = [];
+  var ENERGIZE_LIMIT = 1;
 
   // Current global seed
   var SEED = 173;
@@ -62,6 +64,7 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
       };
     }
     var result = grid.extract_subtile(st, [sgp[2], sgp[3]]);
+    result["dimension"] = dimension;
     result["pos"] = gp.slice();
     result["spos"] = [sgp[0], sgp[1]];
     return result;
@@ -129,45 +132,27 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
   function is_unlocked(dimension, gp) {
     // Checks whether the given grid position is unlocked or not.
     // TODO: This could be more efficient if multiple tiles were given at once.
-    var tile = tile_at(dimension, gp);
-    if (tile.domain == "__object__") {
-      // TODO: Infinite recursion?
-      var neighbors = [];
-      for (let i = 0; i < grid.NEIGHBORS.length; ++i) {
-        neighbors.push([
-          gp[0] + grid.NEIGHBORS[i][0],
-          gp[1] + grid.NEIGHBORS[i][1]
-        ]);
-      }
-      for (let i = 0; i < UNLOCKED.length; ++i) {
-        var path = UNLOCKED[i];
+    for (let i = 0; i < UNLOCKED.length; ++i) {
+      var entry = UNLOCKED[i];
+      if (entry.dimension == dimension) {
+        var path = entry.path;
         for (let j = 0; j < path.length; ++j) {
-          for (let k = 0; k < neighbors.length; ++k) {
-            if (path[j][0] == neighbors[k][0] && path[j][1] == neighbors[k][1]){
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    } else {
-      for (let i = 0; i < UNLOCKED.length; ++i) {
-        var path = UNLOCKED[i];
-        for (let j = 0; j < path.length; ++j) {
-          if (path[j][0] == gp[0] && path[j][1] == gp[1]) {
+          var pos = path[j];
+          if (pos[0] == gp[0] && pos[1] == gp[1]) {
             return true;
           }
         }
       }
-      return false;
     }
+    return false;
   }
 
-  function unlock_path(path) {
-    // Unlocks the given path of grid positions. Depending on UNLOCK_LIMIT, may
-    // lock the oldest unlocked path.
+  function unlock_path(dimension, path) {
+    // Unlocks the given path of grid positions in the given dimension.
+    // Depending on UNLOCK_LIMIT, may lock the oldest unlocked path.
+    var entry = { "dimension": dimension, "path": path.slice() };
     for (var i = 0; i < UNLOCKED.length; ++i) {
-      if (utils.is_equal(UNLOCKED[i], path)) {
+      if (utils.is_equal(UNLOCKED[i], entry)) {
         break;
       }
     }
@@ -175,12 +160,59 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
       UNLOCKED.splice(i, 1);
     }
 
-    UNLOCKED.push(path.slice());
+    UNLOCKED.push(entry);
 
     if (UNLOCKED.length > UNLOCK_LIMIT) {
       UNLOCKED.shift();
     }
   }
+
+  function reset_energy() {
+    // Removes all energized locations.
+    ENERGIZED = [];
+  }
+
+  function is_energized(dimension, gp) {
+    // Checks whether the given grid position is energized or not.
+    // TODO: This could be more efficient if multiple tiles were given at once.
+    for (let i = 0; i < ENERGIZED.length; ++i) {
+      var entry = ENERGIZED[i];
+      if (
+        entry.dimension == dimension
+     && entry.position[0] == gp[0]
+     && entry.position[1] == gp[1]
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function energize_tile(dimension, gp) {
+    // Energizes the given tile, and removes the oldest previously energized
+    // tile if the limit has been reached.
+    var entry = { "dimension": dimension, "position": gp.slice() };
+    for (var i = 0; i < ENERGIZED.length; ++i) {
+      if (utils.is_equal(ENERGIZED[i], entry)) {
+        break;
+      }
+    }
+    if (i < ENERGIZED.length) {
+      ENERGIZED.splice(i, 1);
+    }
+
+    ENERGIZED.push(entry);
+
+    if (ENERGIZED.length > ENERGIZE_LIMIT) {
+      ENERGIZED.shift();
+    }
+  }
+
+  function energized_positions() {
+    // Returns a list of all energized positions.
+    return ENERGIZED.slice();
+  }
+
 
   function list_tiles(dimension, edges) {
     // Lists all tiles that overlap with a given world-coordinate box. Returns
@@ -240,6 +272,10 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
     "fetch_supertile": fetch_supertile,
     "is_unlocked": is_unlocked,
     "unlock_path": unlock_path,
+    "reset_energy": reset_energy,
+    "is_energized": is_energized,
+    "energize_tile": energize_tile,
+    "energized_positions": energized_positions,
     "list_tiles": list_tiles
   };
 });

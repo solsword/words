@@ -9,15 +9,18 @@ define(
   "./dimensions",
   "./dict",
   "./generate",
-  "./menu"
+  "./menu",
+  "./animate",
 ],
-function(draw, content, grid, dimensions, dict, generate, menu) {
+function(draw, content, grid, dimensions, dict, generate, menu, animate) {
 
   var VIEWPORT_SIZE = 800.0;
 
   var SWIPING = false;
   var SCROLL_REFERENT = undefined;
   var CURRENT_SWIPES = [];
+  var SEL_CLEAR_ANIM = undefined;
+  var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
 
   var CURRENT_DIMENSION = 0;
@@ -34,6 +37,9 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
   // How many frames before we need to redraw?
   var DO_REDRAW = undefined;
 
+  // Which animation frame we're on.
+  var ANIMATION_FRAME = 0;
+
   var SOFAR_BORDER = "#555";
   var SOFAR_HIGHLIGHT = "#ccc";
   var SOFAR_FADE = 0.0;
@@ -49,6 +55,7 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
   var ABOUT_DIALOG = null;
   var HOME_BUTTON = null;
   var CLEAR_SELECTION_BUTTON = null;
+  var RESET_ENERGY_BUTTON = null;
   var CURRENT_GLYPHS_BUTTON = null;
 
   // Timing:
@@ -85,7 +92,13 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
     // DEBUG
     "s": function (e) { generate.toggle_socket_colors(); },
     " ": test_selection, // spacebar checks current word
-    "Escape": clear_selection, // escape removes all current selections
+    // escape removes all current selections
+    "Escape": function () {
+      clear_selection(
+        CLEAR_SELECTION_BUTTON.center(),
+        { "color": CLEAR_SELECTION_BUTTON.style.text_color }
+      );
+    },
     // tab recenters view on current/last swipe head
     "Tab": function (e) {
       if (e.preventDefault) { e.preventDefault(); }
@@ -120,9 +133,106 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
   var GRID_TEST_COMMANDS = {
   }
 
-  function clear_selection() {
-    CURRENT_SWIPES = [];
-    CURRENT_GLYPHS_BUTTON.set_glyphs([]);
+  function clear_selection(destination, style) {
+    // Clears the selection, animating lines from each selected tile to the
+    // given destination. Just clears it instantly without animation if no
+    // destination is given.
+    if (destination == undefined) {
+      CURRENT_SWIPES = [];
+      CURRENT_GLYPHS_BUTTON.set_glyphs([]);
+      if (SEL_CLEAR_ANIM != undefined) {
+        animate.stop_animation(SEL_CLEAR_ANIM);
+        SEL_CLEAR_ANIM = undefined;
+      }
+      DO_REDRAW = 0;
+    } else {
+      if (SEL_CLEAR_ANIM != undefined) {
+        if (!animate.is_active(SEL_CLEAR_ANIM)) {
+          SEL_CLEAR_ANIM = undefined;
+        } else {
+          return; // there's a clear animation already in-flight
+        }
+      }
+      var combined_swipe = combine_arrays(CURRENT_SWIPES);
+      var lines = [];
+      combined_swipe.forEach(
+        function (gp) {
+          var wp = grid.world_pos(gp);
+          var vp = draw.view_pos(CTX, wp);
+          lines.push(
+            new animate.MotionLine(
+              CTX,
+              animate.INSTANT,
+              undefined,
+              vp,
+              destination,
+              style
+            )
+          );
+        }
+      );
+      SEL_CLEAR_ANIM = new animate.AnimGroup(
+        CTX,
+        animate.INSTANT, 
+        function () {
+          CURRENT_SWIPES = [];
+          CURRENT_GLYPHS_BUTTON.set_glyphs([]);
+        },
+        lines
+      );
+      animate.activate_animation(SEL_CLEAR_ANIM);
+      DO_REDRAW = 0;
+    }
+  }
+
+  function clear_energy(destination, style) {
+    // Clears energized positions, animating lines to the given destination in
+    // the given style. If destination is undefined, just clears things
+    // immediately.
+    if (destination == undefined) {
+      content.reset_energy();
+      if (EN_CLEAR_ANIM != undefined) {
+        animate.stop_animation(EN_CLEAR_ANIM);
+        EN_CLEAR_ANIM = undefined;
+      }
+      DO_REDRAW = 0;
+    } else {
+      if (EN_CLEAR_ANIM != undefined) {
+        if (!animate.is_active(EN_CLEAR_ANIM)) {
+          EN_CLEAR_ANIM = undefined;
+        } else {
+          return; // there's a clear animation already in-flight
+        }
+      }
+      var lines = [];
+      content.energized_positions().forEach(
+        function (entry) {
+          var gp = entry["position"];
+          var wp = grid.world_pos(gp);
+          var vp = draw.view_pos(CTX, wp);
+          lines.push(
+            new animate.MotionLine(
+              CTX,
+              animate.INSTANT,
+              undefined,
+              vp,
+              destination,
+              style
+            )
+          );
+        }
+      );
+      EN_CLEAR_ANIM = new animate.AnimGroup(
+        CTX,
+        animate.INSTANT, 
+        function () {
+          content.reset_energy();
+        },
+        lines
+      );
+      animate.activate_animation(EN_CLEAR_ANIM);
+      DO_REDRAW = 0;
+    }
     DO_REDRAW = 0;
   }
 
@@ -142,18 +252,21 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
       // Found a match:
       var connected = false;
       combined_swipe.forEach(function (gp) {
-        if (content.is_unlocked(gp)) {
+        if (content.is_unlocked(CURRENT_DIMENSION, gp)) {
           connected = true;
         }
       });
       if (connected) {
         // Match is connected:
         // clear our swipes and glyphs and add to our words found
-        content.unlock_path(combined_swipe);
+        content.unlock_path(CURRENT_DIMENSION, combined_swipe);
         entries.forEach(function (e) {
           find_word(e[1], combined_swipe[0]);
         });
-        clear_selection();
+        clear_selection(
+          CURRENT_GLYPHS_BUTTON.center(),
+          { "color": "#fff" }
+        );
         // Highlight in white:
         CURRENT_GLYPHS_BUTTON.flash("#fff");
       } else {
@@ -257,18 +370,26 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
         }
       }
     }
-    if (
-      !is_selected(gpos)
-      && (head == null || grid.is_neighbor(head, gpos))
-      && content.tile_at(CURRENT_DIMENSION, gpos)["glyph"] != undefined
-    ) {
-      CURRENT_SWIPES.push([gpos]);
-      update_current_glyphs();
-      LAST_POSITION = gpos;
+    var tile = content.tile_at(CURRENT_DIMENSION, gpos);
+    if (tile.domain == "__object__") {
+      // an object: just energize it
+      // TODO: Energize preconditions
+      content.energize_tile(CURRENT_DIMENSION, gpos);
     } else {
-      CURRENT_SWIPES.push([]);
+      // a normal tile: select it
+      if (
+        !is_selected(gpos)
+        && (head == null || grid.is_neighbor(head, gpos))
+        && tile.glyph != undefined
+      ) {
+        CURRENT_SWIPES.push([gpos]);
+        update_current_glyphs();
+        LAST_POSITION = gpos;
+      } else {
+        CURRENT_SWIPES.push([]);
+      }
+      SWIPING = true;
     }
-    SWIPING = true;
     DO_REDRAW = 0;
   }
 
@@ -410,15 +531,18 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
     DO_REDRAW = 0;
 
     // Unlock initial tiles
-    content.unlock_path([
-      [0, 0],
-      [1, 0],
-      [0, 1],
-      [-1, -1],
-    ]);
+    content.unlock_path(
+      CURRENT_DIMENSION,
+      [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [-1, -1],
+      ]
+    );
 
     // kick off animation
-    window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(draw_frame);
 
     // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
     // consecutive one to do anything.
@@ -498,9 +622,35 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
         "text_color": "#d43"
       },
       "⊗",
-      clear_selection
+      function () {
+        clear_selection(
+          CLEAR_SELECTION_BUTTON.center(),
+          { "color": CLEAR_SELECTION_BUTTON.style.text_color }
+        );
+      }
     );
     menu.add_menu(CLEAR_SELECTION_BUTTON);
+
+    RESET_ENERGY_BUTTON = new menu.ButtonMenu(
+      CTX,
+      { "left": 10, "bottom": 60 },
+      { "width": 40, "height": 40 },
+      {
+        "background_color": "#330",
+        "border_color": "#661",
+        "text_color": "#dd2",
+        "font_size": draw.FONT_SIZE * 0.65,
+      },
+      "↷↶",
+      function () {
+        clear_energy(
+          RESET_ENERGY_BUTTON.center(),
+          { "color": RESET_ENERGY_BUTTON.style.text_color }
+        );
+      }
+    );
+    x = "↯⤓↷↶"
+    menu.add_menu(RESET_ENERGY_BUTTON);
 
     CURRENT_GLYPHS_BUTTON = new menu.GlyphsMenu(
       CTX,
@@ -573,13 +723,16 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
     return result;
   }
 
-  function animate(now) {
+  function draw_frame(now) {
+    ANIMATION_FRAME += 1; // count frames
+    ANIMATION_FRAME %= animate.ANIMATION_FRAME_MAX;
+    // TODO: Normalize frame count to passage of time!
     if (DO_REDRAW == undefined) {
-      window.requestAnimationFrame(animate);
+      window.requestAnimationFrame(draw_frame);
       return;
     } else if (DO_REDRAW > 0) {
       DO_REDRAW -= 1;
-      window.requestAnimationFrame(animate);
+      window.requestAnimationFrame(draw_frame);
       return;
     }
     DO_REDRAW = undefined;
@@ -618,6 +771,18 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
       DO_REDRAW = 0;
     }
 
+    // Draw animations:
+    var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
+    if (
+      next_horizon != undefined
+   && (
+       DO_REDRAW == undefined
+    || DO_REDRAW > next_horizon
+      )
+    ) {
+      DO_REDRAW = next_horizon;
+    }
+
     // DEBUG: Uncomment this to draw a cursor; causes animation every frame
     // while the mouse is moving.
     /*
@@ -632,7 +797,7 @@ function(draw, content, grid, dimensions, dict, generate, menu) {
     // */
 
     // reschedule ourselves
-    window.requestAnimationFrame(animate);
+    window.requestAnimationFrame(draw_frame);
   }
 
   function test_grid() {

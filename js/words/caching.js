@@ -1,7 +1,7 @@
 // caching.js
 // Offers dynamic caching to other modules.
 
-define(function() {
+define([], function() {
   // Objects to hold caches and their queues.
   var DOMAINS = {};
   var CACHES = {};
