@@ -7,10 +7,11 @@ define(["anarchy"], function(anarchy) {
 
   // TODO: Better here!
   var MULTIPLANAR_DOMAINS = [
+    "عربى",
     "base",
     "かんたんなひらがな", // DEBUG TODO
-    "türk",
-    //"اللغة_العربية_الفصحى", Too large for demo
+    //"türk",
+    //"اللغة_العربية_الفصحى", //Too large for demo
   ];
 
   function natural_domain(dimension) {

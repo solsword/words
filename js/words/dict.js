@@ -194,6 +194,8 @@ define(["./locale"], function(locale) {
       if (i > 0) {
         directives = words.slice(0,i);
         words = words.slice(i);
+      } else {
+        directives = [];
       }
       var entries = [];
       var total_count = 0;
