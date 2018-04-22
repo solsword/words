@@ -11,6 +11,9 @@ function(anarchy, dict, grid, dimensions, caching) {
   // Whether to show sockets using tile colors or not.
   var DEBUG_SHOW_SOCKETS = false;
 
+  // Minimum number of objects in each ultratile.
+  var MIN_OBJECTS_PER_ULTRATILE = 8;
+
   function toggle_socket_colors() {
     DEBUG_SHOW_SOCKETS = !DEBUG_SHOW_SOCKETS;
   }
@@ -518,15 +521,27 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
-  function ultratile_muliplanar_info(ugp, seed) {
-    // Takes an ultragrid position and computes multiplanar offset info for
-    // each assignment position in that ultratile. Returns three things:
-    // 1. The number of prior non-inclusion positions in this assignment tile,
-    //    as returned by ultratile_punctuation_parameters (see above).
-    // 2. A flat array containing the multiplanar offset for each assignment
-    //    position in the given ultragrid tile.
-    // 3. A one-dimensional array containing the sum of the number of
-    //    non-inclusion assignments on each row of the ultragrid.
+  function ultratile_context(ugp, seed) {
+    // Takes an ultragrid position and computes generation info including
+    // mutiplanar offsets for each assignment position in that ultratile, and
+    // object contents of the ultratile.
+    //
+    // Returns an object with the following keys:
+    //
+    //   nat_prior:
+    //     The number of prior non-inclusion positions in this assignment tile,
+    //     as returned by ultratile_punctuation_parameters (see above).
+    //   offsets:
+    //     A flat array containing the multiplanar offset for each assignment
+    //     position in the given ultragrid tile.
+    //   nat_sums:
+    //     A one-dimensional array containing the sum of the number of
+    //     non-inclusion assignments on each row of the ultragrid.
+    //   objects:
+    //     A one-dimensional array of object types to be inserted into each
+    //     supertile in this ultratile (ULTRAGRID_SIZE×ULTRAGRID_SIZE).
+    //     May have missing entries for supertiles that don't have objects in
+    //     them. Note that the objects are assigned to supertiles, not sockets.
 
     var r = sghash(seed + 489813, ugp);
 
@@ -587,8 +602,8 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
         var loc = queues[i].shift();
         if (isNaN(loc)) {
-          console.log("NAN");
-          console.log(queues);
+          console.warn("NAN");
+          console.warn(queues);
           return undefined;
         }
 
@@ -664,36 +679,78 @@ function(anarchy, dict, grid, dimensions, caching) {
     // final row:
     presums.push(sum);
 
+    // now that multiplanar info is computed, add object info
+    // decide how many objects we'll have:
+    var ugtotal = grid.ULTRAGRID_SIZE * grid.ULTRAGRID_SIZE;
+    // TODO: continuously varying value here!
+    var richness = anarchy.idist(
+      r,
+      MIN_OBJECTS_PER_ULTRATILE,
+      Math.floor(3 * ugtotal / 4)
+    );
+    r = anarchy.lfsr(r);
+
+    // index objects into grid:
+    var objects = [];
+    var shuf_seed = r;
+    r = anarchy.lfsr(r);
+    for (let i = 0; i < richness; ++i) {
+      var si = anarchy.cohort_shuffle(i, ugtotal, shuf_seed);
+      var sgp = [
+        si % grid.ULTRAGRID_SIZE,
+        Math.floor(si / grid.ULTRAGRID_SIZE)
+      ];
+      // iterate over sockets in this supertile
+      for (let socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
+        var sgap = grid.canonical_sgapos(sgp[0], sgp[1], socket);
+        var loc = (
+          sgap[0]  * grid.ASSIGNMENT_SOCKETS
+        + sgap[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
+        + sgap[2]
+        );
+        var mpo = result[loc];
+        if (mpo == 0) {
+          // TODO: HERE
+        }
+      }
+      // TODO: FIX THIS
+      //objects[si] = obj_queue.pop();
+    }
+
     // return our results:
-    return [nat_prior, result, presums];
+    return {
+      "nat_prior": nat_prior,
+      "offsets": result,
+      "nat_sums": presums,
+      "objects": objects,
+    };
   }
-  // register ultratile_multiplanar_info as a caching domain:
+  // register ultratile_context as a caching domain:
   caching.register_domain(
-    "ultratile_multiplanar_info", 
+    "ultratile_context", 
     function (ugp, seed) {
       return ugp[0] + "," + ugp[1] + ":" + seed
     },
-    ultratile_muliplanar_info,
+    ultratile_context,
     MULTIPLANAR_INFO_CACHE_SIZE
   );
 
-  function punctuated_assignment_index(ugap, mpinfo, seed) {
+  function punctuated_assignment_index(ugap, utcontext, seed) {
     // Takes an ultragrid assignment position (ultratile x/y, sub x/y, and
     // assignment index) and corresponding ultragrid multiplanar offset info
-    // (the result of ultratile_muliplanar_info above) and returns an array
-    // containing:
+    // (the result of ultratile_context above) and returns an array containing:
     //
     //   x,y - assignment grid position
     //   n - assignment index
     //   m - multiplanar offset value
     //
     //   Note that the given ultragrid assignment position must be in canonical
-    //   form, so that the correspondence with given mpinfo won't be broken.
+    //   form, so that the correspondence with given utcontext won't be broken.
 
     // unpack:
-    var nat_prior = mpinfo[0];
-    var mptable = mpinfo[1];
-    var mpsums = mpinfo[2];
+    var nat_prior = utcontext.nat_prior;
+    var mptable = utcontext.offsets;
+    var mpsums = utcontext.nat_sums;
 
     var ut_x = ugap[0];
     var ut_y = ugap[1];
@@ -754,8 +811,6 @@ function(anarchy, dict, grid, dimensions, caching) {
     // null. Use caching.with_cached_value to execute code as soon as the info
     // becomes available.
 
-    // TODO: How to look up cached mpinfo?!?
-
     var asg_x = agp[0];
     var asg_y = agp[1];
     var asg_idx = agp[2];
@@ -765,19 +820,19 @@ function(anarchy, dict, grid, dimensions, caching) {
     var nat_prior = params[1][0];
     var incl_here = params[1][1];
 
-    // fetch mpinfo or fail:
-    mpinfo = caching.cached_value(
-      "ultratile_multiplanar_info", 
+    // fetch utcontext or fail:
+    var utcontext = caching.cached_value(
+      "ultratile_context", 
       [ ugp, seed ]
     );
-    if (mpinfo == null) {
+    if (utcontext == null) {
       return undefined;
     }
 
     // unpack:
-    var nat_prior = mpinfo[0];
-    var mptable = mpinfo[1];
-    var mpsums = mpinfo[2];
+    var nat_prior = utcontext.nat_prior;
+    var mptable = utcontext.offsets;
+    var mpsums = utcontext.nat_sums;
 
     var internal_idx = asg_idx - nat_prior;
     var prior_row = max_smaller(internal_idx, mpsums);
@@ -848,7 +903,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       return undefined;
     }
     if (WARNINGS && lesser_total > grid.ASSIGNMENT_REGION_TOTAL_SOCKETS) {
-      console.log(
+      console.warn(
         "Warning: domain (combo?) size exceeds number of assignable sockets: "
       + grand_total + " > " + grid.ASSIGNMENT_REGION_TOTAL_SOCKETS
       )
@@ -874,7 +929,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       }
       var dom = domain_objects[ct_idx];
       if (WARNINGS && ct_idx == lesser_counttable.length) {
-        console.log("Warning: lesser couttable loop failed to break!");
+        console.warn("Warning: lesser couttable loop failed to break!");
         ct_idx = lesser_counttable.length - 1;
         idx %= dom.entries.length;
       }
@@ -891,7 +946,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         idx -= here;
       }
       if (WARNINGS && ct_idx == greater_counttable.length) {
-        console.log("Warning: greater counttable loop failed to break!");
+        console.warn("Warning: greater counttable loop failed to break!");
         ct_idx = greater_counttable.length - 1;
         idx %= dict.total_count;
       }
@@ -999,7 +1054,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // Add an active element to the center:
-    result.glyphs[grid.SG_CENTER_LIN] = "_";
+    result.glyphs[grid.SG_CENTER_LIN] = "🗍";
     result.domains[grid.SG_CENTER_LIN] = "__object__";
     // TODO: HERE
 
@@ -1007,17 +1062,19 @@ function(anarchy, dict, grid, dimensions, caching) {
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       var ugp = grid.ugpos(sgap); // socket index is ignored
-      var mpinfo = caching.cached_value(
-        "ultratile_multiplanar_info",
+
+      // Compute ultratile multiplanar info:
+      var utcontext = caching.cached_value(
+        "ultratile_context",
         [ [ ugp[0], ugp[1] ], seed ]
       );
-      if (mpinfo == null) {
+      if (utcontext == null) {
         return undefined;
       }
 
       var asg = punctuated_assignment_index(
         [ ugp[0], ugp[1], ugp[2], ugp[3], sgap[2] ],
-        mpinfo,
+        utcontext,
         seed
       );
       var asg_x = asg[0];
@@ -1115,7 +1172,8 @@ function(anarchy, dict, grid, dimensions, caching) {
           var nb = grid.neighbor([x, y], j);
           var ni = nb[0] + nb[1]*grid.SUPERTILE_SIZE;
           var ng = result.glyphs[ni];
-          if (ng != undefined) {
+          var nd = result.domains[ni];
+          if (ng != undefined && nd != "__object__") {
             neighbors.push(ng);
             nbdoms.push(result.domains[ni]);
           }
@@ -1646,7 +1704,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     "generate_supertile": generate_supertile,
     "domains_list": domains_list,
     "ultratile_punctuation_parameters": ultratile_punctuation_parameters,
-    "ultratile_muliplanar_info": ultratile_muliplanar_info,
+    "ultratile_context": ultratile_context,
     "generate_test_supertile": generate_test_supertile,
   };
 });

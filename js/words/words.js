@@ -99,6 +99,13 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
         { "color": CLEAR_SELECTION_BUTTON.style.text_color }
       );
     },
+    // z removes energized objects
+    "z": function () {
+      clear_energy(
+        RESET_ENERGY_BUTTON.center(),
+        { "color": RESET_ENERGY_BUTTON.style.text_color }
+      );
+    },
     // tab recenters view on current/last swipe head
     "Tab": function (e) {
       if (e.preventDefault) { e.preventDefault(); }
@@ -481,11 +488,13 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       } else {
         // for tiles that aren't part of the swipe already, and which *are*
         // loaded:
+        var tile = content.tile_at(CURRENT_DIMENSION, gpos);
         if (
-          head == null || grid.is_neighbor(head, gpos)
-          && content.tile_at(CURRENT_DIMENSION, gpos)["glyph"] != undefined
+          (head == null || grid.is_neighbor(head, gpos))
+       && (tile["glyph"] != undefined && tile["domain"] != "__object__")
         ) {
           // add them if they're a neighbor of the head
+          // (and not unloaded, and not an object)
           latest_swipe.push(gpos);
           update_current_glyphs();
           LAST_POSITION = gpos;
@@ -639,9 +648,8 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
         "background_color": "#330",
         "border_color": "#661",
         "text_color": "#dd2",
-        "font_size": draw.FONT_SIZE * 0.65,
       },
-      "↷↶",
+      "⮏",
       function () {
         clear_energy(
           RESET_ENERGY_BUTTON.center(),
@@ -649,7 +657,6 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
         );
       }
     );
-    x = "↯⤓↷↶"
     menu.add_menu(RESET_ENERGY_BUTTON);
 
     CURRENT_GLYPHS_BUTTON = new menu.GlyphsMenu(
@@ -687,7 +694,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       } else if (which == "auxiliary") {
         handle_auxiliary_up(CTX, e);
       } // otherwise ignore this click
-      // TODO: Does this help?
+      // Reset scroll referent anyways just to be sure:
       SCROLL_REFERENT = undefined;
     }
     document.ontouchcancel = document.onmouseup

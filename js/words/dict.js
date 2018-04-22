@@ -26,20 +26,20 @@ define(["./locale"], function(locale) {
     if (DOMAINS.hasOwnProperty(name)) {
       return DOMAINS[name];
     } else if (FAILED.hasOwnProperty(name)) {
-      console.log("Internal Error: Unknown domain '" + name + "'.");
-      console.log("Known domains are:");
+      console.warn("Internal Error: Unknown domain '" + name + "'.");
+      console.warn("Known domains are:");
       for (var d in DOMAINS) {
         if (DOMAINS.hasOwnProperty(d)) {
-          console.log("  " + d);
+          console.warn("  " + d);
         }
       }
-      console.log("...still-loading domains:");
+      console.warn("...still-loading domains:");
       for (var d in LOADING) {
         if (LOADING.hasOwnProperty(d)) {
-          console.log("  " + d);
+          console.warn("  " + d);
         }
       }
-      console.log("---");
+      console.warn("---");
       return undefined;
     } else if (!LOADING.hasOwnProperty(d)) {
       load_dictionary(name);
@@ -51,7 +51,7 @@ define(["./locale"], function(locale) {
     // Takes a JSON object from a domain file and augments it before adding it
     // to DOMAINS.
     if (DOMAINS.hasOwnProperty(name)) {
-      console.log("Not finalizing already-loaded domain: '" + name + "'.");
+      console.warn("Not finalizing already-loaded domain: '" + name + "'.");
       return;
     }
 
@@ -75,7 +75,7 @@ define(["./locale"], function(locale) {
   function add_domain(name, json) {
     // Adds a domain, taking care of the necessary status checks/updates.
     if (DOMAINS.hasOwnProperty(name)) {
-      console.log("Not adding already-loaded domain: '" + name + "'.");
+      console.warn("Not adding already-loaded domain: '" + name + "'.");
       return;
     }
 
@@ -179,9 +179,9 @@ define(["./locale"], function(locale) {
      || (xobj.status == 0 && dpath.startsWith("file://"))
       );
       if (!successful) {
-        console.log("Internal Error: Failed to fetch domain '" + name + "'!");
-        console.log("  Response code: " + xobj.status);
-        console.log("  Response content:\n" + xobj.responseText.slice(0,80));
+        console.warn("Internal Error: Failed to fetch domain '" + name + "'!");
+        console.warn("  Response code: " + xobj.status);
+        console.warn("  Response content:\n" + xobj.responseText.slice(0,80));
         FAILED[name] = true;
         return undefined;
       }
@@ -304,7 +304,7 @@ define(["./locale"], function(locale) {
     // For unordered domains, sort glyphs so that indexing will work:
     var dom = DOMAINS[domain];
     if (dom == undefined) {
-      console.log("Internal Error: unknown domain '" + domain + "'.");
+      console.warn("Internal Error: unknown domain '" + domain + "'.");
       return null;
     }
     if (!dom.ordered) {
@@ -416,7 +416,7 @@ define(["./locale"], function(locale) {
       }
     }
     if (WARNINGS) {
-      console.log(
+      console.warn(
         "WARNING: unexpectedly dodged both cases in unrolled_word!\n"
       + "  (n is " + n + " and the domain is '" + domain.name + "')"
       )
