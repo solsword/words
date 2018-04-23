@@ -690,6 +690,13 @@ function(anarchy, dict, grid, dimensions, caching) {
     );
     r = anarchy.lfsr(r);
 
+    // Build a queue of objects to insert
+    obj_queue = [];
+    for (let i = 0; i < richness; ++i) {
+      // TODO: Object types here!
+      obj_queue.push("🗍");
+    }
+
     // index objects into grid:
     var objects = [];
     var shuf_seed = r;
@@ -700,21 +707,22 @@ function(anarchy, dict, grid, dimensions, caching) {
         si % grid.ULTRAGRID_SIZE,
         Math.floor(si / grid.ULTRAGRID_SIZE)
       ];
-      // iterate over sockets in this supertile
-      for (let socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
+      // iterate over canonical sockets in this supertile
+      for (let socket = 0; socket < grid.ASSIGNMENT_SOCKETS; ++socket) {
         var sgap = grid.canonical_sgapos(sgp[0], sgp[1], socket);
         var loc = (
-          sgap[0]  * grid.ASSIGNMENT_SOCKETS
-        + sgap[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
-        + sgap[2]
+          sgp[0]  * grid.ASSIGNMENT_SOCKETS
+        + sgp[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
+        + socket
         );
         var mpo = result[loc];
         if (mpo == 0) {
-          // TODO: HERE
+          objects[si] = obj_queue.pop();
+        } else {
+          // TODO: Foreign objects?
+          objects[si] = null;
         }
       }
-      // TODO: FIX THIS
-      //objects[si] = obj_queue.pop();
     }
 
     // return our results:

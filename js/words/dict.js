@@ -55,7 +55,27 @@ define(["./locale"], function(locale) {
       return;
     }
 
-    // Create a worker to do the work:
+    polish_and_callback(
+      name,
+      json,
+      function (progress) { LOADING[name][1] = progress; },
+      function (progress) { LOADING[name][2] = progress; },
+      function (name, processed) { add_domain(name, processed); }
+    );
+  }
+
+  function polish_and_callback(
+    name,
+    json,
+    count_progress_callback,
+    index_progress_callback,
+    finished_callback
+  ) {
+    // Sets up a worker to polish the given JSON object, calling back on
+    // counting progress, index progress, and when done. The progress callbacks
+    // get a single number between 0 and 1 representing the progress in
+    // counting or indexing. The finished callback gets two arguments, the
+    // domain name and the finished JSON.
     var worker = new Worker(FINALIZE_URL);
     worker.payload = [name, json];
     worker.onmessage = function (msg) {
@@ -63,11 +83,17 @@ define(["./locale"], function(locale) {
       if (msg.data == "worker_ready") { // initial ready message
         worker.postMessage(worker.payload);
       } else if (msg.data[0] == "count-progress") { // counting progress
-        LOADING[name][1] = msg.data[1];
+        if (count_progress_callback) {
+          count_progress_callback(msg.data[1]);
+        }
       } else if (msg.data[0] == "index-progress") { // indexing progress
-        LOADING[name][2] = msg.data[1];
+        if (index_progress_callback) {
+          index_progress_callback(msg.data[1]);
+        }
       } else { // finished message w/ product
-        add_domain(msg.data[0], msg.data[1]);
+        if (finished_callback) {
+          finished_callback(msg.data[0], msg.data[1]);
+        }
       }
     }
   }
@@ -147,6 +173,31 @@ define(["./locale"], function(locale) {
     }
   }
 
+  function load_json_or_list_from_data(
+    name,
+    file_contents,
+    count_progress_callback,
+    index_progress_callback,
+    finished_callback
+  ) {
+    // Loads JSON or string data as a domain with the given name, calling the
+    // finisehd_callback with the name and processed data when done. The
+    // progress and finished callbacks are passed to polish_and_callback as-is.
+    try {
+      var json = JSON.parse(file_contents);
+    } catch (error) {
+      var text = file_contents;
+      var json = create_json_from_word_list(name, text);
+    }
+    polish_and_callback(
+      name,
+      json,
+      count_progress_callback,
+      index_progress_callback,
+      finished_callback
+    );
+  }
+
   function name_hash(name) {
     // Hashes a name
     var h = name.split("").reduce(
@@ -161,6 +212,102 @@ define(["./locale"], function(locale) {
     } else {
       return h;
     }
+  }
+
+  function create_json_from_word_list(name, list_text) {
+    var words = list_text.split("\n");
+    var i = 0;
+    while (words[i][0] == '#') {
+      i += 1;
+    }
+    if (i > 0) {
+      directives = words.slice(0,i);
+      words = words.slice(i);
+    } else {
+      directives = [];
+    }
+    var entries = [];
+    var total_count = 0;
+    words.forEach(function (w) {
+      var bits = w.split(",");
+      var word = bits[0];
+      var freq = bits[1]; // might be 'undefined'
+      bits = word.split("→")
+      var glyphs = bits[0];
+      var word = bits[1]; // might be undefined
+      if (word == undefined) {
+        word = glyphs;
+      }
+      if (freq == undefined) {
+        freq = 1;
+      } else {
+        freq = parseInt(freq);
+      }
+      entries.push([glyphs, word, freq]);
+      total_count += freq;
+    });
+    // Sort by frequency
+    entries.sort(function (a, b) {
+      return b[2] - a[2]; // put most-frequent words first
+    });
+    // Create a sumtable for each frequency count, starting with a grouped
+    // bin for frequencies over a cutoff:
+    var counttable = [];
+    for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+      counttable[i] = 0;
+    }
+    var hf_entries = 0;
+    var freq = undefined;
+    for (var i = 0; i < entries.length; ++i) {
+      freq = entries[i][2];
+      if (freq >= DOMAIN_FREQUENCY_BINS) {
+        counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
+        hf_entries += 1;
+      } else {
+        counttable[freq - 1] += freq;
+      }
+    }
+    var sumtable = [];
+    var sum = 0;
+    for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+      var j = DOMAIN_FREQUENCY_BINS - i - 1;
+      sum += counttable[j];
+      sumtable[i] = sum;
+    }
+
+    var json = {
+      "name": name,
+      "ordered": true,
+      "cased": false,
+      "colors": [],
+      "entries": entries,
+      "total_count": total_count,
+      "high_frequency_entries": hf_entries,
+      "count_sums": sumtable
+    }
+
+    directives.forEach(function (d) {
+      dbits = d.slice(1).split(":");
+      key = dbits[0].trim()
+      val = dbits[1].trim()
+      if (key == "colors") {
+        var colors = val.split(",");
+        json["colors"] = [];
+        colors.forEach(function (c) {
+          json["colors"].push(c.trim());
+        });
+      } else if (key == "ordered" || key == "cased") {
+        json[key] = [
+          "true", "True", "TRUE",
+          "yes", "Yes", "YES",
+          "y", "Y"
+        ].indexOf(val) >= 0;
+      } else {
+        json[key] = dbits[1].trim();
+      }
+    });
+
+    return json;
   }
 
   function load_simple_word_list(name) {
@@ -186,95 +333,7 @@ define(["./locale"], function(locale) {
         return undefined;
       }
       LOADING[name][0] = true;
-      var words = xobj.responseText.split("\n");
-      var i = 0;
-      while (words[i][0] == '#') {
-        i += 1;
-      }
-      if (i > 0) {
-        directives = words.slice(0,i);
-        words = words.slice(i);
-      } else {
-        directives = [];
-      }
-      var entries = [];
-      var total_count = 0;
-      words.forEach(function (w) {
-        var bits = w.split(",");
-        var word = bits[0];
-        var freq = bits[1]; // might be 'undefined'
-        bits = word.split("→")
-        var glyphs = bits[0];
-        var word = bits[1]; // might be undefined
-        if (word == undefined) {
-          word = glyphs;
-        }
-        if (freq == undefined) {
-          freq = 1;
-        } else {
-          freq = parseInt(freq);
-        }
-        entries.push([glyphs, word, freq]);
-        total_count += freq;
-      });
-      // Sort by frequency
-      entries.sort(function (a, b) {
-        return b[2] - a[2]; // put most-frequent words first
-      });
-      // Create a sumtable for each frequency count, starting with a grouped
-      // bin for frequencies over a cutoff:
-      var counttable = [];
-      for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
-        counttable[i] = 0;
-      }
-      var hf_entries = 0;
-      var freq = undefined;
-      for (var i = 0; i < entries.length; ++i) {
-        freq = entries[i][2];
-        if (freq >= DOMAIN_FREQUENCY_BINS) {
-          counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
-          hf_entries += 1;
-        } else {
-          counttable[freq - 1] += freq;
-        }
-      }
-      var sumtable = [];
-      var sum = 0;
-      for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
-        var j = DOMAIN_FREQUENCY_BINS - i - 1;
-        sum += counttable[j];
-        sumtable[i] = sum;
-      }
-      var json = {
-        "name": name,
-        "ordered": true,
-        "cased": false,
-        "colors": [],
-        "entries": entries,
-        "total_count": total_count,
-        "high_frequency_entries": hf_entries,
-        "count_sums": sumtable
-      }
-      directives.forEach(function (d) {
-        dbits = d.slice(1).split(":");
-        key = dbits[0].trim()
-        val = dbits[1].trim()
-        if (key == "colors") {
-          var colors = val.split(",");
-          json["colors"] = [];
-          colors.forEach(function (c) {
-            json["colors"].push(c.trim());
-          });
-        } else if (key == "ordered" || key == "cased") {
-          json[key] = [
-            "true", "True", "TRUE",
-            "yes", "Yes", "YES",
-            "y", "Y"
-          ].indexOf(val) >= 0;
-        } else {
-          json[key] = dbits[1].trim();
-        }
-      });
+      var json = create_json_from_word_list(name, xobj.responseText);
       finish_loading(name, json);
     };
     try {
@@ -435,5 +494,6 @@ define(["./locale"], function(locale) {
     "check_word": check_word,
     "find_word_in_domain": find_word_in_domain,
     "unrolled_word": unrolled_word,
+    "load_json_or_list_from_data": load_json_or_list_from_data,
   };
 });

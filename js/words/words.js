@@ -349,7 +349,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       sw.forEach(function (gp) {
         var g = content.tile_at(CURRENT_DIMENSION, gp)["glyph"];
         if (g == undefined) { // should never happen in theory:
-          console.log(
+          console.warn(
             "InternalError: update_current_glyphs found undefined glyph at: "
           + gp
           );
@@ -903,8 +903,110 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
     window.requestAnimationFrame(animate_grid_test);
   }
 
+  function clear_input_value() {
+    this.setAttribute("value", "");
+  }
+
+  function select_this() {
+    this.select();
+  }
+
+  function eventually_process_upload(element) {
+    var files = element.files;
+    if (files === null || files === undefined || files.length < 1) {
+      setTimeout(eventually_process_upload, 50, element);
+    } else {
+      var first = files[0];
+      var firstname = first.name;
+      var fr = new FileReader();
+      fr.onload = function (e) {
+        var file_text = e.target.result;
+        handle_uploaded_domain(firstname.split(".")[0], file_text);
+      }
+      fr.readAsText(first);
+    }
+  }
+
+  function pct(n) {
+    // Helper to convert a fraction to a percentage string.
+    return (n * 100).toFixed(1);
+  }
+
+  function handle_uploaded_domain(name, text) {
+    // Called in the domain builder once a domain file has been uploaded and we
+    // have the text.
+    var loading = document.getElementById("loading");
+    dict.load_json_or_list_from_data(
+      name,
+      text,
+      function (progress) {
+        loading.innerText = "Counting words... " + pct(progress) + "%";
+      },
+      function (progress) {
+        if (progress == 1) {
+          loading.innerText = (
+            "Done counting; done building index; transferring result... "
+          );
+        } else {
+          loading.innerText = (
+            "Done counting; building index... " + pct(progress) + "%"
+          );
+        }
+      },
+      function (name, polished) {
+        loading.innerText = (
+          "Recieved result..."
+        );
+        done_processing(name, polished);
+      }
+    );
+  }
+
+  function done_processing(name, output) {
+    // Called when the web worker is done polishing a domain in the domain
+    // builder.
+    var loading = document.getElementById("loading");
+    loading.innerText = (
+      "Done counting; done building index; building JSON string..."
+    );
+    var jstring = JSON.stringify(output);
+    loading.innerText = (
+      "Done loading. Receive output below."
+    );
+
+    var file_input = document.getElementById("words_list");
+
+    var output_bin = document.getElementById("output_bin");
+    output_bin.removeAttribute("disabled");
+    output_bin.innerText = jstring;
+    output_bin.onclick = function () { this.select(); };
+    output_bin.ontouchend = output_bin.onclick;
+
+    var download_button = document.getElementById("download_button");
+    download_button.removeAttribute("disabled");
+    download_button.onmousedown = function () {
+      var blob = new Blob([jstring], {type: "text/json;charset=utf-8"});
+      var ourl = URL.createObjectURL(blob);
+      var link = document.getElementById("download_link");
+      link.setAttribute("href", ourl);
+      link.setAttribute("download", name + ".json");
+    }
+  }
+
+  function build_domains() {
+    // Setup function for the domain builder.
+    var file_input = document.getElementById("words_list");
+
+    file_input.onmousedown = function () { this.setAttribute("value", ""); };
+    file_input.ontouchstart = file_input.onmousedown;
+    file_input.onchange = function () {
+      eventually_process_upload(this);
+    }
+  }
+
   return {
     "start_game": start_game,
-    "test_grid": test_grid
+    "test_grid": test_grid,
+    "build_domains": build_domains,
   };
 });

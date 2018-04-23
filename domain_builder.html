@@ -1,0 +1,32 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Words</title>
+
+    <link rel="stylesheet" type="text/css" href="css/font/asap/asap.css"/>
+    <link rel="stylesheet" type="text/css" href="css/main.css"/>
+
+		<!-- scripts (via require; see js/main.js) -->
+    <script data-main="js/build_domain" src="js/bower_components/requirejs/require.js"></script>
+  </head>
+<body>
+  <div style="padding: 8pt;">
+  Words list:
+  <input id="words_list" type="file" /><br/>
+  <span id="loading">Wait for output to appear below, and copy/paste or download it.</span>
+  </div>
+  <div style="padding: 0pt 8pt;">
+    <a id="download_link">
+      <input id="download_button" type="button" value="Download" disabled />
+    </a>
+  </div>
+  <div style="padding: 8pt;">
+    <textarea
+      id="output_bin"
+      rows=10
+      disabled
+      style="width: 80em; height: 40em;">Text output will appear here once a file is processed.</textarea>
+  </div>
+</body>
+</html>
