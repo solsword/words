@@ -324,6 +324,7 @@ define(["./draw", "./locale"], function(draw, locale) {
     var ap = this.abspos();
     var as = this.absshape();
     // Draws the menu background and edges
+    ctx.beginPath(); // break any remnant path data
     ctx.fillStyle = this.style.background_color;
     ctx.fillRect(ap[0], ap[1], as[0], as[1]);
     ctx.strokeStyle = this.style.border_color;
@@ -841,6 +842,8 @@ define(["./draw", "./locale"], function(draw, locale) {
   }
 
   function ButtonMenu(ctx, pos, shape, style, text, action) {
+    // A ButtonMenu is both a menu and a clickable button. The action is
+    // triggered whenever it is clicked.
     BaseMenu.call(this, ctx, pos, shape, style);
     this.style.active_background = this.style.active_background || "#555";
     this.style.active_border = this.style.active_border || "#bbb";
@@ -866,6 +869,7 @@ define(["./draw", "./locale"], function(draw, locale) {
   }
 
   function GlyphsMenu(ctx, pos, shape, style, text, action) {
+    // A ButtonMenu which displays glyphs-so-far, and which can flash colors.
     ButtonMenu.call(this, ctx, pos, shape, style, text, action);
     this.style.base_border_color = this.style.border_color;
     this.style.base_border_width = this.style.border_width;
@@ -947,12 +951,109 @@ define(["./draw", "./locale"], function(draw, locale) {
 
     // Draw glyphs:
     this.set_font(ctx);
-    this.textAlign = "center";
-    this.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     var ctr = this.center();
     ctx.fillText(this.display_text, ctr[0], ctr[1]);
 
     return animating;
+  }
+
+  function SlotsMenu(ctx, pos, shape, style, contents, action) {
+    // A SlotsMenu has an adjustable number of slots, and each slot can be
+    // filled or emptied, and may trigger an action when clicked. The action
+    // callback is called with the glyph value of the slot that was clicked on
+    // when one is clicked on. The initial number of slots will be determined
+    // by the length of the contents iterable, along with their initial values.
+    // null, false, undefined or other false-values may be used to represent
+    // initially-empty slots. The slot_width variable of the shape object is
+    // used to determine the size of each slot; it will be compute from
+    // shape.width and contents.length if not given, otherwise shape.width will
+    // be computed from it and contents.length.
+    if (shape.hasOwnProperty("slot_width") && shape.slot_width != undefined) {
+      shape.width = shape.slot_width * contents.length;
+    } else if (shape.hasOwnProperty("width") && shape.width != undefined) {
+      shape.slot_width = shape.width / contents.length;
+    } else {
+      shape.slot_width = 48;
+      shape.width = shape.slot_width * contents.length;
+    }
+    BaseMenu.call(this, ctx, pos, shape, style);
+    this.style.slot_background_color = this.style.background_color;
+    this.style.slot_border_color = this.style.border_color;
+    this.style.slot_border_width = this.style.border_width;
+    this.contents = [];
+    for (glyph of contents) {
+      if (glyph) {
+        this.contents.push("" + glyph);
+      } else {
+        this.contents.push(undefined);
+      }
+    }
+    this.adjust_width();
+  }
+  SlotsMenu.prototype = Object.create(BaseMenu.prototype);
+  SlotsMenu.prototype.constructor = SlotsMenu;
+
+  SlotsMenu.prototype.adjust_width = function () {
+    this.shape.width = this.shape.slot_width * this.contents.legnth;
+  }
+
+  SlotsMenu.prototype.add_slot = function (glyph) {
+    // Leave off glyph argument to add an empty slot
+    this.contents.push(glyph);
+    this.adjust_width();
+  }
+
+  SlotsMenu.prototype.remove_slot = function () {
+    // Removes the last (rightmost) slot
+    this.contents.pop();
+    this.adjust_width();
+  }
+
+  SlotsMenu.prototype.tap = function (pos, hit) {
+    if (!hit) {
+      return;
+    }
+    var rp = this.rel_pos(pos);
+
+    rp[0] / this.shape.width;
+    // TODO: HERE
+  }
+
+  SlotsMenu.prototype.draw = function (ctx) {
+    // Draw background:
+    BaseMenu.prototype.draw.apply(this, [ctx]);
+
+    // Get absolute position and shape:
+    var ap = this.abspos();
+    var as = this.absshape();
+
+    // slot width
+    var sw = as[0] / this.contents.length;
+
+    // Set drawing properties outside loop:
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    this.set_font(ctx);
+    ctx.fillStyle = this.style.background_color;
+    ctx.strokeStyle = this.style.border_color;
+    ctx.lineWidth = this.style.border_width;
+    // draw each slot
+    for (let i = 0; i < this.contents.length; ++i) {
+      var g = this.contents[i];
+      ctx.beginPath(); // break any remnant path data
+      // background
+      ctx.fillRect(ap[0] + sw*i, ap[1], sw, as[1]);
+      // border
+      ctx.strokeRect(ap[0] + sw*i, ap[1], sw, as[1]);
+      // glyph
+      if (g) {
+        ctx.fillText(g, ap[0] + sw*(i+0.5), ap[1] + as[1]*0.5);
+      }
+    }
+
+    return false;
   }
 
 
