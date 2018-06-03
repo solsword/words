@@ -14,19 +14,56 @@ define(["anarchy"], function(anarchy) {
     //"اللغة_العربية_الفصحى", //Too large for demo
   ];
 
+  function kind(dimension) {
+    return dimension[0];
+  }
+
   function natural_domain(dimension) {
-    return MULTIPLANAR_DOMAINS[
-      dimension % MULTIPLANAR_DOMAINS.length
-    ];
+    return dimension[1];
+  }
+
+  function seed(dimension) {
+    return dimension[2];
+  }
+
+  function pocket_word_count(dimension) {
+    return dimension[3];
+  }
+
+  function pocket_nth_word(dimension, n) {
+    return dimension[4+n];
   }
 
   function neighboring_dimension(dimension, offset) {
-    return (dimension + offset) % MULTIPLANAR_DOMAINS.length;
+    let i = MULTIPLANAR_DOMAINS.indexOf(dimension[1]);
+    return [
+      dimension[0],
+      MULTIPLANAR_DOMAINS[
+        anarchy.posmod((i + offset), MULTIPLANAR_DOMAINS.length)
+      ],
+      dimension[2]
+    ];
+  }
+
+  function stacked_dimension(dimension, offset) {
+    let seed = dimension[2];
+    let n = Math.abs(offset);
+    if (offset > 0) {
+      for (let i = 0; i < n; ++i) {
+        seed = anarchy.prng(seed, 501930842);
+      }
+    } else {
+      for (let i = 0; i < n; ++i) {
+        seed = anarchy.rev_prng(seed, 501930842);
+      }
+    }
+    return [dimension[0], dimension[1], seed];
   }
 
   function shape_for(dimension) {
-    var x = dimension ^ 1092830198;
-    for (var i = 0; i < 7; ++i) {
+    let x = MULTIPLANAR_DOMAINS.indexOf(dimension[1]);
+    x ^= 1092830198;
+    for (var i = 0; i < 4; ++i) {
       x = anarchy.lfsr(x);
     }
     var t_shape = x >>> 0;
@@ -50,8 +87,11 @@ define(["anarchy"], function(anarchy) {
   return {
     "MULTIPLANAR_CONNECTIONS": MULTIPLANAR_CONNECTIONS,
     "MULTIPLANAR_DOMAINS": MULTIPLANAR_DOMAINS,
+    "kind": kind,
     "natural_domain": natural_domain,
+    "seed": seed,
     "neighboring_dimension": neighboring_dimension,
+    "stacked_dimension": stacked_dimension,
     "shape_for": shape_for,
   };
 });

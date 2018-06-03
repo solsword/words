@@ -23,7 +23,24 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
   var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
 
-  var CURRENT_DIMENSION = 0;
+  // TODO: DEBUG
+  var CURRENT_DIMENSION = ["full", "base", 10983];
+  /*
+  var CURRENT_DIMENSION = [
+    "pocket",
+    "base",
+    10983,
+    5,
+    "this", "is", "a", "pocket", "test"
+    /* TODO: THESE?!? Lazily?!?
+    dict.find_word_in_domain("this", "base")[0][0], // domain indices
+    dict.find_word_in_domain("is", "base")[0][0],
+    dict.find_word_in_domain("a", "base")[0][0],
+    dict.find_word_in_domain("pocket", "base")[0][0],
+    dict.find_word_in_domain("test", "base")[0][0]
+    * /
+  ];
+  // */
 
   // Mouse scroll correction factors:
   var PIXELS_PER_LINE = 18;
@@ -85,8 +102,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
   var COMMANDS = {
     // DEBUG:
     "d": function (e) {
-      CURRENT_DIMENSION += 1;
-      CURRENT_DIMENSION %= dimensions.MULTIPLANAR_DOMAINS.length;
+      CURRENT_DIMENSION = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
       DO_REDRAW = 0;
     },
     // DEBUG
@@ -268,7 +284,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
         // clear our swipes and glyphs and add to our words found
         content.unlock_path(CURRENT_DIMENSION, combined_swipe);
         entries.forEach(function (e) {
-          find_word(e[1], combined_swipe[0]);
+          find_word(e[2], combined_swipe[0]);
         });
         clear_selection(
           CURRENT_GLYPHS_BUTTON.center(),

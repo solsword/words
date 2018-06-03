@@ -1035,9 +1035,24 @@ function(anarchy, dict, grid, dimensions, caching) {
   }
 
   function generate_supertile(dimension, sgp, seed) {
+    // Calls the appropriate supertile generator for the dimension requested.
+    if (dimensions.kind(dimension) == "full") {
+      return generate_full_supertile(dimension, sgp, seed);
+    } else if (dimensions.kind(dimension) == "pocket") {
+      return generate_pocket_supertile(dimension, sgp, seed);
+    } else {
+      console.warn(
+        "Internal Error: unknown dimension type '"
+      + dimensions.kind(dimension) + "'"
+      );
+      return undefined;
+    }
+  }
+
+  function generate_full_supertile(dimension, sgp, seed) {
     // Given that the necessary domain(s) and multiplanar info are all
     // available, generates the glyph contents of the supertile at the given
-    // position in the given dimension. Returns undefined if there's missing
+    // position in a full dimension. Returns undefined if there's missing
     // information.
 
     var result = {
@@ -1049,8 +1064,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     var default_domain = dimensions.natural_domain(dimension);
 
-    seed ^= dimension;
-    for (var i = 0; i < (dimension % 5) + 3; ++i) {
+    let s = dimensions.seed(dimension)
+    seed ^= s;
+    for (var i = 0; i < (s % 5) + 3; ++i) {
       seed = anarchy.prng(seed);
     }
 
@@ -1296,6 +1312,54 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
       }
     }
+
+    // all glyphs have been filled in, we're done here!
+    return result;
+  }
+
+  function generate_pocket_supertile(dimension, sgp, seed) {
+    // Given that the necessary domain(s) and pocket layout are available,
+    // generates the glyph contents of the supertile at the given position in a
+    // pocket dimension. Returns undefined if there's missing information.
+
+    var result = {
+      "dimension": dimension,
+      "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+      "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+      "domains": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+    };
+
+    // scramble the seed
+    let s = dimensions.seed(dimension)
+    seed ^= s;
+    for (var i = 0; i < (s % 5) + 3; ++i) {
+      seed = anarchy.prng(seed);
+    }
+
+    // Ensure domain(s) are loaded:
+    var domain = dimensions.natural_domain(dimension);
+    var dl = domains_list(domain);
+    var any_undef = false;
+    for (var i = 0; i < dl.length; ++i) {
+      var def = dict.lookup_domain(dl[i]);
+      if (def == undefined) {
+        any_undef = true;
+      }
+    }
+    if (any_undef) {
+      return undefined;
+    }
+
+    // set glyphs, colors, and domains to undefined:
+    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+      result.glyphs[i] = undefined;
+      result.colors[i] = [];
+      result.domains[i] = undefined;
+    }
+
+    // TODO: Get pocket dimension info
+
+    // TODO: HERE
 
     // all glyphs have been filled in, we're done here!
     return result;

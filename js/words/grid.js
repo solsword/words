@@ -381,9 +381,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     result["glyph"] = supertile.glyphs[idx];
     result["colors"] = supertile.colors[idx].slice();
     result["domain"] = supertile.domains[idx];
-    result["shape"] = dimensions.shape_for(
-      anarchy.hash_string(result.domain)
-    );
+    result["shape"] = dimensions.shape_for(supertile.dimension);
     result["is_inclusion"] = (
       result["domain"] != dimensions.natural_domain(supertile.dimension)
     );

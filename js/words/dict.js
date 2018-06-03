@@ -26,7 +26,7 @@ define(["./locale"], function(locale) {
     if (DOMAINS.hasOwnProperty(name)) {
       return DOMAINS[name];
     } else if (FAILED.hasOwnProperty(name)) {
-      console.warn("Internal Error: Unknown domain '" + name + "'.");
+      console.warn("Internal Error: Unknown domain '" + name + "'");
       console.warn("Known domains are:");
       for (var d in DOMAINS) {
         if (DOMAINS.hasOwnProperty(d)) {
@@ -326,7 +326,7 @@ define(["./locale"], function(locale) {
      || (xobj.status == 0 && dpath.startsWith("file://"))
       );
       if (!successful) {
-        console.warn("Internal Error: Failed to fetch domain '" + name + "'!");
+        console.warn("Internal Error: Failed to fetch domain '" + name + "'");
         console.warn("  Response code: " + xobj.status);
         console.warn("  Response content:\n" + xobj.responseText.slice(0,80));
         FAILED[name] = true;
@@ -344,29 +344,27 @@ define(["./locale"], function(locale) {
   }
 
   function check_word(glyphs, domains) {
-    // Returns a list of glyphs, word, frequency triples that match the given
-    // glyphs in one of the given domains. The list will be empty if there are
-    // no matches.
+    // Returns a list of (index, glyphs, word, frequency) quadruples that match
+    // the given glyphs in one of the given domains. The list will be empty if
+    // there are no matches.
     var entries = [];
     domains.forEach(function (domain) {
-      var match = find_word_in_domain(glyphs, domain);
-      if (match != null) {
-        entries.push(match);
-      }
+      entries = entries.concat(find_word_in_domain(glyphs, domain));
     });
     return entries;
   }
 
   function find_word_in_domain(glyphs, domain) {
-    // Finds the given glyph sequence in the given domain. Returns an array
-    // containing the matching word (combined & with canonical case) and its
-    // frequency. Returns null if there is no match.
+    // Finds the given glyph sequence in the given domain. Returns an array of
+    // matches, each of which consists of a domain index, a glyphs string, a
+    // canonical word, and a frequency count for that word. Returns an empty
+    // array if there are no matches.
 
     // For unordered domains, sort glyphs so that indexing will work:
-    var dom = DOMAINS[domain];
+    var dom = lookup_domain(domain);
     if (dom == undefined) {
-      console.warn("Internal Error: unknown domain '" + domain + "'.");
-      return null;
+      console.warn("Internal Error: unknown domain '" + domain + "'");
+      return [];
     }
     if (!dom.ordered) {
       glyphs.sort();
@@ -401,7 +399,7 @@ define(["./locale"], function(locale) {
       }
     }
 
-    var entry = null;
+    var result = [];
     if (Array.isArray(index)) {
       for (var i = 0; i < index.length; ++i) {
         var idx = index[i];
@@ -412,7 +410,7 @@ define(["./locale"], function(locale) {
           against = locale.upper(against, dom.locale);
         }
         if (against === original) {
-          entry = test_entry;
+          result.push([idx, ...test_entry]);
         }
       }
     } else if (g == null) {
@@ -425,19 +423,19 @@ define(["./locale"], function(locale) {
             against = locale.upper(against, dom.locale);
           }
           if (against === original) {
-            entry = test_entry;
+            result.push([idx, ...test_entry]);
           }
         }
       } else {
         // word prefix
-        return null;
+        return [];
       }
     } else {
       // word + suffix or just a non-word
-      return null;
+      return [];
     }
 
-    return entry;
+    return result;
   }
 
   function unrolled_word(n, domain) {
