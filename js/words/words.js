@@ -24,10 +24,10 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
   var LAST_POSITION = [0, 0];
 
   // TODO: DEBUG
-  var CURRENT_DIMENSION = ["full", "base", 10983];
+  var CURRENT_DIMENSION = [["full", "normal"], "base", 10983];
   // *
   var CURRENT_DIMENSION = [
-    "pocket",
+    ["pocket", "easy"],
     "base",
     10985,
     // ["THIS", "IS", "A", "POCKET", "TEST"]

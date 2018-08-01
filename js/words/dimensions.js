@@ -15,7 +15,11 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
   ];
 
   function kind(dimension) {
-    return dimension[0];
+    return dimension[0][0];
+  }
+
+  function difficulty(dimension) {
+    return dimension[0][1];
   }
 
   function natural_domain(dimension) {
@@ -98,6 +102,7 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     "MULTIPLANAR_CONNECTIONS": MULTIPLANAR_CONNECTIONS,
     "MULTIPLANAR_DOMAINS": MULTIPLANAR_DOMAINS,
     "kind": kind,
+    "difficulty": difficulty,
     "natural_domain": natural_domain,
     "seed": seed,
     "pocket_word_count": pocket_word_count,

@@ -1074,7 +1074,12 @@ function(anarchy, dict, grid, dimensions, caching) {
     if (dimensions.kind(dimension) == "full") {
       return generate_full_supertile(dimension, sgp, seed);
     } else if (dimensions.kind(dimension) == "pocket") {
-      return generate_pocket_supertile(dimension, sgp, seed);
+      return generate_pocket_supertile(
+        dimension,
+        sgp,
+        dimensions.difficulty(dimension),
+        seed
+      );
     } else {
       console.warn(
         "Internal Error: unknown dimension type '"
@@ -1843,7 +1848,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     POCKET_LAYOUT_CACHE_SIZE
   );
 
-  function generate_pocket_supertile(dimension, sgp, seed) {
+  function generate_pocket_supertile(dimension, sgp, difficulty, seed) {
     // Given that the necessary domain(s) and pocket layout are available,
     // generates the glyph contents of the supertile at the given position in a
     // pocket dimension. Returns undefined if there's missing information, or
@@ -1905,7 +1910,9 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // Finish filling empty tiles:
-    fill_voids(result, domain, seed);
+    if (difficulty != "easy") {
+      fill_voids(result, domain, seed);
+    }
 
     // all glyphs have been filled in, we're done here!
     return result;
