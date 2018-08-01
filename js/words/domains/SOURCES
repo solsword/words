@@ -4,6 +4,9 @@ WordNet (see LICENSE-wordnet):
   noun.lst
   verb.lst
 
+Stop words (http://xpo6.com/list-of-english-stop-words/):
+  stop.lst
+
 Wikipedia (Wiktionary) (see LICENSE-wikipedia):
   かんたんなひらがな.lst
 

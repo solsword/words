@@ -1,7 +1,7 @@
 // dimensions.js
 // Dimension handling code.
 
-define(["anarchy"], function(anarchy) {
+define(["anarchy", "./utils"], function(anarchy, utils) {
   // Number of possible connections from each plane:
   var MULTIPLANAR_CONNECTIONS = 64;
 
@@ -27,11 +27,21 @@ define(["anarchy"], function(anarchy) {
   }
 
   function pocket_word_count(dimension) {
-    return dimension[3];
+    return dimension[3].length;
   }
 
   function pocket_nth_word(dimension, n) {
-    return dimension[4+n];
+    return dimension[3][n];
+  }
+
+  function pocket_words(dimension) {
+    let result = [];
+    let domain = natural_domain(dimension);
+    for (let i = 0; i < pocket_word_count(dimension); ++i) {
+      let str = pocket_nth_word(dimension, i);
+      result.push(utils.string__array(str));
+    }
+    return result;
   }
 
   function neighboring_dimension(dimension, offset) {
@@ -90,6 +100,9 @@ define(["anarchy"], function(anarchy) {
     "kind": kind,
     "natural_domain": natural_domain,
     "seed": seed,
+    "pocket_word_count": pocket_word_count,
+    "pocket_nth_word": pocket_nth_word,
+    "pocket_words": pocket_words,
     "neighboring_dimension": neighboring_dimension,
     "stacked_dimension": stacked_dimension,
     "shape_for": shape_for,

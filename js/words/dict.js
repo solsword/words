@@ -47,6 +47,21 @@ define(["./locale"], function(locale) {
     }
   }
 
+  function lookup_domains(names) {
+    // Returns a list containing objects for each named domain, or undefined if
+    // any of the given domains is not yet loaded.
+    var result = [];
+    for (var i = 0; i < names.length; ++i) {
+      var def = lookup_domain(names[i]);
+      if (def == undefined) {
+        return undefined;
+      } else {
+        result.push(def);
+      }
+    }
+    return result;
+  }
+
   function finish_loading(name, json) {
     // Takes a JSON object from a domain file and augments it before adding it
     // to DOMAINS.
@@ -361,16 +376,21 @@ define(["./locale"], function(locale) {
     // array if there are no matches.
 
     // For unordered domains, sort glyphs so that indexing will work:
-    var dom = lookup_domain(domain);
-    if (dom == undefined) {
-      console.warn("Internal Error: unknown domain '" + domain + "'");
-      return [];
+    var dom = domain;
+    if (dom + "" === dom) {
+      dom = lookup_domain(dom);
+      if (dom == undefined) {
+        console.warn("Internal Error: unknown domain '" + domain + "'");
+        return [];
+      }
     }
     if (!dom.ordered) {
       glyphs.sort();
     }
     // Turn the array into a string:
-    glyphs = glyphs.join("");
+    if (Array.isArray(glyphs)) {
+      glyphs = glyphs.join("");
+    }
 
     // For uncased domains, convert the glyph sequence to upper case:
     if (!dom.cased) {
@@ -488,6 +508,7 @@ define(["./locale"], function(locale) {
     "WARNINGS": WARNINGS,
     "LOADING": LOADING,
     "lookup_domain": lookup_domain,
+    "lookup_domains": lookup_domains,
     "load_dictionary": load_dictionary,
     "check_word": check_word,
     "find_word_in_domain": find_word_in_domain,

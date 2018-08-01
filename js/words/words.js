@@ -25,20 +25,41 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
 
   // TODO: DEBUG
   var CURRENT_DIMENSION = ["full", "base", 10983];
-  /*
+  // *
   var CURRENT_DIMENSION = [
     "pocket",
     "base",
-    10983,
-    5,
-    "this", "is", "a", "pocket", "test"
-    /* TODO: THESE?!? Lazily?!?
-    dict.find_word_in_domain("this", "base")[0][0], // domain indices
-    dict.find_word_in_domain("is", "base")[0][0],
-    dict.find_word_in_domain("a", "base")[0][0],
-    dict.find_word_in_domain("pocket", "base")[0][0],
-    dict.find_word_in_domain("test", "base")[0][0]
-    * /
+    10985,
+    // ["THIS", "IS", "A", "POCKET", "TEST"]
+    [
+      "ABACUS",
+      "BENEVOLENCE",
+      "CONCEPTUALIZATION",
+      "DECADENT",
+      "ENDOMETRIUM",
+      "FUNCTION",
+      "GABBRO",
+      "HYPHENATION",
+      "INFLORESCENCE",
+      "JUBILEE",
+      "KIDNEY",
+      "LEAVENING",
+      "MONGOOSE",
+      "NIQAB",
+      "OATH",
+      "PHALANX",
+      "QUADRILATERAL",
+      "RADIUM",
+      "SEVERANCE",
+      "TRANSCENDENCE",
+      "ULNA",
+      "VACCINE",
+      "WIZARDRY",
+      "XENOPHOBIA",
+      "YUCCA",
+      "ZYGOTE",
+    ]
+    // TODO: how to make sure words are in the domain?!?
   ];
   // */
 

@@ -46,7 +46,17 @@ define([], function () {
     }
   }
   
+  // Converts a string to an array (use .join("") to reverse).
+  function string__array(str) {
+    let result = [];
+    for (let g of str) {
+      result.push(g);
+    }
+    return result;
+  }
+
   return {
     "is_equal": is_equal,
+    "string__array": string__array,
   }
 });

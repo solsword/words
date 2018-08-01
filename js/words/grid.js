@@ -42,12 +42,44 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   var SW = 4;
   var NW = 5;
 
+  // Clockwise starting from the neighbor to the left:
+  var SG_NEIGHBORS = [
+    [-1, 0],
+    [-1, 1],
+    [0, 1],
+    [1, 0],
+    [1, -1],
+    [0, -1]
+  ]
+
+  // Directions as indices into the SG_NEIGHBORS array:
+  var SG_W = 0;
+  var SG_NW = 1;
+  var SG_NE = 2;
+  var SG_E = 3;
+  var SG_SE = 4;
+  var SG_SW = 5;
+
   // Supertile size
   var SUPERTILE_SIZE = 7;
+  var SUPERTILE_TILES = 37;
+
+  function gp__index(gp) {
+    // Converts a grid position to a supertile glyphs index. Does not check
+    // whether the given position is valid (see is_valid_subindex below).
+    return gp[0] + gp[1] * SUPERTILE_SIZE;
+  }
+
+  function index__gp(idx) {
+    // Inverse of above.
+    let y = Math.floor(idx / SUPERTILE_SIZE);
+    let x = idx % SUPERTILE_SIZE;
+    return [x, y];
+  }
 
   // Hex index & linear index of the center of a supergrid tile:
   var SG_CENTER = [3, 3]; 
-  var SG_CENTER_LIN = 3 + 3*SUPERTILE_SIZE;
+  var SG_CENTER_IDX = gp__index(SG_CENTER);
 
   // Number of canonical sockets per supergrid tile, and number of total
   // sockets including non-canonical shared sockets.
@@ -194,6 +226,17 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     }
 
     return [col, row];
+  }
+
+  function coords__key(gp) {
+    // Converts a pair of grid coordinates into a string key.
+    return "" + gp;
+  }
+
+  function key__coords(gk) {
+    // Converts a string key into a pair of grid coordinates.
+    bits = gk.split(',');
+    return bits.map(b => parseInt(b));
   }
 
   function grid_distance(from, to) {
@@ -377,7 +420,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // that the relative coordinates should be in-bounds, like those returned
     // from sgpos.
     var result = {};
-    var idx = rxy[0] + rxy[1] * SUPERTILE_SIZE;
+    var idx = gp__index(rxy);
     result["glyph"] = supertile.glyphs[idx];
     result["colors"] = supertile.colors[idx].slice();
     result["domain"] = supertile.domains[idx];
@@ -386,6 +429,83 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
       result["domain"] != dimensions.natural_domain(supertile.dimension)
     );
     return result;
+  }
+
+  function tiles_at_ring(r) {
+    // Returns the number of tiles (or supertiles) in the rth ring around the
+    // single tile at r = 0.
+    if (r == 0) {
+      return 1;
+    } else {
+      return 6 * r;
+    }
+  }
+
+  function tiles_inside_ring(r) {
+    // Same as tiles_at_ring, but includes all tiles inside of that ring.
+    if (r == 0) {
+      return 1;
+    } else {
+      return 1 + (r * (r+1))/2 * 6
+    }
+  }
+
+  function ring_tile_coords(r, i) {
+    // Returns the relative coordinates from a tile at [0, 0] to the ith tile
+    // in the rth ring around it. i should not exceed the number of tiles in
+    // ring r (see tiles_at_ring).
+    let result = [0, 0];
+    if (r != 0) { // otherwise result is [0, 0]
+      // outwards to edge of ring
+      let dir = Math.floor(i / r);
+      let ndiff = NEIGHBORS[dir];
+      result[0] += ndiff[0] * r;
+      result[1] += ndiff[1] * r;
+      // along edge to position on edge
+      let wdiff = NEIGHBORS[(dir+2) % NEIGHBORS.length];
+      let which = i % r;
+      result[0] += wdiff[0] * which;
+      result[1] += wdiff[1] * which;
+    }
+    return result;
+  }
+
+  function ring_supertile_coords(r, i) {
+    // Same as ring_tile_coords, but for supertile coordinates.
+    let result = [0, 0];
+    if (r != 0) { // otherwise result is [0, 0]
+      // outwards to edge of ring
+      let dir = Math.floor(i / r);
+      let ndiff = SG_NEIGHBORS[dir];
+      result[0] += ndiff[0] * r;
+      result[1] += ndiff[1] * r;
+      // along edge to position on edge
+      let wdiff = SG_NEIGHBORS[(dir+2) % SG_NEIGHBORS.length];
+      let which = i % r;
+      result[0] += wdiff[0] * which;
+      result[1] += wdiff[1] * which;
+    }
+    return result;
+  }
+
+  function spiral_coords(i) {
+    // Returns a [ring, ring_index] pair that spirals outwards.
+    let ring = 0;
+    let tar = tiles_at_ring(ring);
+    while (i >= tar) {
+      i -= tar;
+      ring += 1;
+      tar = tiles_at_ring(ring);
+    }
+    return [ring, i];
+  }
+
+  function spiral_grid_pos(i) {
+    // Returns a grid position within a supertile starting at the center and
+    // spiralling outwards (including beyond the edge if i is >= 37).
+    let ri = spiral_coords(i);
+    let spc = ring_tile_coords(ri[0], ri[1]);
+    return [ spc[0] + SG_CENTER[0], spc[1] + SG_CENTER[1] ];
   }
 
   function neighbor(gp, dir) {
@@ -445,6 +565,15 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     if (x > 3 + y) { return false; }
     if (x < (y - 3)) { return false; }
     return true;
+  }
+
+  var ALL_SUPERTILE_POSITIONS = [];
+  for (let x = 0; x < 7; ++x) {
+    for (let y = 0; y < 7; ++y) {
+      if (is_valid_subindex([x, y])) {
+        ALL_SUPERTILE_POSITIONS.push([x, y]);
+      }
+    }
   }
 
   function canonical_sgapos(sgap) {
@@ -600,8 +729,11 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "NW": NW,
     "SW": SW,
     "SG_CENTER": SG_CENTER,
-    "SG_CENTER_LIN": SG_CENTER_LIN,
+    "SG_CENTER_IDX": SG_CENTER_IDX,
     "SUPERTILE_SIZE": SUPERTILE_SIZE,
+    "SUPERTILE_TILES": SUPERTILE_TILES,
+    "gp__index": gp__index,
+    "index__gp": index__gp,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
     "COMBINED_SOCKETS": COMBINED_SOCKETS,
     "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
@@ -617,6 +749,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "rotate_path": rotate_path,
     "world_pos": world_pos,
     "grid_pos": grid_pos,
+    "coords__key": coords__key,
+    "key__coords": key__coords,
     "grid_distance": grid_distance,
     "sgpos": sgpos,
     "gpos": gpos,
@@ -624,9 +758,16 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "ugpos": ugpos,
     "sub_ultra": sub_ultra,
     "extract_subtile": extract_subtile,
+    "tiles_at_ring": tiles_at_ring,
+    "tiles_inside_ring": tiles_inside_ring,
+    "ring_tile_coords": ring_tile_coords,
+    "ring_supertile_coords": ring_supertile_coords,
+    "spiral_coords": spiral_coords,
+    "spiral_grid_pos": spiral_grid_pos,
     "neighbor": neighbor,
     "is_canonical": is_canonical,
     "is_valid_subindex": is_valid_subindex,
+    "ALL_SUPERTILE_POSITIONS": ALL_SUPERTILE_POSITIONS,
     "canonical_sgapos": canonical_sgapos,
     "supergrid_alternate": supergrid_alternate,
     "next_edge": next_edge,

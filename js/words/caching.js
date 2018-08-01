@@ -37,7 +37,9 @@ define([], function() {
     // Sets the generator and key functions for the given domain. The key
     // function should take generator arguments and return a string, while the
     // computation function should take the same arguments and return either a
-    // value if generation is possible, or undefined if it isn't yet.
+    // value if generation is possible, or undefined if it isn't yet (in which
+    // case generation will be attempted again after UNDEF_BACKOFF
+    // milliseconds).
     //
     // The cache_size argument is optional, and DEFAULT_CACHE_SIZE will be
     // used if it is not supplied.
@@ -50,7 +52,8 @@ define([], function() {
   function complete_computation(domain, args, accumulated) {
     // Helper for cached_value that keeps trying to generate a value at
     // intervals until the giveup timeout is reached. Places the value into the
-    // cache as soon as it's ready.
+    // cache as soon as it's ready. If the generator returns 'undefined', the
+    // computation will be tried again.
     var dom = DOMAINS[domain];
     if (dom == undefined) {
       if (WARNINGS) {
