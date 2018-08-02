@@ -1071,13 +1071,13 @@ function(anarchy, dict, grid, dimensions, caching) {
 
   function generate_supertile(dimension, sgp, seed) {
     // Calls the appropriate supertile generator for the dimension requested.
-    if (dimensions.kind(dimension) == "full") {
+    let k = dimensions.kind(dimension);
+    if (k == "full") {
       return generate_full_supertile(dimension, sgp, seed);
-    } else if (dimensions.kind(dimension) == "pocket") {
+    } else if (k == "pocket" || k == "custom") {
       return generate_pocket_supertile(
         dimension,
         sgp,
-        dimensions.difficulty(dimension),
         seed
       );
     } else {
@@ -1730,8 +1730,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     let total_tiles = grid.tiles_inside_ring(ring) * grid.SUPERTILE_TILES;
     for (let i = 0; i < total_tiles; ++i) {
       let st = Math.floor(i / grid.SUPERTILE_TILES);
-      let spc = grid.spiral_coords(st);
-      let sgp = grid.ring_supertile_coords(spc[0], spc[1]);
+      let rpos = grid.sc__rpos(st);
+      let sgp = grid.rpos__sgpos(rpos[0], rpos[1]);
       let inner_pos = grid.spiral_grid_pos(i % grid.SUPERTILE_TILES);
       let gp = grid.gpos([sgp[0], sgp[1], inner_pos[0], inner_pos[1]]);
       let k = grid.coords__key(gp);
@@ -1848,7 +1848,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     POCKET_LAYOUT_CACHE_SIZE
   );
 
-  function generate_pocket_supertile(dimension, sgp, difficulty, seed) {
+  function generate_pocket_supertile(dimension, sgp, seed) {
     // Given that the necessary domain(s) and pocket layout are available,
     // generates the glyph contents of the supertile at the given position in a
     // pocket dimension. Returns undefined if there's missing information, or
@@ -1868,6 +1868,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     for (var i = 0; i < (s % 5) + 3; ++i) {
       seed = anarchy.prng(seed);
     }
+
+    let flavor = dimensions.flavor(dimension);
 
     // Get pocket dimension layout
     var pocket_layout = caching.cached_value(
@@ -1905,14 +1907,29 @@ function(anarchy, dict, grid, dimensions, caching) {
         result.domains[idx] = domain; 
       }
     }
-    if (!touched) {
+    if (!touched && flavor != "round") {
       return null;
+    } else if (!touched) {
+      // determine if we're inside the round area:
+      let ring = 0;
+      for (let k of Object.keys(pocket_layout[0])) {
+        let gp = grid.key__coords(k);
+        let sp = grid.sgpos(gp);
+        let rh = grid.supergrid_distance([0, 0], sp);
+        if (rh > ring) {
+          ring = rh;
+        }
+      }
+      if (grid.supergrid_distance([0, 0], sgp) > ring) {
+        // outside of the ring
+        return null;
+      } // else inside
     }
 
     // Finish filling empty tiles:
-    if (difficulty != "easy") {
-      fill_voids(result, domain, seed);
-    }
+    fill_voids(result, domain, seed);
+
+    // TODO: Check for supertile disjointedness?
 
     // all glyphs have been filled in, we're done here!
     return result;

@@ -19,15 +19,21 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
   var SWIPING = false;
   var SCROLL_REFERENT = undefined;
   var CURRENT_SWIPES = [];
+  var CURRENT_POKES = [];
   var SEL_CLEAR_ANIM = undefined;
   var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
 
   // TODO: DEBUG
-  var CURRENT_DIMENSION = [["full", "normal"], "base", 10983];
+  var CURRENT_DIMENSION = ["F/R", "base", 10983];
   // *
   var CURRENT_DIMENSION = [
-    ["pocket", "easy"],
+    "P/D/F",
+    "base",
+    10985
+  ]
+  var CURRENT_DIMENSION = [
+    "C/C/B",
     "base",
     10985,
     // ["THIS", "IS", "A", "POCKET", "TEST"]

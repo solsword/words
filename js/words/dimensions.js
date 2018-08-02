@@ -14,12 +14,58 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     //"اللغة_العربية_الفصحى", //Too large for demo
   ];
 
-  function kind(dimension) {
-    return dimension[0][0];
+  var DIMENSION_KINDS = {
+    "F": "full",
+    "P": "pocket",
+    "C": "custom",
   }
 
-  function difficulty(dimension) {
-    return dimension[0][1];
+  var DIMENSION_LAYOUTS = {
+    "full": {
+      "S": "simple",
+      "E": "easy",
+      "R": "reasonable",
+      "H": "hard",
+    },
+    "pocket": {
+      "C": "compact",
+      "D": "dense",
+      "L": "loose",
+      "S": "scattered",
+    },
+    "custom": {
+      "C": "compact",
+      "D": "dense",
+      "L": "loose",
+      "S": "scattered",
+    },
+  };
+
+  var DIMENSION_FLAVORS = {
+    "pocket": {
+      "B": "bare",
+      "F": "full",
+      "R": "round",
+    },
+    "custom": {
+      "B": "bare",
+      "F": "full",
+      "R": "round",
+    },
+  };
+
+  function kind(dimension) {
+    return DIMENSION_KINDS[dimension[0][0]];
+  }
+
+  function layout(dimension) {
+    let k = kind(dimension);
+    return DIMENSION_LAYOUTS[k][dimension[0][2]];
+  }
+
+  function flavor(dimension) {
+    let k = kind(dimension);
+    return DIMENSION_FLAVORS[k][dimension[0][4]];
   }
 
   function natural_domain(dimension) {
@@ -101,8 +147,12 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
   return {
     "MULTIPLANAR_CONNECTIONS": MULTIPLANAR_CONNECTIONS,
     "MULTIPLANAR_DOMAINS": MULTIPLANAR_DOMAINS,
+    "DIMENSION_KINDS": DIMENSION_KINDS,
+    "DIMENSION_LAYOUTS": DIMENSION_LAYOUTS,
+    "DIMENSION_FLAVORS": DIMENSION_FLAVORS,
     "kind": kind,
-    "difficulty": difficulty,
+    "layout": layout,
+    "flavor": flavor,
     "natural_domain": natural_domain,
     "seed": seed,
     "pocket_word_count": pocket_word_count,

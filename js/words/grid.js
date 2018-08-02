@@ -244,11 +244,21 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // http://keekerdc.com/2011/03/hexagon-grids-coordinate-systems-and-distance-calculations/
     // Note our formula for z is (-x + y + z = 0  ->  z = x - y) because our
     // axes are arranged differently.
-    var fz = from[0] - from[1];
-    var tz = to[0] - to[1];
-    var dx = Math.abs(from[0] - to[0]);
-    var dy = Math.abs(from[1] - to[1]);
-    var dz = Math.abs(fz - tz);
+    let fz = from[0] - from[1];
+    let tz = to[0] - to[1];
+    let dx = Math.abs(from[0] - to[0]);
+    let dy = Math.abs(from[1] - to[1]);
+    let dz = Math.abs(fz - tz);
+    return Math.max(dx, dy, dz);
+  }
+
+  function supergrid_distance(from, to) {
+    // As above, but for the supergrid, which has different axes.
+    let fz = - from[0] - from[1];
+    let tz = - to[0] - to[1];
+    let dx = Math.abs(from[0] - to[0]);
+    let dy = Math.abs(from[1] - to[1]);
+    let dz = Math.abs(fz - tz);
     return Math.max(dx, dy, dz);
   }
 
@@ -288,11 +298,11 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     //       Supergrid axes:                    #       #       #       #
     //                                              #       #        #
     //                 ^                        #       #       #       #
-    //                /      0,6 -> .               #       #        #
-    //             y /                  .       #       #       #       #
+    //                / y    0,6 -> .               #       #        #
+    //               /                  .       #       #       #       #
     //              /               .       .       #       #       #
     //     <-------+------->            .       @       #       #
-    //            /   x             .       @       @       #
+    //            /      x          .       @       @       #
     //           /                      @       @       @
     //          /            0,3 -> @       @       @       @ <- 6,6
     //         v                        @       @       @    
@@ -450,7 +460,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     }
   }
 
-  function ring_tile_coords(r, i) {
+  function rpos__gpos(r, i) {
     // Returns the relative coordinates from a tile at [0, 0] to the ith tile
     // in the rth ring around it. i should not exceed the number of tiles in
     // ring r (see tiles_at_ring).
@@ -470,8 +480,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     return result;
   }
 
-  function ring_supertile_coords(r, i) {
-    // Same as ring_tile_coords, but for supertile coordinates.
+  function rpos__sgpos(r, i) {
+    // Same as rpos__gpos, but for supertile coordinates.
     let result = [0, 0];
     if (r != 0) { // otherwise result is [0, 0]
       // outwards to edge of ring
@@ -488,7 +498,71 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     return result;
   }
 
-  function spiral_coords(i) {
+  function gpos__rpos(gp) {
+    // Returns the ring position of the given grid tile relative to [0, 0] as a
+    // [ring, index] pair.
+    let ring = grid_distance([0, 0], gp);
+    if (ring == 0) {
+      return [0, 0];
+    }
+    let rsize = tiles_at_ring(ring);
+    // TODO: Better method here?!?
+    let cart_x = gp[0] + gp[1] * Math.cos(Math.PI/3);
+    let cart_y = gp[1] * Math.sin(Math.PI/3);
+    let θ = Math.atan2(cart_y, cart_x);
+    let adjθ = (Math.PI*2 - θ) - 1.5 * Math.PI;
+    if (adjθ < 0) {
+      adjθ = adjθ + Math.PI*2;
+    }
+    let tri = Math.floor(rsize * (adjθ / Math.PI*2))
+    let leeway = Math.floor(rsize/16);
+    for (let guess = tri - leeway; guess < tri + leeway + 1; ++tri) {
+      let guess_pos = rpos__sgpos(ring, guess);
+      if (guess_pos[0] == gp[0] && guess_pos[1] == gp[1]) {
+        return [ring, guess];
+      }
+    }
+    if (WARNINGS) {
+      console.warn(
+        "gpos__rpos failed to find correct index for: " + gp + "!"
+      );
+    }
+    return undefined;
+  }
+
+  function sgpos__rpos(sgp) {
+    // Returns the ring position of the given supergrid tile relative to
+    // [0, 0] as a [ring, index] pair.
+    let ring = supergrid_distance([0, 0], sgp);
+    if (ring == 0) {
+      return [0, 0];
+    }
+    let rsize = tiles_at_ring(ring);
+    // TODO: Better method here?!?
+    let cart_x = sgp[0] + sgp[1] * Math.cos(Math.PI/3);
+    let cart_y = sgp[1] * Math.sin(Math.PI/3);
+    let θ = Math.atan2(cart_y, cart_x);
+    let adjθ = (Math.PI*2 - θ) - Math.PI;
+    if (adjθ < 0) {
+      adjθ = adjθ + Math.PI*2;
+    }
+    let tri = Math.floor(rsize * (adjθ / Math.PI*2))
+    let leeway = Math.floor(rsize/16);
+    for (let guess = tri - leeway; guess < tri + leeway + 1; ++tri) {
+      let guess_pos = rpos__sgpos(ring, guess);
+      if (guess_pos[0] == sgp[0] && guess_pos[1] == sgp[1]) {
+        return [ring, guess];
+      }
+    }
+    if (WARNINGS) {
+      console.warn(
+        "sgpos__rpos failed to find correct index for: " + sgp + "!"
+      );
+    }
+    return undefined;
+  }
+
+  function sc__rpos(i) {
     // Returns a [ring, ring_index] pair that spirals outwards.
     let ring = 0;
     let tar = tiles_at_ring(ring);
@@ -503,8 +577,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   function spiral_grid_pos(i) {
     // Returns a grid position within a supertile starting at the center and
     // spiralling outwards (including beyond the edge if i is >= 37).
-    let ri = spiral_coords(i);
-    let spc = ring_tile_coords(ri[0], ri[1]);
+    let ri = sc__rpos(i);
+    let spc = rpos__gpos(ri[0], ri[1]);
     return [ spc[0] + SG_CENTER[0], spc[1] + SG_CENTER[1] ];
   }
 
@@ -752,6 +826,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "coords__key": coords__key,
     "key__coords": key__coords,
     "grid_distance": grid_distance,
+    "supergrid_distance": supergrid_distance,
     "sgpos": sgpos,
     "gpos": gpos,
     "is_neighbor": is_neighbor,
@@ -760,9 +835,11 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "extract_subtile": extract_subtile,
     "tiles_at_ring": tiles_at_ring,
     "tiles_inside_ring": tiles_inside_ring,
-    "ring_tile_coords": ring_tile_coords,
-    "ring_supertile_coords": ring_supertile_coords,
-    "spiral_coords": spiral_coords,
+    "rpos__gpos": rpos__gpos,
+    "rpos__sgpos": rpos__sgpos,
+    "gpos__rpos": gpos__rpos,
+    "sgpos__rpos": sgpos__rpos,
+    "sc__rpos": sc__rpos,
     "spiral_grid_pos": spiral_grid_pos,
     "neighbor": neighbor,
     "is_canonical": is_canonical,
