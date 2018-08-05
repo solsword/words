@@ -1206,7 +1206,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
     r = anarchy.lfsr(r);
 
-    fill_voids(supertile, default_domain, r);
+    fill_voids(result, default_domain, r);
 
     // all glyphs have been filled in, we're done here!
     return result;

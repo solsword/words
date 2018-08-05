@@ -26,7 +26,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
 
   // TODO: DEBUG
   var CURRENT_DIMENSION = ["F/R", "base", 10983];
-  // *
+  /*/ *
   var CURRENT_DIMENSION = [
     "P/D/F",
     "base",

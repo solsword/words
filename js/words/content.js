@@ -12,7 +12,9 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
 
   // The list of currently-unlocked words, and the limit for that list:
   var UNLOCKED = [];
-  var UNLOCK_LIMIT = 5;
+  // TODO: DEBUG
+  //var UNLOCK_LIMIT = 5;
+  var UNLOCK_LIMIT = 1;
 
   // He list of currently energized tiles and the limit for that list:
   var ENERGIZED = [];
