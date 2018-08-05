@@ -11,18 +11,27 @@ define(
   "./generate",
   "./menu",
   "./animate",
+  "./utils",
 ],
-function(draw, content, grid, dimensions, dict, generate, menu, animate) {
+function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
 
   var VIEWPORT_SIZE = 800.0;
 
   var SWIPING = false;
+  var PRESS_RECORDS = [undefined, undefined];
+  var LAST_RELEASE = undefined;
+  var DBL_TIMEOUT = 500;
+  var DBL_DIST = 10;
   var SCROLL_REFERENT = undefined;
   var CURRENT_SWIPES = [];
-  var CURRENT_POKES = [];
+  var ACTIVE_POKES = [];
+  // TODO: ADJUST THIS
+  var POKE_DELAY = 5000;
   var SEL_CLEAR_ANIM = undefined;
   var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
+  var MS_PER_FRAME = 1000/60;
+  // TODO: Measure this!
 
   // TODO: DEBUG
   var CURRENT_DIMENSION = ["F/R", "base", 10983];
@@ -456,17 +465,55 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       DO_REDRAW = 0;
       return;
     }
+
+    // No matter what, we're not swiping any more
     SWIPING = false;
-    if (CURRENT_SWIPES.length == 0) {
-      return;
+
+    // Check for double-click/tap:
+    let isdbl = false;
+    if (LAST_RELEASE != undefined) {
+      let dx = vpos[0] - LAST_RELEASE[0];
+      let dy = vpos[1] - LAST_RELEASE[1];
+      let dt = window.performance.now() - PRESS_RECORDS[0];
+      let rdist = Math.sqrt(dx*dx + dy*dy);
+      isdbl = dt <= DBL_TIMEOUT && rdist <= DBL_DIST;
     }
-    var latest_swipe = CURRENT_SWIPES.pop();
-    if (latest_swipe.length > 0) {
-      // A non-empty swipe motion; push it back on:
-      CURRENT_SWIPES.push(latest_swipe);
+
+    if (isdbl) {
+      // this is a double-click or double-tap
+      console.log("double");
+      // Get rid of last two swipes & update glyphs
+      CURRENT_SWIPES.pop();
+      CURRENT_SWIPES.pop();
+      update_current_glyphs();
+      // Find grid position and check adjacency
+      let wp = draw.world_pos(ctx, vpos);
+      let gp = grid.grid_pos(wp);
+      let valid = false;
+      for (let d = 0; d < 6; ++d) {
+        let np = grid.neighbor(gp, d);
+        if (content.is_unlocked(CURRENT_DIMENSION, np)) {
+          valid = true;
+          break;
+        }
+      }
+      if (valid) {
+        ACTIVE_POKES.push([CURRENT_DIMENSION, gp, window.performance.now()]);
+      }
+      DO_REDRAW = 0;
+    } else {
+      // this is just a normal mouseup
+      if (CURRENT_SWIPES.length == 0) {
+        return;
+      }
+      var latest_swipe = CURRENT_SWIPES.pop();
+      if (latest_swipe.length > 0) {
+        // A non-empty swipe motion; push it back on:
+        CURRENT_SWIPES.push(latest_swipe);
+      }
+      update_current_glyphs();
+      DO_REDRAW = 0;
     }
-    update_current_glyphs();
-    DO_REDRAW = 0;
   }
 
   function handle_auxiliary_up(ctx, e) {
@@ -722,6 +769,8 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       var which = which_click(e);
       if (which == "primary") {
         handle_primary_down(CTX, e);
+        PRESS_RECORDS[0] = PRESS_RECORDS[1];
+        PRESS_RECORDS[1] = window.performance.now();
       } else if (which == "auxiliary") {
         handle_auxiliary_down(CTX, e);
       } // otherwise ignore this click
@@ -734,12 +783,14 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
       var which = which_click(e);
       if (which == "primary") {
         handle_primary_up(CTX, e);
+        LAST_RELEASE = canvas_position_of_event(e);
       } else if (which == "auxiliary") {
         handle_auxiliary_up(CTX, e);
       } // otherwise ignore this click
       // Reset scroll referent anyways just to be sure:
       SCROLL_REFERENT = undefined;
     }
+    document.ontouchend = document.onmouseup
     document.ontouchcancel = document.onmouseup
 
     document.onmousemove = function (e) {
@@ -778,6 +829,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
   function draw_frame(now) {
     ANIMATION_FRAME += 1; // count frames
     ANIMATION_FRAME %= animate.ANIMATION_FRAME_MAX;
+    var ms_time = window.performance.now();
     // TODO: Normalize frame count to passage of time!
     if (DO_REDRAW == undefined) {
       window.requestAnimationFrame(draw_frame);
@@ -793,14 +845,40 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate) {
     if (!draw.draw_tiles(CURRENT_DIMENSION, CTX)) {
       DO_REDRAW = MISSING_TILE_RETRY;
     };
-    if (CURRENT_SWIPES.length > 0) {
-      CURRENT_SWIPES.forEach(function (swipe, index) {
-        if (index == CURRENT_SWIPES.length - 1) {
-          draw.draw_swipe(CTX, swipe, true);
-        } else {
-          draw.draw_swipe(CTX, swipe, false);
+    CURRENT_SWIPES.forEach(function (swipe, index) {
+      if (index == CURRENT_SWIPES.length - 1) {
+        draw.draw_swipe(CTX, swipe, true);
+      } else {
+        draw.draw_swipe(CTX, swipe, false);
+      }
+    });
+    var poke_redraw_after = undefined;
+    var finished_pokes = [];
+    ACTIVE_POKES.forEach(function (poke, index) {
+      if (utils.is_equal(CURRENT_DIMENSION, poke[0])) {
+        let until_tick = draw.draw_poke(CTX, poke, ms_time);
+        let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
+        if (poke_redraw_after == undefined || poke_redraw_after > frames_left) {
+          poke_redraw_after = frames_left;
         }
-      });
+        if (ms_time - poke[2] >= POKE_DELAY) {
+          finished_pokes.push(index);
+        }
+      }
+    });
+    if (finished_pokes.length > 0) {
+      // remove & process finished pokes
+      DO_REDRAW = 0;
+      let adj = 0;
+      for (let i = 0; i < finished_pokes.length; ++i) {
+        let active = ACTIVE_POKES[i - adj];
+        content.unlock_poke(active[0], active[1]);
+        ACTIVE_POKES.splice(i - adj, 1);
+        adj += 1;
+      }
+    } else if (poke_redraw_after != undefined) {
+      // set up redraw for remaining active pokes
+      DO_REDRAW = Math.max(poke_redraw_after, 0);
     }
 
     // Draw loading bars for domains:

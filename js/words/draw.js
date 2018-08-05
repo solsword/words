@@ -748,6 +748,23 @@ define(
     }
   }
 
+  function draw_poke(ctx, poke, now) {
+    // Takes a context and a grid position and highlights that hex as a poke.
+    // Returns the number of milliseconds until the next draw update for this
+    // poke.
+    if (now == undefined) {
+      now = window.performance.now();
+    }
+    let gp = poke[1];
+    let initiated_at = poke[2];
+    let age = now - initiated_at;
+    // TODO: Something with age!
+    draw_highlight(ctx, gp, TRAIL_COLOR);
+
+    let until_tick = 1000 - age % 1000;
+    return until_tick;
+  }
+
   function draw_swipe(ctx, gplist, do_highlight) {
     // Takes a context, a list of grid positions defining the current swipe,
     // and whether or not to highlight this swipe, and draws the swipe.
@@ -897,6 +914,7 @@ define(
     "draw_supertile": draw_supertile,
     "view_pos": view_pos,
     "world_pos": world_pos,
+    "draw_poke": draw_poke,
     "draw_swipe": draw_swipe,
     "draw_loading": draw_loading,
   };

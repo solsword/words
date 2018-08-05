@@ -16,6 +16,10 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
   //var UNLOCK_LIMIT = 5;
   var UNLOCK_LIMIT = 1;
 
+  // Same for single-tile pokes:
+  var POKES = [];
+  var POKE_LIMIT = 1;
+
   // He list of currently energized tiles and the limit for that list:
   var ENERGIZED = [];
   var ENERGIZE_LIMIT = 1;
@@ -146,6 +150,15 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
         }
       }
     }
+    for (let i = 0; i < POKES.length; ++i) {
+      var entry = POKES[i];
+      if (entry.dimension == dimension) {
+        var pos = entry.pos;
+        if (pos[0] == gp[0] && pos[1] == gp[1]) {
+          return true;
+        }
+      }
+    }
     return false;
   }
 
@@ -166,6 +179,26 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
 
     if (UNLOCKED.length > UNLOCK_LIMIT) {
       UNLOCKED.shift();
+    }
+  }
+
+  function unlock_poke(dimension, gp) {
+    // Unlocks the given grid position in the given dimension. Depending on
+    // POKE_LIMIT, may lock the oldest unlocked poke.
+    var entry = { "dimension": dimension, "pos": gp.slice() };
+    for (var i = 0; i < POKES.length; ++i) {
+      if (utils.is_equal(POKES[i], entry)) {
+        break;
+      }
+    }
+    if (i < POKES.length) {
+      POKES.splice(i, 1);
+    }
+
+    POKES.push(entry);
+
+    if (POKES.length > POKE_LIMIT) {
+      POKES.shift();
     }
   }
 
@@ -269,11 +302,13 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
   }
 
   return {
+    "POKE_LIMIT": POKE_LIMIT,
     "set_seed": set_seed,
     "tile_at": tile_at,
     "fetch_supertile": fetch_supertile,
     "is_unlocked": is_unlocked,
     "unlock_path": unlock_path,
+    "unlock_poke": unlock_poke,
     "reset_energy": reset_energy,
     "is_energized": is_energized,
     "energize_tile": energize_tile,
