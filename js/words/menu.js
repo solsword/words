@@ -1,7 +1,7 @@
 // menu.js
 // Menu system for HTML5 canvas.
 
-define(["./draw", "./locale"], function(draw, locale) {
+define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   var MENUS = [];
 
   var MYCLICK = false;
@@ -186,33 +186,40 @@ define(["./draw", "./locale"], function(draw, locale) {
     }
   }
 
+  function style_color(style, name) {
+    if (style.hasOwnProperty("colors")) {
+      let c = style.colors;
+      if (c.hasOwnProperty(name)) {
+        let cobj = c[name];
+        if (typeof(cobj) == "function") {
+          return cobj(style);
+        } else {
+          return cobj;
+        }
+      }
+    }
+    return colors.menu_color(name);
+  }
+
   function BaseMenu(ctx, pos, shape, style) {
     this.ctx = ctx;
     this.pos = pos || {};
     this.shape = shape || {};
     this.style = style || {};
     this.style.padding = this.style.padding || 12;
-    this.style.background_color = this.style.background_color || "#333";
-    this.style.border_color = this.style.border_color || "#777";
     this.style.border_width = this.style.border_width || 1;
-    this.style.text_color = this.style.text_color || "#ddd";
     this.style.font_size = this.style.font_size || draw.FONT_SIZE;
     this.style.font_face = this.style.font_face || draw.FONT_FACE;
     this.style.line_height = this.style.line_height || 24;
-    this.style.button_color = this.style.button_color || "#555";
-    this.style.selected_button_color = (
-      this.style.selected_button_color || "#444"
-    );
-    this.style.button_border_color = this.style.button_border_color || "#ddd";
     this.style.button_border_width = this.style.button_border_width || 1;
-    this.style.button_text_color = this.style.button__text_color || "#aaa";
-    this.style.button_text_outline_color = (
-      this.style.button_text_outline_color || "#ddd"
-    );
     this.style.button_text_outline_width = (
       this.style.button_text_outline_width || 0
     );
     this.modal = false;
+  }
+
+  BaseMenu.prototype.color = function (name) {
+    return style_color(this.style, name);
   }
 
   BaseMenu.prototype.set_font = function (ctx) {
@@ -220,7 +227,7 @@ define(["./draw", "./locale"], function(draw, locale) {
       (this.style.font_size * ctx.viewport_scale) + "px "
     + this.style.font_face
     );
-    ctx.fillStyle = this.style.text_color;
+    ctx.fillStyle = this.color("text");
   }
 
   BaseMenu.prototype.is_hit = function (pos) {
@@ -325,9 +332,9 @@ define(["./draw", "./locale"], function(draw, locale) {
     var as = this.absshape();
     // Draws the menu background and edges
     ctx.beginPath(); // break any remnant path data
-    ctx.fillStyle = this.style.background_color;
+    ctx.fillStyle = this.color("background");
     ctx.fillRect(ap[0], ap[1], as[0], as[1]);
-    ctx.strokeStyle = this.style.border_color;
+    ctx.strokeStyle = this.color("border");
     ctx.lineWidth = this.style.border_width;
     ctx.strokeRect(ap[0], ap[1], as[0], as[1]);
     return false;
@@ -362,13 +369,13 @@ define(["./draw", "./locale"], function(draw, locale) {
       x = pos[0] + sw*i + (sw - iw)/2;
       y = pos[1] + padding;
       if (selected == i) {
-        ctx.fillStyle = style.selected_button_color;
+        ctx.fillStyle = style_color(style, "selected_button");
       } else {
-        ctx.fillStyle = style.button_color;
+        ctx.fillStyle = style_color(style, "button");
       }
       ctx.fillRect(x, y, iw, ih);
       ctx.lineWidth = style.button_border_width;
-      ctx.strokeStyle = style.button_border_color;
+      ctx.strokeStyle = style_color(style, "button_border");
       ctx.strokeRect(x, y, iw, ih);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -376,10 +383,10 @@ define(["./draw", "./locale"], function(draw, locale) {
       ctx.font_face = style.font_face;
       if (style.button_text_outline_width > 0) {
         ctx.lineWidth = style.button_text_outline_width*2;
-        ctx.strokeStyle = style.button_text_outline_color;
+        ctx.strokeStyle = style_color(style, "button_text_outline");
         ctx.strokeText(buttons[i].text, x + iw/2, y + ih/2);
       }
-      ctx.fillStyle = style.button_text_color;
+      ctx.fillStyle = style_color(style, "button_text");
       ctx.fillText(buttons[i].text, x + iw/2, y + ih/2);
     }
   }
@@ -551,10 +558,15 @@ define(["./draw", "./locale"], function(draw, locale) {
     // time it transitions.
     BaseMenu.call(this, ctx, pos, shape, style);
     this.style.orientation = this.style.orientation || "horizontal";
-    this.style.active_background = this.style.active_background || "#555";
-    this.style.active_border = this.style.active_border || "#bbb";
-    this.style.inactive_background = this.style.background_color;
-    this.style.inactive_border = this.style.border_color;
+    if (this.style.hasOwnProperty("colors")) {
+      let c = this.style.colors;
+      if (c.hasOwnProperty("background")) {
+        c["inactive_background"] = c["background"];
+      }
+      if (c.hasOwnProperty("border")) {
+        c["inactive_border"] = c["border"];
+      }
+    }
     this.text = text;
     this.on_action = on_action;
     this.off_action = off_action;
@@ -611,7 +623,7 @@ define(["./draw", "./locale"], function(draw, locale) {
     // draw the text
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = this.style.text_color;
+    ctx.fillStyle = this.color("text");
     ctx.font = (
       (this.style.font_size * ctx.viewport_scale) + "px "
     + this.style.font_face
@@ -778,12 +790,12 @@ define(["./draw", "./locale"], function(draw, locale) {
 
     // draw scrollbar:
     var sbw = this.style.scrollbar_width * ctx.viewport_scale;
-    ctx.fillStyle = this.style.button_color;
-    ctx.strokeStyle = this.style.button_border_color;
+    ctx.fillStyle = this.color("button");
+    ctx.strokeStyle = this.color("border");
     ctx.rect(ap[0] + as[0] - sbw, ap[1], sbw, as[1]);
     ctx.stroke();
     ctx.fill();
-    ctx.fillStyle = this.style.button_text_color;
+    ctx.fillStyle = this.color("text");
     if (this.words.length > 1) {
       var tsh = max_scroll - min_scroll;
       var twh = lh * this.words.length;
@@ -845,8 +857,6 @@ define(["./draw", "./locale"], function(draw, locale) {
     // A ButtonMenu is both a menu and a clickable button. The action is
     // triggered whenever it is clicked.
     BaseMenu.call(this, ctx, pos, shape, style);
-    this.style.active_background = this.style.active_background || "#555";
-    this.style.active_border = this.style.active_border || "#bbb";
     this.text = text;
     this.action = action;
   };
@@ -1036,8 +1046,8 @@ define(["./draw", "./locale"], function(draw, locale) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     this.set_font(ctx);
-    ctx.fillStyle = this.style.background_color;
-    ctx.strokeStyle = this.style.border_color;
+    ctx.fillStyle = this.color("background");
+    ctx.strokeStyle = this.color("border");
     ctx.lineWidth = this.style.border_width;
     // draw each slot
     for (let i = 0; i < this.contents.length; ++i) {

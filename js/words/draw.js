@@ -2,11 +2,8 @@
 // Drawing code for words game.
 
 define(
-  ["./grid", "./content"],
-  function(grid, content) {
-
-  var HIGHLIGHT_COLOR = "#fff";
-  var TRAIL_COLOR = "#ddd";
+  ["./grid", "./content", "./colors"],
+  function(grid, content, colors) {
 
   var LOADING_BAR_HEIGHT = 20;
   var LOADING_BAR_WIDTH = 120;
@@ -15,48 +12,6 @@ define(
   var FONT_SIZE = 24;
   var FONT_FACE = "asap";
   //var FONT_FACE = "serif";
-
-  var TILE_COLORS = {
-           "outline": "#555",
-             "inner": "#333",
-               "rim": "#555",
-               "pad": "#444",
-             "glyph": "#bbb",
-      "unlocked-pad": "#777",
-      "unlocked-rim": "#eee",
-    "unlocked-glyph": "#fff",
-      "included-pad": "#555",
-      "included-rim": "#777",
-  };
-
-  var LOADING_COLORS = {
-   "deactive": "#999",
-    "outline": "#999",
-      "inner": "#333",
-     "counts": "#777",
-      "index": "#999",
-       "text": "#fff"
-  };
-
-  var PALETTE = {
-    "gr": "#888",
-    "bl": "#8bf",
-    "lb": "#bef",
-    "rd": "#f66",
-    "yl": "#ff2",
-    "gn": "#6f6",
-    "lg": "#af7",
-  };
-
-  var BG_PALETTE = {
-    "gr": "#444",
-    "bl": "#224",
-    "lb": "#335",
-    "rd": "#422",
-    "yl": "#442",
-    "gn": "#242",
-    "lg": "#353",
-  }
 
   var CONTEXT_BOX = {
     "left": 20,
@@ -563,8 +518,8 @@ define(
   }
 
   function draw_hex_rim(ctx, wpos) {
-    ctx.strokeStyle = TILE_COLORS["outline"];
-    ctx.fillStyle = TILE_COLORS["inner"];
+    ctx.strokeStyle = colors.tile_color("outline");
+    ctx.fillStyle = colors.tile_color("inner");
 
     ctx.lineWidth=2;
 
@@ -619,7 +574,7 @@ define(
   function draw_tile(ctx, tile) {
     var gpos = tile["pos"];
     var wpos = grid.world_pos(gpos);
-    var colors = tile["colors"];
+    var tcolors = tile["colors"];
     var glyph = tile["glyph"];
     var domain = tile["domain"];
 
@@ -630,7 +585,7 @@ define(
 
     if (glyph == undefined) { // an unloaded tile: just draw a dim '?'
       // The question mark:
-      ctx.fillStyle = TILE_COLORS["pad"];
+      ctx.fillStyle = colors.tile_color("pad");
       ctx.fillText('?', vpos[0], vpos[1]);
 
     } else if (domain == "__object__") { // an active object
@@ -638,9 +593,9 @@ define(
 
       // The glyph:
       if (energized) {
-        ctx.fillStyle = TILE_COLORS["unlocked-glyph"];
+        ctx.fillStyle = colors.tile_color("unlocked-glyph");
       } else {
-        ctx.fillStyle = TILE_COLORS["pad"];
+        ctx.fillStyle = colors.tile_color("pad");
       }
       ctx.fillText(glyph, vpos[0], vpos[1]);
 
@@ -652,33 +607,33 @@ define(
       // Hexagon highlight
       ctx.lineWidth=3;
       // TODO DEBUG
-      if (colors.length > 0) {
+      if (tcolors.length > 0) {
         var side_colors = [];
-        if (colors.length <= 3 || colors.length >= 6) {
-          colors.forEach(function (c) {
-            side_colors.push(PALETTE[c]);
+        if (tcolors.length <= 3 || tcolors.length >= 6) {
+          tcolors.forEach(function (c) {
+            side_colors.push(colors.bright_color(c));
           });
-        } else if (colors.length == 4) {
+        } else if (tcolors.length == 4) {
           side_colors = [
-            TILE_COLORS["inner"], // invisible
-            PALETTE[colors[0]],
-            PALETTE[colors[1]],
-            TILE_COLORS["inner"], // invisible
-            PALETTE[colors[2]],
-            PALETTE[colors[3]],
+            colors.tile_color("inner"), // invisible
+            colors.bright_color(tcolors[0]),
+            colors.bright_color(tcolors[1]),
+            colors.tile_color("inner"), // invisible
+            colors.bright_color(tcolors[2]),
+            colors.bright_color(tcolors[3]),
           ];
-        } else if (colors.length == 5) {
+        } else if (tcolors.length == 5) {
           side_colors = [
-            TILE_COLORS["inner"], // invisible
-            PALETTE[colors[0]],
-            PALETTE[colors[1]],
-            PALETTE[colors[2]],
-            PALETTE[colors[3]],
-            PALETTE[colors[4]],
+            colors.tile_color("inner"), // invisible
+            colors.bright_color(tcolors[0]),
+            colors.bright_color(tcolors[1]),
+            colors.bright_color(tcolors[2]),
+            colors.bright_color(tcolors[3]),
+            colors.bright_color(tcolors[4]),
           ];
         } else {
           // Should be impossible
-          console.log("Internal Error: invalid colors length: "+ colors.length);
+          console.log("Internal Error: invalid colors length: "+tcolors.length);
         }
 
         for (var i = 0; i < grid.VERTICES.length; ++i) {
@@ -712,21 +667,21 @@ define(
       var r = grid.GRID_EDGE * 0.58 * ctx.viewport_scale;
       /* DEBUG TODO
       if (colors.length > 0) {
-        ctx.fillStyle = BG_PALETTE[colors[0]];
+        ctx.fillStyle = colors.dark_color(colors[0)];
       } else {
-        ctx.fillStyle = TILE_COLORS["pad"];
+        ctx.fillStyle = colors.tile_color("pad");
       }
       // */
       //* DEBUG
       if (unlocked) {
-        ctx.fillStyle = TILE_COLORS["unlocked-pad"];
-        ctx.strokeStyle = TILE_COLORS["unlocked-rim"];
+        ctx.fillStyle = colors.tile_color("unlocked-pad");
+        ctx.strokeStyle = colors.tile_color("unlocked-rim");
       } else if (tile.is_inclusion) {
-        ctx.fillStyle = TILE_COLORS["included-pad"];
-        ctx.strokeStyle = TILE_COLORS["included-rim"];
+        ctx.fillStyle = colors.tile_color("included-pad");
+        ctx.strokeStyle = colors.tile_color("included-rim");
       } else {
-        ctx.fillStyle = TILE_COLORS["pad"];
-        ctx.strokeStyle = TILE_COLORS["rim"];
+        ctx.fillStyle = colors.tile_color("pad");
+        ctx.strokeStyle = colors.tile_color("rim");
       }
       // */
       var shape = colors.length == 0;
@@ -740,9 +695,9 @@ define(
 
       // Letter
       if (unlocked) {
-        ctx.fillStyle = TILE_COLORS["unlocked-glyph"];
+        ctx.fillStyle = colors.tile_color("unlocked-glyph");
       } else {
-        ctx.fillStyle = TILE_COLORS["glyph"];
+        ctx.fillStyle = colors.tile_color("glyph");
       }
       ctx.fillText(glyph, vpos[0], vpos[1]);
     }
@@ -759,7 +714,7 @@ define(
     let initiated_at = poke[2];
     let age = now - initiated_at;
     // TODO: Something with age!
-    draw_highlight(ctx, gp, TRAIL_COLOR);
+    draw_highlight(ctx, gp, colors.ui_color("trail"));
 
     let until_tick = 1000 - age % 1000;
     return until_tick;
@@ -774,12 +729,12 @@ define(
 
     // Highlight hexes:
     for (var i = 0; i < gplist.length - 1; ++i) {
-      draw_highlight(ctx, gplist[i], TRAIL_COLOR);
+      draw_highlight(ctx, gplist[i], colors.ui_color("trail"));
     }
     if (do_highlight) {
-      draw_highlight(ctx, gplist[gplist.length-1], HIGHLIGHT_COLOR);
+      draw_highlight(ctx, gplist[gplist.length-1],colors.ui_color("highlight"));
     } else {
-      draw_highlight(ctx, gplist[gplist.length-1], TRAIL_COLOR);
+      draw_highlight(ctx, gplist[gplist.length-1], colors.ui_color("trail"));
     }
 
     // Draw line:
@@ -787,7 +742,7 @@ define(
       var wpos = grid.world_pos(gplist[0]);
       var vpos = view_pos(ctx, wpos);
 
-      ctx.strokeStyle = TRAIL_COLOR;
+      ctx.strokeStyle = colors.ui_color("trail");
       ctx.beginPath();
       ctx.moveTo(vpos[0], vpos[1]);
       // curves along the path:
@@ -865,22 +820,22 @@ define(
       var x = 10;
       var y = bars_top + ii * (LOADING_BAR_HEIGHT + LOADING_BAR_SPACING);
 
-      ctx.fillStyle = LOADING_COLORS["inner"];
+      ctx.fillStyle = colors.loading_color("inner");
       ctx.fillRect(x, y, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT);
       if (fetched) {
-        ctx.strokeStyle = LOADING_COLORS["outline"];
+        ctx.strokeStyle = colors.loading_color("outline");
       } else {
-        ctx.strokeStyle = LOADING_COLORS["deactive"];
+        ctx.strokeStyle = colors.loading_color("pre_outline");
       }
       ctx.strokeRect(x, y, LOADING_BAR_WIDTH, LOADING_BAR_HEIGHT);
-      ctx.fillStyle = LOADING_COLORS["index"];
+      ctx.fillStyle = colors.loading_color("index");
       ctx.fillRect(
         x + 2,
         y + 2,
         (LOADING_BAR_WIDTH - 4) * index_progress,
         (LOADING_BAR_HEIGHT - 5) / 2
       );
-      ctx.fillStyle = LOADING_COLORS["counts"];
+      ctx.fillStyle = colors.loading_color("counts");
       ctx.fillRect(
         x + 2,
         y + 2 + (LOADING_BAR_HEIGHT - 5) / 2 + 1,
@@ -899,14 +854,12 @@ define(
         ((LOADING_BAR_HEIGHT - 4) * ctx.viewport_scale) + "px "
       + "asap"
       );
-      ctx.fillStyle = LOADING_COLORS["text"];
+      ctx.fillStyle = colors.loading_color("text");
       ctx.fillText(txt, x+2, y+2);
     });
   }
 
   return {
-    "TILE_COLORS": TILE_COLORS,
-    "PALETTE": PALETTE,
     "FONT_FACE": FONT_FACE,
     "FONT_SIZE": FONT_SIZE,
     "interp_color": interp_color,
