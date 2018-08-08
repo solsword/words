@@ -9,7 +9,9 @@ define(
   var LOADING_BAR_WIDTH = 120;
   var LOADING_BAR_SPACING = 6;
 
-  var FONT_SIZE = 24;
+  // TODO: Dynamic zoom!
+  // var FONT_SIZE = 24;
+  var FONT_SIZE = 36;
   var FONT_FACE = "asap";
   //var FONT_FACE = "serif";
 
@@ -703,21 +705,12 @@ define(
     }
   }
 
-  function draw_poke(ctx, poke, now) {
+  function draw_poke(ctx, poke, ticks, max_ticks) {
     // Takes a context and a grid position and highlights that hex as a poke.
-    // Returns the number of milliseconds until the next draw update for this
-    // poke.
-    if (now == undefined) {
-      now = window.performance.now();
-    }
+    // Also needs to know the current and max # of ticks of the poke.
     let gp = poke[1];
-    let initiated_at = poke[2];
-    let age = now - initiated_at;
-    // TODO: Something with age!
-    draw_highlight(ctx, gp, colors.ui_color("trail"));
-
-    let until_tick = 1000 - age % 1000;
-    return until_tick;
+    draw_ticks(ctx, gp, ticks, max_ticks, colors.ui_color("poke"));
+    draw_highlight(ctx, gp, colors.ui_color("poke"));
   }
 
   function draw_swipe(ctx, gplist, do_highlight) {
@@ -799,6 +792,30 @@ define(
       }
     });
     ctx.closePath();
+    ctx.stroke();
+  }
+
+  function draw_ticks(ctx, gpos, ticks, max_ticks, color) {
+    // Takes a context, a grid position, counts of current & max ticks, and a
+    // color, and draws a countdown in that grid cell using that color.
+    var wpos = grid.world_pos(gpos);
+    var vpos = view_pos(ctx, wpos);
+
+    ctx.lineWidth = 4;
+
+    // Outer hexagon
+    ctx.strokeStyle = color;
+
+    var angle = 2 * Math.PI * (1 - (ticks / max_ticks));
+
+    ctx.beginPath();
+    ctx.arc(
+      vpos[0],
+      vpos[1],
+      grid.GRID_EDGE * 0.7,
+      -Math.PI/2,
+      -Math.PI/2 + angle
+    );
     ctx.stroke();
   }
 

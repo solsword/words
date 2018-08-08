@@ -7,9 +7,13 @@ function() {
 
   var SCHEMES = {
     "underground": {
+      "outer": {
+        "background": "#444",
+        "edge": "#000",
+      },
       "ui": {
  "highlight": "#fff",
-      "poke": "#fff",
+      "poke": "#ddd",
      "trail": "#ddd",
       },
       "tile": {
@@ -64,9 +68,13 @@ function() {
       },
     },
     "graph_paper": {
+      "outer": {
+        "background": "#fff",
+        "edge": "#000",
+      },
       "ui": {
  "highlight": "#000",
-      "poke": "#000",
+      "poke": "#bbf",
      "trail": "#222",
       },
       "tile": {
@@ -79,7 +87,7 @@ function() {
   "unlocked-rim": "#88f",
 "unlocked-glyph": "#000",
   "included-pad": "#fff",
-  "included-rim": "#efd",
+  "included-rim": "#dfe",
       },
       "loading": {
 "pre_outline": "#ccf",
@@ -90,13 +98,13 @@ function() {
        "text": "#000"
       },
       "menu": {
-        "background": "#ddd",
+        "background": "#ddf",
         "border": "#99f",
-        "active_background": "#aaa",
+        "active_background": "#aaf",
         "active_border": "#66f",
         "text": "#000",
-        "button": "#ccc",
-        "selected_button": "#aaa",
+        "button": "#ccf",
+        "selected_button": "#aaf",
         "button_border": "#eef",
         "button_text": "#333",
         "button_text_outline": "#555",
@@ -128,11 +136,12 @@ function() {
     }
   }
 
-  var CURRENT_SCHEME = SCHEMES["graph_paper"];
+  var CURRENT_SCHEME = undefined;
 
   function scheme_names() { return Object.keys(SCHEMES); }
   function set_color_scheme(name) { CURRENT_SCHEME = SCHEMES[name]; }
 
+  function outer_color(c) { return CURRENT_SCHEME["outer"][c]; }
   function ui_color(c) { return CURRENT_SCHEME["ui"][c]; }
   function tile_color(c) { return CURRENT_SCHEME["tile"][c]; }
   function loading_color(c) { return CURRENT_SCHEME["loading"][c]; }
@@ -140,14 +149,28 @@ function() {
   function dark_color(c) { return CURRENT_SCHEME["dark"][c]; }
   function menu_color(c) { return CURRENT_SCHEME["menu"][c]; }
 
+  function set_color_scheme(cs) {
+    CURRENT_SCHEME = SCHEMES[cs];
+    // TODO: Set styles non-destructively
+    document.body.style = "background: " + outer_color("background") + ";";
+    document.getElementById("canvas").style = (
+      "border_color: " + outer_color("edge") + ";"
+    );
+  }
+
+  // Initialize default color scheme:
+  set_color_scheme("graph_paper");
+
   return {
     "scheme_names": scheme_names,
     "set_color_scheme": set_color_scheme,
+    "outer_color": outer_color,
     "ui_color": ui_color,
     "tile_color": tile_color,
     "loading_color": loading_color,
     "bright_color": bright_color,
     "dark_color": dark_color,
     "menu_color": menu_color,
+    "set_color_scheme": set_color_scheme,
   }
 });

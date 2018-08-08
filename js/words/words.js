@@ -26,7 +26,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
   var CURRENT_SWIPES = [];
   var ACTIVE_POKES = [];
   // TODO: ADJUST THIS
-  var POKE_DELAY = 5000;
+  var POKE_DELAY = 24; // delay before a poke happens in seconds
   var SEL_CLEAR_ANIM = undefined;
   var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
@@ -481,7 +481,6 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
 
     if (isdbl) {
       // this is a double-click or double-tap
-      console.log("double");
       // Get rid of last two swipes & update glyphs
       CURRENT_SWIPES.pop();
       CURRENT_SWIPES.pop();
@@ -498,7 +497,27 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
         }
       }
       if (valid) {
-        ACTIVE_POKES.push([CURRENT_DIMENSION, gp, window.performance.now()]);
+        let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+        let found = undefined;
+        var found_time;
+        for (let i = 0; i < ACTIVE_POKES.length; ++i) {
+          if (
+            utils.is_equal(ACTIVE_POKES[i][0], entry[0])
+         && utils.is_equal(ACTIVE_POKES[i][1], entry[1])
+          ) {
+            found = i;
+            break;
+          }
+        }
+        if (found != undefined) {
+          // TODO: Cancel the poke instead?
+          entry[2] = ACTIVE_POKES[found][2];
+          ACTIVE_POKES.splice(found, 1);
+        }
+        ACTIVE_POKES.push(entry);
+        if (ACTIVE_POKES.length > content.POKE_LIMIT) {
+          ACTIVE_POKES.shift();
+        }
       }
       DO_REDRAW = 0;
     } else {
@@ -663,7 +682,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
     // set up menus:
     WORDS_LIST_MENU = new menu.WordList(
       CTX,
-      { "right": 40, "top": 30, "bottom": 90 },
+      { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
       { "width": undefined, "height": undefined },
       undefined,
       WORDS_LIST,
@@ -856,12 +875,18 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
     var finished_pokes = [];
     ACTIVE_POKES.forEach(function (poke, index) {
       if (utils.is_equal(CURRENT_DIMENSION, poke[0])) {
-        let until_tick = draw.draw_poke(CTX, poke, ms_time);
+        let initiated_at = poke[2];
+        let age = now - initiated_at;
+        let ticks = Math.floor(age/1000);
+        let until_tick = 1000 - age % 1000;
+
+        draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
+
         let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
         if (poke_redraw_after == undefined || poke_redraw_after > frames_left) {
           poke_redraw_after = frames_left;
         }
-        if (ms_time - poke[2] >= POKE_DELAY) {
+        if (ticks >= POKE_DELAY) {
           finished_pokes.push(index);
         }
       }

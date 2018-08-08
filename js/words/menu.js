@@ -9,6 +9,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   var TARGET = null;
   var HIT = false;
   var PATH = null;
+  var DEFAULT_MARGIN = 70;
 
   var CANVAS_SIZE = [800, 800]; // in pixels; use set_canvas_size
 
@@ -210,7 +211,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     this.style.border_width = this.style.border_width || 1;
     this.style.font_size = this.style.font_size || draw.FONT_SIZE;
     this.style.font_face = this.style.font_face || draw.FONT_FACE;
-    this.style.line_height = this.style.line_height || 24;
+    this.style.line_height = this.style.line_height || draw.FONT_SIZE;
     this.style.button_border_width = this.style.button_border_width || 1;
     this.style.button_text_outline_width = (
       this.style.button_text_outline_width || 0
@@ -241,28 +242,60 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     );
   }
 
+  BaseMenu.prototype.posval = function (x, max) {
+    // Converts a position to a real value.
+    if (!isNaN(+x)) {
+      return +x;
+    }
+    if (typeof(x) == "function") {
+      return x(this);
+    }
+    let unit = x.slice(x.length-2);
+    let multiplier = 1;
+    if (unit == "ex") {
+      // TODO: Adjust this?
+      multiplier = grid.FONT_SIZE * 0.5;
+    } else if (unit == "em") {
+      // TODO: Adjust this?
+      multiplier = grid.FONT_SIZE;
+    } else if (unit[1] == "%") {
+      return (+x.slice(0, x.length-1))/100 * max;
+    } // else leave multiplier at 1
+    return multiplier * +(x.slice(0, x.length-2));
+  }
+
   BaseMenu.prototype.abspos = function () {
     // Compute current absolute position in canvas coordinates
     var result = [ 0, 0 ];
     if (this.pos.hasOwnProperty("left") && this.pos.left != undefined) {
-      result[0] = this.pos.left;
+      result[0] = this.posval(this.pos.left, this.ctx.cwidth);
     } else if (this.pos.hasOwnProperty("right") && this.pos.right != undefined){
       if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
-        var w = this.shape.width * this.ctx.viewport_scale;
-        result[0] = this.ctx.cwidth - this.pos.right - w;
-      } else {
-        result[0] = this.pos.right; // auto-width -> symmetrical
+        var w = (
+          this.posval(this.shape.width, this.ctx.cwidth)
+        * this.ctx.viewport_scale
+        );
+        result[0] = (
+          this.ctx.cwidth
+        - this.posval(this.pos.right, this.ctx.cwidth)
+        - w
+        );
+      } else { // auto-width -> symmetrical
+        result[0] = this.posval(this.pos.right, this.ctx.cwidth);
       }
     } else {
       if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
-        var w = this.shape.width * this.ctx.viewport_scale;
+        var w = (
+          this.posval(this.shape.width, this.ctx.cwidth)
+        * this.ctx.viewport_scale
+        );
         result[0] = (this.ctx.cwidth - w)/2; // centered
       } else {
-        result[0] = 40; // no info default
+        result[0] = DEFAULT_MARGIN; // no info default
       }
     }
     if (this.pos.hasOwnProperty("top") && this.pos.top != undefined) {
-      result[1] = this.pos.top;
+      result[1] = this.posval(this.pos.top, this.ctx.cheight);
     } else if (
       this.pos.hasOwnProperty("bottom")
    && this.pos.bottom != undefined
@@ -271,20 +304,30 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         this.shape.hasOwnProperty("height")
      && this.shape.height != undefined
       ) {
-        var h = this.shape.height * this.ctx.viewport_scale;
-        result[1] = this.ctx.cheight - this.pos.bottom - h;
-      } else {
-        result[1] = this.pos.bottom; // auto-height -> symmetrical
+        var h = (
+          this.posval(this.shape.height, this.ctx.cheight)
+        * this.ctx.viewport_scale
+        );
+        result[1] = (
+          this.ctx.cheight
+        - this.posval(this.pos.bottom, this.ctx.cheight)
+        - h
+        );
+      } else { // auto-height -> symmetrical
+        result[1] = this.posval(this.pos.bottom, this.ctx.cheight);
       }
     } else {
       if (
         this.shape.hasOwnProperty("height")
      && this.shape.height != undefined
       ) {
-        var h = this.shape.height * this.ctx.viewport_scale;
+        var h = (
+          this.posval(this.shape.height, this.ctx.cheight)
+        * this.ctx.viewport_scale
+        );
         result[1] = (this.ctx.cwidth - h)/2; // centered
       } else {
-        result[1] = 40; // no info default
+        result[1] = DEFAULT_MARGIN; // no info default
       }
     }
     return result;
@@ -558,15 +601,12 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     // time it transitions.
     BaseMenu.call(this, ctx, pos, shape, style);
     this.style.orientation = this.style.orientation || "horizontal";
-    if (this.style.hasOwnProperty("colors")) {
-      let c = this.style.colors;
-      if (c.hasOwnProperty("background")) {
-        c["inactive_background"] = c["background"];
-      }
-      if (c.hasOwnProperty("border")) {
-        c["inactive_border"] = c["border"];
-      }
+    if (!this.style.hasOwnProperty("colors")) {
+      this.style.colors = {};
     }
+    let c = this.style.colors;
+    c["inactive_background"] = this.color("background");
+    c["inactive_border"] = this.color("border");
     this.text = text;
     this.on_action = on_action;
     this.off_action = off_action;
@@ -590,15 +630,17 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
   ToggleMenu.prototype.on_ = function () {
     // Turn on without triggering the toggle action.
-    this.style.background_color = this.style.active_background;
-    this.style.border_color = this.style.active_border;
+    this.style.colors = this.style.colors || {};
+    this.style.colors.background = this.color("active_background");
+    this.style.colors.border = this.color("active_border");
     this.is_on = true;
   }
 
   ToggleMenu.prototype.off_ = function () {
     // Turn off without triggering the toggle action.
-    this.style.background_color = this.style.inactive_background;
-    this.style.border_color = this.style.inactive_border;
+    this.style.colors = this.style.colors || {};
+    this.style.colors.background = this.color("inactive_background");
+    this.style.colors.border = this.color("inactive_border");
     this.is_on = false;
   }
 
@@ -795,7 +837,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     ctx.rect(ap[0] + as[0] - sbw, ap[1], sbw, as[1]);
     ctx.stroke();
     ctx.fill();
-    ctx.fillStyle = this.color("text");
+    ctx.fillStyle = this.color("selected_button");
     if (this.words.length > 1) {
       var tsh = max_scroll - min_scroll;
       var twh = lh * this.words.length;
@@ -881,7 +923,8 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   function GlyphsMenu(ctx, pos, shape, style, text, action) {
     // A ButtonMenu which displays glyphs-so-far, and which can flash colors.
     ButtonMenu.call(this, ctx, pos, shape, style, text, action);
-    this.style.base_border_color = this.style.border_color;
+    this.style.colors = this.style.colors || {};
+    this.style.colors.base_border = this.color("border");
     this.style.base_border_width = this.style.border_width;
     this.style.max_width = this.style.max_width || 0.8;
     this.style.border_growth = this.style.border_growth || 3.0;
@@ -940,11 +983,13 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       if (this.fade < 0.05) {
         this.fade = undefined;
         this.fade_color = undefined;
-        this.style.border_color = this.style.base_border_color;
+        this.style.colors = this.style.colors || {};
+        this.style.colors.border = this.color("base_border");
         this.style.border_width = this.style.base_border_width;
       } else {
-        this.style.border_color = draw.interp_color(
-          this.style.base_border_color,
+        this.style.colors = this.style.colors || {};
+        this.style.colors.border = draw.interp_color(
+          this.color("base_border"),
           this.fade,
           this.fade_color
         );
@@ -989,8 +1034,9 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       shape.width = shape.slot_width * contents.length;
     }
     BaseMenu.call(this, ctx, pos, shape, style);
-    this.style.slot_background_color = this.style.background_color;
-    this.style.slot_border_color = this.style.border_color;
+    this.style.colors = this.style.colors || {};
+    this.style.colors.slot_background = this.color("background");
+    this.style.colors.slot_border = this.color("border");
     this.style.slot_border_width = this.style.border_width;
     this.contents = [];
     for (glyph of contents) {

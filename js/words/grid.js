@@ -6,7 +6,9 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   var WARNINGS = true;
 
   // Grid size in pixels
-  var GRID_SIZE = 45;
+  // TODO: Dynamic zoom!
+  // var GRID_SIZE = 45;
+  var GRID_SIZE = 65;
 
   // Size constants based on GRID_SIZE
   var GRID_TOP = GRID_SIZE/2;
