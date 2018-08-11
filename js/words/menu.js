@@ -9,7 +9,8 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   var TARGET = null;
   var HIT = false;
   var PATH = null;
-  var DEFAULT_MARGIN = 70;
+  var DEFAULT_MARGIN = 0.05;
+  var MENU_FONT_SIZE = 28;
 
   var CANVAS_SIZE = [800, 800]; // in pixels; use set_canvas_size
 
@@ -209,7 +210,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     this.style = style || {};
     this.style.padding = this.style.padding || 12;
     this.style.border_width = this.style.border_width || 1;
-    this.style.font_size = this.style.font_size || draw.FONT_SIZE;
+    this.style.font_size = this.style.font_size || MENU_FONT_SIZE;
     this.style.font_face = this.style.font_face || draw.FONT_FACE;
     this.style.line_height = this.style.line_height || draw.FONT_SIZE;
     this.style.button_border_width = this.style.button_border_width || 1;
@@ -291,7 +292,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         );
         result[0] = (this.ctx.cwidth - w)/2; // centered
       } else {
-        result[0] = DEFAULT_MARGIN; // no info default
+        result[0] = DEFAULT_MARGIN * this.ctx.cwidth; // no info default
       }
     }
     if (this.pos.hasOwnProperty("top") && this.pos.top != undefined) {
@@ -325,9 +326,9 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
           this.posval(this.shape.height, this.ctx.cheight)
         * this.ctx.viewport_scale
         );
-        result[1] = (this.ctx.cwidth - h)/2; // centered
+        result[1] = (this.ctx.cheight - h)/2; // centered
       } else {
-        result[1] = DEFAULT_MARGIN; // no info default
+        result[1] = DEFAULT_MARGIN * this.ctx.cheight; // no info default
       }
     }
     return result;
@@ -684,31 +685,57 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     return false;
   }
 
-  function WordList(ctx, pos, shape, style, words, base_url) {
-    // A WordList is a scrollable list of words. Tapping on a word opens a
-    // definition link for that word, while swiping scrolls the menu. If
-    // base_url is left undefined or given some false value, tapping won't open
-    // links. base_url should have the string "<word>" in it, which will be
-    // replaced by the selected word. Example:
+  function ListMenu(ctx, pos, shape, style, items, base_url, prefix) {
+    // A ListMenu displays a scrollable list of items, arranged alphabetically
+    // by default, with optional clickable prefixes for each item.
+    // If base_url is left undefined or given some false value, tapping won't
+    // open links.
+    // base_url should have the string "<item>" in it, which will be
+    // replaced by the selected item. Example:
     //
-    // "https://en.wiktionary.org/wiki/<word>"
+    // "https://en.wiktionary.org/wiki/<item>"
     //
     // TODO: Handle too-wide words using a hover popup?
     BaseMenu.call(this, ctx, pos, shape, style);
-    this.style.prefix = this.style.prefix || "📖 ";
     this.style.scrollbar_width = this.style.scrollbar_width || 24;
-    this.words = words;
-    this.base_url = base_url;
+    this.items = items;
     this.scroll_position = -this.style.padding;
     this.press_last = undefined;
     this.scroll_drag = false;
     this.press_time = 0;
+    this.items = items;
+    this.base_url = base_url;
+    if (prefix == undefined) {
+      this.prefix = "· ";
+    } else {
+      this.prefix = prefix;
+    }
   }
 
-  WordList.prototype = Object.create(BaseMenu.prototype);
-  WordList.prototype.constructor = WordList;
+  ListMenu.prototype = Object.create(BaseMenu.prototype);
+  ListMenu.prototype.constructor = ListMenu;
 
-  WordList.prototype.tap = function (pos, hit) {
+  ListMenu.prototype.item_count = function() {
+    if (Array.isArray(this.items)) {
+      return this.items.length;
+    } else {
+      return Object.keys(this.items).length;
+    }
+  }
+
+  ListMenu.prototype.item_list = function() {
+    if (Array.isArray(this.items)) {
+      return this.items;
+    } else {
+      let result = Object.keys(this.items);
+      // TODO: Locale when sorting?
+      result.sort();
+      return result;
+    }
+  }
+
+  ListMenu.prototype.tap = function (pos, hit) {
+    let il = this.item_list();
     var as = this.absshape();
 
     var rp = this.rel_pos(pos);
@@ -718,7 +745,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     }
 
     this.set_font(this.ctx);
-    var m = this.ctx.measureText(this.style.prefix);
+    var m = this.ctx.measureText(this.prefix);
     var link_min = this.style.padding;
     var link_max = link_min + m.width;
     var sb_min = as[0] - this.style.scrollbar_width * this.ctx.viewport_scale;
@@ -734,15 +761,15 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         return;
       }
       var line = Math.floor(lry / lh);
-      if (line < 0 || line >= this.words.length) {
+      if (line < 0 || line >= il.length) {
         // out-of-range selection
         return;
       }
       if (this.base_url) {
         // TODO: Contextual case preservation?
         var target = this.base_url.replace(
-          "<word>",
-          locale.lower(this.words[line])
+          "<item>",
+          locale.lower(il[line])
         );
         window.open(target);
       }
@@ -754,15 +781,15 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     }
   }
 
-  WordList.prototype.scroll_limits = function() {
+  ListMenu.prototype.scroll_limits = function() {
     var as = this.absshape();
     var lh = this.style.line_height * this.ctx.viewport_scale;
     var min_scroll = -this.style.padding;
-    var max_scroll = this.words.length * lh - (as[1] - 2 * this.style.padding);
+    var max_scroll = this.item_count() * lh - (as[1] - 2 * this.style.padding);
     return [ min_scroll, max_scroll ];
   }
 
-  WordList.prototype.hover = function (path, hit) {
+  ListMenu.prototype.hover = function (path, hit) {
     if (path.length < 1) {
       return;
     }
@@ -791,17 +818,30 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     }
   }
 
-  WordList.prototype.swipe = function (path, st_hit, ed_hit) {
+  ListMenu.prototype.swipe = function (path, st_hit, ed_hit) {
     // Reset the scrolling context
     this.press_time = 0;
     this.press_last = undefined;
     this.scroll_drag = false;
   }
 
-  WordList.prototype.draw = function(ctx) {
+  ListMenu.prototype.draw_item = function(ctx, xy, max_width, text, val) {
+    // Draw a single item, given its text and value (value is ignored).
+    var m = ctx.measureText(text);
+    while (m.width > max_width) {
+      if (text.length <= 1) { break; }
+      text = text.slice(0, text.length - 2);
+      text += "…"
+      m = ctx.measureText(text);
+    }
+    ctx.fillText(text, xy[0], xy[1]);
+  }
+
+  ListMenu.prototype.draw = function(ctx) {
     var needs_update = false;
     // draw a box (w/ border)
     BaseMenu.prototype.draw.apply(this, [ctx]);
+    let il = this.item_list();
 
     // absolute position/size:
     var ap = this.abspos();
@@ -810,7 +850,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
     // adjust scroll position
     var min_scroll = -this.style.padding;
-    var max_scroll = this.words.length * lh - (as[1] - 2 * this.style.padding);
+    var max_scroll = il.length * lh - (as[1] - 2 * this.style.padding);
     if (max_scroll < 0) { max_scroll = 0; }
     if (this.scroll_position < min_scroll) {
       needs_update = true;
@@ -838,9 +878,9 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     ctx.stroke();
     ctx.fill();
     ctx.fillStyle = this.color("selected_button");
-    if (this.words.length > 1) {
+    if (il.length > 1) {
       var tsh = max_scroll - min_scroll;
-      var twh = lh * this.words.length;
+      var twh = lh * il.length;
       var sb_st = (this.scroll_position - min_scroll) / twh;
       var sb_ed = ((this.scroll_position + as[1]) - min_scroll) / twh;
       if (sb_st < 0) { sb_st = 0; }
@@ -864,10 +904,9 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     // draw words:
-    var words = this.words;
-    var prefix = this.style.prefix;
-    if (!words || words.length == 0) {
-      words = [ "<no words found yet>" ];
+    let prefix = this.prefix;
+    if (!il || il.length == 0) {
+      il = [ "---" ];
       prefix = ""
     }
     var st_line = Math.floor(this.scroll_position / lh) - 1;
@@ -875,17 +914,20 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     var line = st_line;
     var ry = line * lh - this.scroll_position;
     var max_width = as[0] - 2 * this.style.padding;
-    while (ry < as[1] + lh && line < words.length) {
+    while (ry < as[1] + lh && line < il.length) {
       // draw word:
-      var text = prefix + words[line];
-      var m = ctx.measureText(text);
-      while (m.width > max_width) {
-        if (text.length <= 1) { break; }
-        text = text.slice(0, text.length - 2);
-        text += "…"
-        m = ctx.measureText(text);
+      let key = il[line];
+      let val = undefined;
+      if (!Array.isArray(this.items)) {
+        let val = this.items[key];
       }
-      ctx.fillText(text, ap[0] + this.style.padding, ap[1] + ry);
+      this.draw_item(
+        ctx,
+        [ap[0] + this.style.padding, ap[1] + ry],
+        max_width,
+        prefix + key,
+        val
+      );
       // increment and continue
       line += 1;
       ry = line * lh - this.scroll_position;
@@ -894,6 +936,45 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     ctx.restore();
     return needs_update;
   }
+
+  function QuestList(ctx, pos, shape, style, quest_status) {
+    // A QuestList is a scrollable list of target words, which highlights
+    // discovered words until the quest is complete.
+    ListMenu.call(this, ctx, pos, shape, style, quest_status, undefined, "");
+    this.style.text_outline_width = this.style.text_outline_width || 1.5;
+  }
+
+  QuestList.prototype = Object.create(ListMenu.prototype);
+  QuestList.prototype.constructor = QuestList;
+
+  QuestList.prototype.draw_item = function(ctx, xy, max_width, text, val) {
+    // Draw a single item, highlighting it if the value is truth-y.
+    var m = ctx.measureText(text);
+    while (m.width > max_width) {
+      if (text.length <= 1) { break; }
+      text = text.slice(0, text.length - 2);
+      text += "…"
+      m = ctx.measureText(text);
+    }
+    if (val) {
+      ctx.lineWidth = this.style.text_outline_width*2;
+      ctx.strokeStyle = this.color("text_outline");
+      ctx.strokeText(text, xy[0], xy[1]);
+      // TODO: Why isn't this firing?
+      console.log("stroke");
+    }
+    ctx.fillStyle = this.color("text");
+    ctx.fillText(text, xy[0], xy[1]);
+  }
+
+  function WordList(ctx, pos, shape, style, words, base_url) {
+    // A WordList is a scrollable list of words. Tapping on a word opens a
+    // definition link for that word, while swiping scrolls the menu.
+    ListMenu.call(this, ctx, pos, shape, style, words, base_url, "📖 ");
+  }
+
+  WordList.prototype = Object.create(ListMenu.prototype);
+  WordList.prototype.constructor = WordList;
 
   function ButtonMenu(ctx, pos, shape, style, text, action) {
     // A ButtonMenu is both a menu and a clickable button. The action is
@@ -1320,7 +1401,9 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     "ButtonMenu": ButtonMenu,
     "GlyphsMenu": GlyphsMenu,
     "ToggleMenu": ToggleMenu,
+    "ListMenu": ListMenu,
     "WordList": WordList,
+    "QuestList": QuestList,
     "add_menu": add_menu,
     "remove_menu": remove_menu,
     "mousedown": mousedown,

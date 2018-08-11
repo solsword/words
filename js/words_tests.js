@@ -6,8 +6,8 @@ requirejs.config({
 // Tests for words stuff.
 
 requirejs(
-  ["words/grid", "words/generate", "words/dict"],
-  function(grid, generate, dict) {
+  ["words/grid", "words/generate", "words/dict", "words/quests"],
+  function(grid, generate, dict, quests) {
     function display_message(m) {
       document.body.innerHTML += "<div>" + m + "</div>";
     }
@@ -53,6 +53,37 @@ requirejs(
         [ grid.canonical_sgapos([ 111, 111, 3 ]), [112, 111, 0] ],
         [ grid.canonical_sgapos([ 111, 111, 4 ]), [112, 110, 1] ],
         [ grid.canonical_sgapos([ 111, 111, 5 ]), [111, 110, 2] ],
+      ],
+      "hint_matching": [
+        [ quests.matches("S*R", "SOAR"), true ],
+        [ quests.matches("S__R", "SOAR"), true ],
+        [ quests.matches("S*", "SOAR"), true ],
+        [ quests.matches("*R", "SOAR"), true ],
+        [ quests.matches("*", "SOAR"), true ],
+        [ quests.matches("_OA_", "SOAR"), true ],
+        [ quests.matches("D*R", "DISCOVER"), true ],
+        [ quests.matches("*VER", "DISCOVER"), true ],
+        [ quests.matches("DIS*", "DISCOVER"), true ],
+        [ quests.matches("*COV*", "DISCOVER"), true ],
+        [ quests.matches("*COV**", "DISCOVER"), true ],
+        [ quests.matches("DISC*OVER", "DISCOVER"), true ],
+        [ quests.matches("***", "A"), true ],
+        [ quests.matches("D_S_O_E_", "DISCOVER"), true ],
+        [ quests.matches("_I_C_V_R", "DISCOVER"), true ],
+        [ quests.matches("D______R", "DISCOVER"), true ],
+        [ quests.matches("__SCOV__", "DISCOVER"), true ],
+        [ quests.matches("___SCOV__", "DISCOVER"), false ],
+        [ quests.matches("__SCOV___", "DISCOVER"), false ],
+        [ quests.matches("DI___ER", "DISCOVER"), false ],
+        [ quests.matches("DI_____ER", "DISCOVER"), false ],
+        [ quests.matches("*VOC*", "DISCOVER"), false ],
+        [ quests.matches("*Z", "DISCOVER"), false ],
+        [ quests.matches("I*", "DISCOVER"), false ],
+        [ quests.matches("_", "AA"), false ],
+        [ quests.matches("*_", "AA"), true ],
+        [ quests.matches("*A*", "AA"), true ],
+        [ quests.matches("*A_", "AA"), true ],
+        [ quests.matches("_A*", "AA"), true ], // fails
       ],
     }
 

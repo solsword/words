@@ -237,8 +237,19 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
 
   function key__coords(gk) {
     // Converts a string key into a pair of grid coordinates.
+    if (gk == "undefined") { return undefined; }
     bits = gk.split(',');
     return bits.map(b => parseInt(b));
+  }
+
+  function z_coord(pos) {
+    // Z coordinate on the regular grid.
+    return pos[0] - pos[1];
+  }
+
+  function super_z(pos) {
+    // Z coordinate on the super grid.
+    return -pos[0] - pos[1];
   }
 
   function grid_distance(from, to) {
@@ -246,21 +257,17 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // http://keekerdc.com/2011/03/hexagon-grids-coordinate-systems-and-distance-calculations/
     // Note our formula for z is (-x + y + z = 0  ->  z = x - y) because our
     // axes are arranged differently.
-    let fz = from[0] - from[1];
-    let tz = to[0] - to[1];
     let dx = Math.abs(from[0] - to[0]);
     let dy = Math.abs(from[1] - to[1]);
-    let dz = Math.abs(fz - tz);
+    let dz = Math.abs(z_coord(from) - z_coord(to));
     return Math.max(dx, dy, dz);
   }
 
   function supergrid_distance(from, to) {
     // As above, but for the supergrid, which has different axes.
-    let fz = - from[0] - from[1];
-    let tz = - to[0] - to[1];
     let dx = Math.abs(from[0] - to[0]);
     let dy = Math.abs(from[1] - to[1]);
-    let dz = Math.abs(fz - tz);
+    let dz = Math.abs(super_z(from) - super_z(to));
     return Math.max(dx, dy, dz);
   }
 

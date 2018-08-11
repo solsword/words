@@ -42,6 +42,7 @@ function() {
         "active_background": "#555",
         "active_border": "#bbb",
         "text": "#ddd",
+        "text_outline": "#fff",
         "button": "#555",
         "selected_button": "#444",
         "button_border": "#ddd",
@@ -103,6 +104,7 @@ function() {
         "active_background": "#aaf",
         "active_border": "#66f",
         "text": "#000",
+        "text_outline": "#224",
         "button": "#ccf",
         "selected_button": "#aaf",
         "button_border": "#eef",
@@ -159,7 +161,8 @@ function() {
   }
 
   // Initialize default color scheme:
-  set_color_scheme("graph_paper");
+  // set_color_scheme("graph_paper");
+  set_color_scheme("underground");
 
   return {
     "scheme_names": scheme_names,

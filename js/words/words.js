@@ -12,8 +12,20 @@ define(
   "./menu",
   "./animate",
   "./utils",
+  "./quests",
 ],
-function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
+function(
+  draw,
+  content,
+  grid,
+  dimensions,
+  dict,
+  generate,
+  menu,
+  animate,
+  utils,
+  quests,
+) {
 
   var VIEWPORT_SIZE = 800.0;
 
@@ -99,9 +111,13 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
 
   // Word tracking:
   var WORDS_FOUND = {};
-  var WORDS_LIST = [];
+
+  // quests
+  var QUESTS = [];
 
   // Menus:
+  var QUEST_MENU = null;
+  var QUEST_SIDEBAR = null;
   var WORDS_LIST_MENU = null;
   var WORDS_SIDEBAR = null;
   var ABOUT_TOGGLE = null;
@@ -118,14 +134,21 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
   // Grid test:
   var GRID_TEST_DATA = undefined;
 
-  function find_word(word, gp) {
+  function find_word(dimension, word, path) {
     DO_REDRAW = 0;
     if (WORDS_FOUND.hasOwnProperty(word)) {
-      WORDS_FOUND[word].push(gp);
+      WORDS_FOUND[word].push([dimension, path[0]]);
     } else {
-      WORDS_FOUND[word] = [ gp ];
-      WORDS_LIST.push(word);
+      WORDS_FOUND[word] = [ [dimension, path[0]] ];
     }
+    for (var q of QUESTS) {
+      q.find_word(dimension, word, path)
+    }
+  }
+
+  function add_quest(q) {
+    q.initialize(WORDS_FOUND);
+    QUESTS.push(q);
   }
 
   function home_view() {
@@ -320,7 +343,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
         // clear our swipes and glyphs and add to our words found
         content.unlock_path(CURRENT_DIMENSION, combined_swipe);
         entries.forEach(function (e) {
-          find_word(e[2], combined_swipe[0]);
+          find_word(CURRENT_DIMENSION, e[2], combined_swipe);
         });
         clear_selection(
           CURRENT_GLYPHS_BUTTON.center(),
@@ -649,6 +672,7 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
     DO_REDRAW = 0;
 
     // Unlock initial tiles
+    // TODO: Better/different here?
     content.unlock_path(
       CURRENT_DIMENSION,
       [
@@ -657,6 +681,16 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
         [0, 1],
         [-1, -1],
       ]
+    );
+
+    // Grant starting quest
+    // TODO: Better/different here?
+    add_quest(
+      new quests.Quest(
+        "hunt",
+        { "targets": ["FIND", "DIS___ER", "S*R"] },
+        undefined
+      )
     );
 
     // kick off animation
@@ -680,23 +714,52 @@ function(draw, content, grid, dimensions, dict, generate, menu, animate, utils){
     });
 
     // set up menus:
+    QUEST_MENU = new menu.QuestList(
+      CTX,
+      { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
+      { "width": undefined, "height": undefined },
+      undefined,
+      QUESTS
+    );
+
+    QUEST_SIDEBAR = new menu.ToggleMenu(
+      CTX,
+      { "right": 0, "top": 80 },
+      { "width": 40, "height": 40 },
+      undefined, 
+      "!",
+      function () {
+        WORDS_SIDEBAR.off();
+        menu.add_menu(QUEST_MENU);
+      },
+      function () {
+        menu.remove_menu(QUEST_MENU);
+      }
+    );
+    menu.add_menu(QUEST_SIDEBAR);
+
     WORDS_LIST_MENU = new menu.WordList(
       CTX,
       { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
       { "width": undefined, "height": undefined },
       undefined,
-      WORDS_LIST,
-      "https://en.wiktionary.org/wiki/<word>"
+      WORDS_FOUND,
+      "https://en.wiktionary.org/wiki/<item>"
     );
 
     WORDS_SIDEBAR = new menu.ToggleMenu(
       CTX,
-      { "right": 0, "top": 20, "bottom": 80 },
-      { "width": 40, "height": undefined },
-      { "orientation": -Math.PI/2 }, 
-      "WORDS",
-      function () { menu.add_menu(WORDS_LIST_MENU); },
-      function () { menu.remove_menu(WORDS_LIST_MENU); }
+      { "right": 0, "top": 120 },
+      { "width": 40, "height": 40 },
+      undefined, 
+      "🗍",
+      function () {
+        QUEST_SIDEBAR.off();
+        menu.add_menu(WORDS_LIST_MENU);
+      },
+      function () {
+        menu.remove_menu(WORDS_LIST_MENU);
+      }
     );
     menu.add_menu(WORDS_SIDEBAR);
 

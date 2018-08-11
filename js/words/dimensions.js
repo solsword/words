@@ -54,6 +54,11 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     },
   };
 
+  function same(d1, d2) {
+    // Whether two dimensions are the same or not.
+    return utils.is_equal(d1, d2);
+  }
+
   function kind(dimension) {
     return DIMENSION_KINDS[dimension[0][0]];
   }
@@ -150,6 +155,7 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     "DIMENSION_KINDS": DIMENSION_KINDS,
     "DIMENSION_LAYOUTS": DIMENSION_LAYOUTS,
     "DIMENSION_FLAVORS": DIMENSION_FLAVORS,
+    "same": same,
     "kind": kind,
     "layout": layout,
     "flavor": flavor,

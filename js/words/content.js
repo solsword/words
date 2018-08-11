@@ -1,7 +1,9 @@
 // content.js
 // Manages grid + generate code to create, store, and deliver content.
 
-define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
+define(
+  ["./utils", "./grid", "./generate", "./dimensions"],
+  function(utils, grid, generate, dimensions) {
   // An object to hold generated supertile info.
   var SUPERTILES = {};
   var QUEUED = {};
@@ -52,9 +54,9 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
     //
     // If the appropriate supergrid tile is not yet loaded, it will be
     // generated. While generation is ongoing, this function will return an
-    // "unknown tile" object with the 'unlocked' property set to 'undefined'
-    // instead of 'true' or 'false', and empty colors list, and an undefined
-    // 'glyph' property.
+    // "unknown tile" object with the 'domain' property set to 'undefined'
+    // instead of a real domain, an empty colors list, and an undefined 'glyph'
+    // property.
 
     var sgp = grid.sgpos(gp);
     var st = fetch_supertile(dimension, gp);
@@ -135,12 +137,49 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
     }
   }
 
+  function unlocked_set(dimension) {
+    // Returns a mapping from unlocked positions in the given dimension to
+    // true. 'undefined' will be among the keys returned when an unlocked path
+    // uses an extradimensional glyph.
+    let result = {};
+    for (let i = 0; i < UNLOCKED.length; ++i) {
+      let entry = UNLOCKED[i];
+      if (dimensions.same(entry.dimension, dimension)) {
+        let path = entry.path;
+        for (let j = 0; j < path.length; ++j) {
+          result[grid.coords__key(path[j])] = true;
+        }
+      }
+    }
+    for (let i = 0; i < POKES.length; ++i) {
+      let entry = POKES[i];
+      if (dimensions.same(entry.dimension, dimension)) {
+        result[grid.coords__key(entry.pos)] = true;
+      }
+    }
+    return result;
+  }
+
+  function unlocked_paths(dimension) {
+    // Returns an array of position paths representing each unlocked path in
+    // the given dimension (not counting pokes). Note that some paths may
+    // contain 'undefined' entries where extradimensional glyphs were used.
+    let result = [];
+    for (let i = 0; i < UNLOCKED.length; ++i) {
+      let entry = UNLOCKED[i];
+      if (dimensions.same(entry.dimension, dimension)) {
+        result.push(entry.path.slice());
+      }
+    }
+    return result;
+  }
+
   function is_unlocked(dimension, gp) {
     // Checks whether the given grid position is unlocked or not.
     // TODO: This could be more efficient if multiple tiles were given at once.
     for (let i = 0; i < UNLOCKED.length; ++i) {
       var entry = UNLOCKED[i];
-      if (entry.dimension == dimension) {
+      if (dimensions.same(entry.dimension, dimension)) {
         var path = entry.path;
         for (let j = 0; j < path.length; ++j) {
           var pos = path[j];
@@ -152,7 +191,7 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
     }
     for (let i = 0; i < POKES.length; ++i) {
       var entry = POKES[i];
-      if (entry.dimension == dimension) {
+      if (dimensions.same(entry.dimension, dimension)) {
         var pos = entry.pos;
         if (pos[0] == gp[0] && pos[1] == gp[1]) {
           return true;
@@ -306,6 +345,8 @@ define(["./utils", "./grid", "./generate"], function(utils, grid, generate) {
     "set_seed": set_seed,
     "tile_at": tile_at,
     "fetch_supertile": fetch_supertile,
+    "unlocked_set": unlocked_set,
+    "unlocked_paths": unlocked_paths,
     "is_unlocked": is_unlocked,
     "unlock_path": unlock_path,
     "unlock_poke": unlock_poke,
