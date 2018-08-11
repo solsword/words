@@ -284,14 +284,14 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     this.targets = targets;
     this.bonuses = bonuses;
     this.found = found || {};
-    this.params = params;
+    this.params = params || {};
   }
 
   HuntQuest.prototype = Object.create(Quest.prototype);
   HuntQuest.prototype.constructor = HuntQuest;
 
   HuntQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.initialize.call(this, dimension, words_found);
+    Quest.prototype.initialize.call(this, dimension, words_found);
     // Sets already-found words as discovered for the quest if the
     // "retroactive" parameter is set.
     // TODO: Is this too slow?
@@ -309,7 +309,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   }
 
   HuntQuest.prototype.find_word = function(dimension, word) {
-    if (!dimensions.same(this.dimension, dim)) {
+    if (!dimensions.same(this.dimension, dimension)) {
       return;
     }
     for (var t of this.targets) {
@@ -344,6 +344,24 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     return bonus;
   }
 
+  HuntQuest.prototype.summary_display = function () {
+    return {
+      "draw": function (ctx, width) {
+      },
+      "height": function () {
+      }
+    }
+  }
+
+  HuntQuest.prototype.details_display = function () {
+    return {
+      "draw": function (ctx, width) {
+      },
+      "height": function () {
+      }
+    }
+  }
+
 
   function EncircleQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
@@ -357,7 +375,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   EncircleQuest.prototype.constructor = EncircleQuest;
 
   EncircleQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.initialize.call(this, dimension, words_found);
+    Quest.prototype.initialize.call(this, dimension, words_found);
     this.area_encircled = unlocked_encircled(this.dimension);
   };
 
@@ -387,7 +405,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   StretchQuest.prototype.constructor = StretchQuest;
 
   StretchQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.initialize.call(this, dimension, words_found);
+    Quest.prototype.initialize.call(this, dimension, words_found);
     this.span = unlocked_span(this.dimension);
   };
 
@@ -417,7 +435,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   BranchQuest.prototype.constructor = BranchQuest;
 
   BranchQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.initialize.call(this, dimension, words_found);
+    Quest.prototype.initialize.call(this, dimension, words_found);
     this.branches = unlocked_branches(this.dimension);
   };
 
@@ -447,7 +465,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   BigQuest.prototype.constructor = BigQuest;
 
   BigQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.initialize.call(this, dimension, words_found);
+    Quest.prototype.initialize.call(this, dimension, words_found);
     this.sizes = unlocked_sizes(this.dimension);
   };
 
@@ -491,7 +509,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   GlyphQuest.prototype.constructor = GlyphQuest;
 
   GlyphQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.initialize.call(this, dimension, words_found);
+    Quest.prototype.initialize.call(this, dimension, words_found);
     // Already-discovered glyphs are *not* counted, because unlocked areas
     // might possibly be unloaded.
   };

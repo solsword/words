@@ -686,10 +686,11 @@ function(
     // Grant starting quest
     // TODO: Better/different here?
     add_quest(
-      new quests.Quest(
-        "hunt",
-        { "targets": ["FIND", "DIS___ER", "S*R"] },
-        undefined
+      new quests.HuntQuest(
+        ["FIND", "SIN", "S*R"],
+        ["DIS___ER"],
+        undefined, // params
+        undefined // reward
       )
     );
 
