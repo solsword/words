@@ -685,6 +685,439 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     return false;
   }
 
+  function ScrollBox(ctx, pos, shape, style, items) {
+    // A ScrollBox displays a vertical list of items, allowing the user to
+    // scroll vertically and/or horizontally to view them if they're too
+    // big/numerous for the box.
+    BaseMenu.call(this, ctx, pos, shape, style);
+    this.style.scrollbar_width = this.style.scrollbar_width || 24;
+    this.scroll_position = [-this.style.padding, -this.style.padding];
+    this.press_last = undefined;
+    this.scroll_drag = false;
+    this.press_time = 0;
+    this.items = items;
+  }
+
+  ScrollBox.prototype = Object.create(BaseMenu.prototype);
+  ScrollBox.prototype.constructor = ScrollBox;
+      /*
+       * TODO: Work this snippet into ListMenu items
+      if (this.base_url) {
+        // TODO: Contextual case preservation?
+        var target = this.base_url.replace(
+          "<item>",
+          locale.lower(il[line])
+        );
+        window.open(target);
+      }
+      */
+
+  ScrollBox.prototype.item_max_width = function() {
+    if (this.style.fixed_item_width) {
+      return this.style.fixed_item_width;
+    } else {
+      let result = 0;
+      for (let it of this.items) {
+        let w = it.width(this.ctx);
+        if (w > result) {
+          result = w;
+        }
+      }
+      return result;
+    }
+  }
+
+  ScrollBox.prototype.item_total_height = function() {
+    if (this.style.fixed_item_height) {
+      return this.style.fixed_item_height * this.items.length;
+    } else {
+      let result = 0;
+      for (let it of this.items) {
+        result += it.height(this.ctx);
+      }
+      return result;
+    }
+  }
+
+  ScrollBox.prototype.sb_geom = function () {
+    // Computes scrollbar geometry: vert min/max and horiz min/max.
+    let as = this.absshape();
+    let w = as[0];
+    let h = as[1];
+    let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
+    let sb_vmin = w - asw;
+    let sb_vmax = w;
+    let ixw = this.item_max_width(this.ctx);
+    let sb_hmin = undefined;
+    let sb_hmax = undefined;
+    if (ixw > w) {
+      sb_hmin = h - asw;
+      sb_hmax = h;
+    }
+    return [
+      sb_vmin,
+      sb_vmax,
+      sb_hmin,
+      sb_hmax
+    ];
+  }
+
+  ScrollBox.prototype.scroll_limits = function() {
+    let as = this.absshape();
+    let w = as[0];
+    let y = as[1];
+
+    let ixw = this.item_max_width();
+    let min_horiz = -this.style.padding;
+    let max_horiz = ixw - (w - 2 * this.style.padding);
+
+    let ith = this.item_total_height();
+    let min_vert = -this.style.padding;
+    let max_vert = ith - (h - 2 * this.style.padding);
+
+    return [ min_horiz, max_horiz, min_vert, max_vert ];
+  }
+
+  ScrollBox.prototype.tap = function (pos, hit) {
+    let as = this.absshape();
+    let w = as[0];
+    let h = as[1];
+
+    let rp = this.rel_pos(pos);
+    let x = rp[0];
+    let y = rp[1];
+    if (!hit || this.press_time > 3) {
+      // Don't count misses or the end of low-motion scrolling.
+      return;
+    }
+
+    let sbg = this.sb_geom();
+    let sb_vmin = sb_geom[0];
+    let sb_vmax = sb_geom[1];
+    let sb_hmin = sb_geom[2];
+    let sb_hmax = sb_geom[3];
+
+    let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
+
+    if (x >= sb_vmin && x <= sb_vmax) { // hit on the vertical scrollbar
+      let sl = this.scroll_limits();
+      let vn = sl[2];
+      let vx = sl[3];
+      this.scroll_position = [
+        this.scroll_position[0],
+        vn + (vx - vn) * (y / h),
+      ];
+    } else if (y >= sb_hmin && y <= sb_hmax) { // hit on the horizontal bar
+      let sl = this.scroll_limits();
+      let hn = sl[0];
+      let hx = sl[1];
+      this.scroll_position = [
+        hn + (hx - hn) * (x / (w - asw))
+        this.scroll_position[1],
+      ];
+    } else { // hit on an item
+      let lrx = x + this.scroll_position[0];
+      let lry = y + this.scroll_position[1];
+      let idx = undefined;
+      let iry = 0;
+      if (this.style.fixed_item_height) {
+        idx = Math.floor(lry / this.style.fixed_item_height);
+        iry = lry % this.style.fixed_item_height;
+      } else {
+        idx = 0;
+        let remaining = lry;
+        for (let it of this.items) {
+          let ih = it.height(this.ctx);
+          remaining -= ih;
+          if (remaining < 0) {
+            iry = ih + remaining;
+            break;
+          } else {
+            idx += 1;
+          }
+        }
+      }
+      if (idx < 0 || idx >= this.items.length) {
+        // out-of-range selection
+        return;
+      }
+      this.items[idx].tap([lry, irx]);
+    }
+  }
+
+  ScrollBox.prototype.drag = function (path, hit) {
+    if (path.length < 1) {
+      return;
+    }
+
+    let pos = path[path.length - 1];
+
+    let rp = this.rel_pos(pos);
+    let x = rp[0];
+    let y = rp[1];
+
+    let as = this.absshape();
+    let w = as[0];
+    let h = as[1];
+
+    let sbg = this.sb_geom();
+    let sb_vmin = sb_geom[0];
+    let sb_vmax = sb_geom[1];
+    let sb_hmin = sb_geom[2];
+    let sb_hmax = sb_geom[3];
+
+    if (
+      this.scroll_drag == "vert"
+   || (this.press_last == undefined && x >= sb_vmin && x <= sb_vmax)
+    ) { // hit on the vertical scrollbar
+      this.scroll_drag = "vert";
+      let sl = this.scroll_limits();
+      let vn = sl[2];
+      let vx = sl[3];
+      this.scroll_position = vn + (vx - vn) * (y / h);
+    } else if (
+      this.scroll_drag == "horiz"
+   || (this.press_last == undefined && y >= sb_hmin & y <= sb_hmax)
+    ) { // hit on the horizontal scrollbar
+      this.scroll_drag == "horiz"
+      let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
+      let sl = this.scroll_limits();
+      let hn = sl[0];
+      let hx = sl[1];
+      this.scroll_position = hn + (hx - hn) * (x / (w - asw));
+    } else { // hit elsewhere in the window
+      let sl = this.scroll_limits();
+      let hn = sl[0];
+      let hx = sl[1];
+      let vn = sl[2];
+      let vx = sl[3];
+      if (this.press_last != undefined && hit) {
+        this.scroll_position[0] -= x - this.press_last[0];
+        this.scroll_position[1] -= y - this.press_last[1];
+        if (this.scroll_position[0] < hn) { this.scroll_position[0] = hn; }
+        if (this.scroll_position[0] > hx) { this.scroll_position[0] = hx; }
+        if (this.scroll_position[1] < vn) { this.scroll_position[1] = vn; }
+        if (this.scroll_position[1] > vx) { this.scroll_position[1] = vx; }
+      }
+      if (this.press_last != undefined || hit) {
+        this.press_time += 1;
+        this.press_last = rp;
+      }
+    }
+  }
+
+  ScrollBox.prototype.swipe = function (path, st_hit, ed_hit) {
+    // Reset the scrolling context when a swipe finishes
+    this.press_time = 0;
+    this.press_last = undefined;
+    this.scroll_drag = false;
+  }
+
+  ScrollBox.prototype.draw = function(ctx) {
+    // draw a box (w/ border)
+    BaseMenu.prototype.draw.apply(this, [ctx]);
+
+    // absolute position/shape:
+    let ap = this.abspos();
+    let ox = ap[0];
+    let oy = ap[1];
+
+    let as = this.absshape();
+    let w = as[0];
+    let h = as[1];
+    let lh = this.style.line_height * ctx.viewport_scale;
+
+    // scroll limits:
+    let sl = this.scroll_limits();
+    let hn = sl[0];
+    let hx = sl[1];
+    let vn = sl[2];
+    let vx = sl[3];
+
+    // draw vertical scrollbar:
+    let asw = this.style.scrollbar_width * ctx.viewport_scale;
+    ctx.fillStyle = this.color("button");
+    ctx.strokeStyle = this.color("border");
+    ctx.rect(ox + w - asw, oy, asw, h);
+    ctx.stroke();
+    ctx.fill();
+    ctx.fillStyle = this.color("selected_button");
+    if (this.items.length > 1) {
+      let tsh = vx - vn;
+      let ith = this.item_total_height();
+      let sb_st = (this.scroll_position[1] - vn) / ith;
+      let sb_ed = ((this.scroll_position[1] + h) - vn) / ith;
+      if (sb_st < 0) { sb_st = 0; }
+      if (sb_ed > 1) { sb_ed = 1; }
+      sb_st *= h;
+      sb_ed *= h;
+      ctx.beginPath();
+      ctx.rect(ox + w - asw, oy + sb_st, asw, sb_ed - sb_st);
+      ctx.fill();
+
+      // Draw little arrows if there's room
+      let sb_h = sb_ed - sb_st;
+      if (sb_h >= asw) {
+        let ao = asw/8;
+        let left = ox + w - asw + ao;
+        let middle = ox + w - asw/2;
+        let right = ox + w - ao;
+        let tt = oy + sb_st + ao;
+        let tb = oy + sb_st + asw - ao;
+        let bt = oy + sb_ed - asw + ao;
+        let bb = oy + sb_ed - ao;
+        if (sb_h < 2*asw) {
+          // adjust for smaller area:
+          let each = sb_h / 2;
+          let diff = asw - each;
+          let scale_diff = diff * (asw - 2*ao) / asw
+          left += scale_diff;
+          right -= scale_diff;
+          tb -= scale_diff;
+          bt += scale_diff;
+        }
+        ctx.strokeStyle = this.color("button_text");
+        // top arrow
+        ctx.beginPath();
+        ctx.moveTo(left, tb);
+        ctx.lineTo(middle, tt);
+        ctx.lineTo(right, tb);
+        ctx.stroke();
+        // bottom arrow
+        ctx.beginPath();
+        ctx.moveTo(left, bt);
+        ctx.lineTo(middle, bb);
+        ctx.lineTo(right, bt);
+        ctx.stroke();
+      }
+    } else {
+      // fill whole scrollbar rect
+      ctx.fill();
+    }
+
+    // draw horizontal scrollbar if necessary:
+    let clip_bot = 0;
+    if (this.item_max_width() > w) {
+      clip_bot = asw;
+      ctx.fillStyle = this.color("button");
+      ctx.strokeStyle = this.color("border");
+      ctx.rect(ox, oy + h - asw, w, asw);
+      ctx.stroke();
+      ctx.fill();
+      ctx.fillStyle = this.color("selected_button");
+
+      let tsh = hx - hn;
+      let ixw = this.item_max_width();
+      let sb_st = (this.scroll_position[0] - hn) / ixw;
+      let sb_ed = ((this.scroll_position[0] + w) - hn) / ixw;
+      if (sb_st < 0) { sb_st = 0; }
+      if (sb_ed > 1) { sb_ed = 1; }
+      sb_st *= w;
+      sb_ed *= w;
+      ctx.beginPath();
+      ctx.rect(ox + sb_st, oy + h - asw, sb_ed - sb_st, asw);
+      ctx.fill();
+
+      // Draw little arrows if there's room
+      let sb_w = sb_ed - sb_st;
+      if (sb_w >= asw) {
+        let ao = asw/8;
+        let top = oy + h - asw + ao;
+        let middle = oy + h - asw/2;
+        let bot = oy + h - ao;
+        let ll = ox + sb_st + ao;
+        let lr = ox + sb_st + asw - ao;
+        let rl = ox + sb_ed - asw + ao;
+        let rr = ox + sb_ed - ao;
+        if (sb_w < 2*asw) {
+          // adjust for smaller area:
+          let each = sb_w / 2;
+          let diff = asw - each;
+          let scale_diff = diff * (asw - 2*ao) / asw
+          top += scale_diff;
+          bot -= scale_diff;
+          lr -= scale_diff;
+          rl += scale_diff;
+        }
+        ctx.strokeStyle = this.color("button_text");
+        // left arrow
+        ctx.beginPath();
+        ctx.moveTo(lr, top);
+        ctx.lineTo(ll, middle);
+        ctx.lineTo(lr, bot);
+        ctx.stroke();
+        // right arrow
+        ctx.beginPath();
+        ctx.moveTo(rl, top);
+        ctx.lineTo(rr, middle);
+        ctx.lineTo(rl, bot);
+        ctx.stroke();
+      }
+    }
+
+    // set clip region:
+    ctx.rect(ox, oy, w - asw, h - clip_bot);
+    ctx.save()
+    ctx.clip();
+
+
+    // draw items:
+    let off_x = this.scroll_position[0];
+    let st_idx = undefined;
+    let ed_idx = undefined;
+    if (this.style.fixed_item_height) {
+      st_idx = Math.floor(
+        this.scroll_position[1]
+      / this.style.fixed_item_height
+      ) - 1;
+      ed_idx = Math.floor(
+        (this.scroll_position[1] + h - clip_bot)
+      / this.style.fixed_item_height
+      );
+    } else {
+      st_idx = 0;
+      ed_idx = 0;
+      let rtop = this.scroll_position[1];
+      let rbot = rtop + h - clip_bot;
+      let found_top = false;
+      for (let it of this.items) {
+        let h = it.height(this.ctx);
+        rtop -= h;
+        rbot -= h
+        if (!found_top && rtop < 0) {
+          found_top = true;
+        } else if (!found_top) {
+          st_idx += 1;
+        }
+        if (rbot < 0) {
+          break;
+        } else {
+          ed_idx += 1;
+        }
+      }
+    }
+    if (st_idx < 0) { st_idx = 0; }
+    if (ed_idx < 0) { ed_idx = 0; }
+    if (st_idx >= this.items.length) { st_idx = this.items.lenth - 1; }
+    if (ed_idx >= this.items.length) { ed_idx = this.items.lenth - 1; }
+
+    let off_y = 0;
+    for (let idx = st_idx; idx <= ed_idx; ++idx) {
+      let it = this.items[idx];
+      let h = it.height(this.ctx);
+      ctx.save();
+      ctx.translate(off_x, off_y);
+      it.draw(ctx);
+      ctx.restore();
+      off_y += h;
+    }
+
+    // undo clipping:
+    ctx.restore();
+
+    return false; // no further updates needed
+  }
+
   function ListMenu(ctx, pos, shape, style, items, base_url, prefix) {
     // A ListMenu displays a scrollable list of items, arranged alphabetically
     // by default, with optional clickable prefixes for each item.
@@ -697,12 +1130,6 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     //
     // TODO: Handle too-wide words using a hover popup?
     BaseMenu.call(this, ctx, pos, shape, style);
-    this.style.scrollbar_width = this.style.scrollbar_width || 24;
-    this.items = items;
-    this.scroll_position = -this.style.padding;
-    this.press_last = undefined;
-    this.scroll_drag = false;
-    this.press_time = 0;
     this.items = items;
     this.base_url = base_url;
     if (prefix == undefined) {
@@ -732,97 +1159,6 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       result.sort();
       return result;
     }
-  }
-
-  ListMenu.prototype.tap = function (pos, hit) {
-    let il = this.item_list();
-    var as = this.absshape();
-
-    var rp = this.rel_pos(pos);
-    if (!hit || this.press_time > 3) {
-      // Don't count misses or the end of low-motion scrolling.
-      return;
-    }
-
-    this.set_font(this.ctx);
-    var m = this.ctx.measureText(this.prefix);
-    var link_min = this.style.padding;
-    var link_max = link_min + m.width;
-    var sb_min = as[0] - this.style.scrollbar_width * this.ctx.viewport_scale;
-    var sb_max = as[0];
-    if (rp[0] >= link_min && rp[0] <= link_max) { // hit on a word arrow
-      var lh = this.style.line_height * this.ctx.viewport_scale;
-      // list-relative y position:
-      var lry = rp[1] + this.scroll_position;
-      // fractional y position:
-      var fry = lry % lh;
-      if (fry > (this.style.font_size * this.ctx.viewport_scale) + 3) {
-        // between-lines hit (text alignment is top)
-        return;
-      }
-      var line = Math.floor(lry / lh);
-      if (line < 0 || line >= il.length) {
-        // out-of-range selection
-        return;
-      }
-      if (this.base_url) {
-        // TODO: Contextual case preservation?
-        var target = this.base_url.replace(
-          "<item>",
-          locale.lower(il[line])
-        );
-        window.open(target);
-      }
-    } else if (rp[0] >= sb_min && rp[0] <= sb_max) {
-      // hit on the scrollbar
-      var lh = this.style.line_height * this.ctx.viewport_scale;
-      var sl = this.scroll_limits();
-      this.scroll_position =  sl[0] + (sl[1] - sl[0]) * (rp[1] / as[1]);
-    }
-  }
-
-  ListMenu.prototype.scroll_limits = function() {
-    var as = this.absshape();
-    var lh = this.style.line_height * this.ctx.viewport_scale;
-    var min_scroll = -this.style.padding;
-    var max_scroll = this.item_count() * lh - (as[1] - 2 * this.style.padding);
-    return [ min_scroll, max_scroll ];
-  }
-
-  ListMenu.prototype.hover = function (path, hit) {
-    if (path.length < 1) {
-      return;
-    }
-    var pos = path[path.length - 1];
-    var rp = this.rel_pos(pos);
-    var as = this.absshape();
-
-    var sb_min = as[0] - this.style.scrollbar_width * this.ctx.viewport_scale;
-    var sb_max = as[0];
-    if (
-      this.scroll_drag
-   || (this.press_last == undefined && rp[0] >= sb_min && rp[0] <= sb_max)
-    ) { // hit on the scrollbar
-      this.scroll_drag = true;
-      var lh = this.style.line_height * this.ctx.viewport_scale;
-      var sl = this.scroll_limits();
-      this.scroll_position =  sl[0] + (sl[1] - sl[0]) * (rp[1] / as[1]);
-    } else { // hit elsewhere in the window
-      if (this.press_last != undefined && hit) {
-        this.scroll_position -= rp[1] - this.press_last[1];
-      }
-      if (this.press_last != undefined || hit) {
-        this.press_time += 1;
-        this.press_last = rp;
-      }
-    }
-  }
-
-  ListMenu.prototype.swipe = function (path, st_hit, ed_hit) {
-    // Reset the scrolling context
-    this.press_time = 0;
-    this.press_last = undefined;
-    this.scroll_drag = false;
   }
 
   ListMenu.prototype.draw_item = function(ctx, xy, max_width, text, val) {
@@ -1233,9 +1569,9 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     call_if_available(menu, "press", [pos, hit]);
   }
 
-  function handle_hover(menu, path, hit) {
+  function handle_drag(menu, path, hit) {
     // Handles motion during a press.
-    call_if_available(menu, "hover", [path, hit]);
+    call_if_available(menu, "drag", [path, hit]);
   }
 
   function handle_tap(menu, pos, hit) {
@@ -1308,7 +1644,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     // behavior if this function returns false.
     if (MYCLICK) {
       PATH.push(vpos);
-      handle_hover(TARGET, PATH, HIT);
+      handle_drag(TARGET, PATH, HIT);
       return true;
     } else {
       return false;
