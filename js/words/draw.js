@@ -23,6 +23,18 @@ define(
     "padding": 8,
   }
 
+  function measure_text(ctx, text) {
+    let m = ctx.measureText(text);
+    // This seems to be as good as any of the relevant hacks since we always
+    // set fonts in px units. It doesn't include descenders of course.
+    m.height = Number.parseFloat(ctx.font);
+    // An estimate to accommodate descenders; will generally leave extra space
+    // overall...
+    // TODO: Better than this!
+    m.height *= 1.4;
+    return m;
+  }
+
   function interp_color(original, proportion, target) {
     // Interpolates two colors according to the given proportion. Accepts and
     // returns RGB hex strings.
@@ -879,6 +891,7 @@ define(
   return {
     "FONT_FACE": FONT_FACE,
     "FONT_SIZE": FONT_SIZE,
+    "measure_text": measure_text,
     "interp_color": interp_color,
     "draw_tiles": draw_tiles,
     "draw_supertile": draw_supertile,

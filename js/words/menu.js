@@ -27,18 +27,6 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
   var TEXT_OUTLINE_WIDTH = 3;
 
-  function measure_text(ctx, text) {
-    let m = ctx.measureText(text);
-    // This seems to be as good as any of the relevant hacks since we always
-    // set fonts in px units. It doesn't include descenders of course.
-    m.height = Number.parseFloat(ctx.font);
-    // An estimate to accommodate descenders; will generally leave extra space
-    // overall...
-    // TODO: Better than this!
-    m.height *= 1.4;
-    return m;
-  }
-
   function set_canvas_size(sz) {
     CANVAS_SIZE = sz;
   }
@@ -63,7 +51,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       } else {
         test_line = word;
       }
-      var m = measure_text(ctx, test_line);
+      var m = draw.measure_text(ctx, test_line);
       if (m.width <= max_width) {
         // Next word fits:
         line = test_line;
@@ -73,7 +61,8 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         // TODO: Don't hyphenate things like numbers?!?
         var fit = 0;
         for (i = test_line.length-2; i > -1; i -= 1) {
-          if (measure_text(ctx, test_line.slice(0,i) + "-").width <= max_width){
+          let sw = draw.measure_text(ctx, test_line.slice(0,i) + "-").width;
+          if (sw <= max_width) {
             fit = i;
             break;
           }
@@ -129,7 +118,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       if (th / nw <= NARROW_MAX_RATIO && th < CANVAS_SIZE[1]) {
         // fits
         if (narrow.length == 1) {
-          var tw = measure_text(ctx, narrow[0]).width;
+          var tw = draw.measure_text(ctx, narrow[0]).width;
           return {
             "lines": narrow,
             "width": tw,
@@ -154,7 +143,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         if (medium.length == 1) {
           return {
             "lines": medium,
-            "width": measure_text(ctx, medium[0]).width,
+            "width": draw.measure_text(ctx, medium[0]).width,
             "height": th,
             "line_height": lh
           };
@@ -175,7 +164,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       if (wide.length == 1) {
         return {
           "lines": wide,
-          "width": measure_text(ctx, wide[0]).width,
+          "width": draw.measure_text(ctx, wide[0]).width,
           "height": th,
           "line_height": lh
         };
@@ -1157,7 +1146,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       let h = this.get_item_height(it);
       ctx.save();
       ctx.translate(ox + off_x, oy + off_y);
-      this.draw_item(it, ctx, w - asw);
+      this.draw_item(it, ctx, w - asw - this.style.padding);
       ctx.restore();
       off_y += h;
     }
@@ -1187,18 +1176,18 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         "width": function (it, ctx) {
           let result = 0;
           the_list.set_font(ctx);
-          let m = measure_text(ctx, the_list.prefix);
+          let m = draw.measure_text(ctx, the_list.prefix);
           result += m.width * (1 + 2 * SMALL_MARGIN);
-          m = measure_text(ctx, it);
+          m = draw.measure_text(ctx, it);
           result += m.width * (1 + 2 * SMALL_MARGIN);
           return result;
         },
         "height": function (it, ctx) {
           let result = 0;
           the_list.set_font(ctx);
-          let m = measure_text(ctx, the_list.prefix);
+          let m = draw.measure_text(ctx, the_list.prefix);
           result = m.height * (1 + 2 * SMALL_MARGIN);
-          m = measure_text(ctx, it);
+          m = draw.measure_text(ctx, it);
           let h = m.height * (1 + 2 * SMALL_MARGIN);
           if (h > result) {
             result = h;
@@ -1207,7 +1196,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         },
         "tap": function (it, rxy) {
           the_list.set_font(ctx);
-          let m = measure_text(ctx, the_list.prefix);
+          let m = draw.measure_text(ctx, the_list.prefix);
           let w = m.width * (1 + 2 * SMALL_MARGIN);
           if (rxy[0] <= w && the_list.base_url) { // trigger the link
             let target = the_list.base_url.replace("<item>", locale.lower(it));
@@ -1219,7 +1208,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
           ctx.textBaseline = "middle"
           // TODO: Box up the text!
 
-          let pm = measure_text(ctx, the_list.prefix);
+          let pm = draw.measure_text(ctx, the_list.prefix);
           let phm = pm.width * SMALL_MARGIN;
           let pvm = pm.height * SMALL_MARGIN;
           let pw = pm.width * (1 + 2*SMALL_MARGIN);
@@ -1228,7 +1217,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
           ctx.strokeStyle = the_list.color("border");
           ctx.rect(0, 0, pw, ph);
 
-          let im = measure_text(ctx, it);
+          let im = draw.measure_text(ctx, it);
           let ihm = im.width * SMALL_MARGIN;
           let ivm = im.height * SMALL_MARGIN;
           let iw = im.width * (1 + 2*SMALL_MARGIN);
@@ -1340,14 +1329,14 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     // Sets display_text and shape.width based on text contents.
     this.set_font(this.ctx);
     this.display_text = this.glyphs.join("");
-    var m = measure_text(this.ctx, this.display_text);
+    var m = draw.measure_text(this.ctx, this.display_text);
     var dw = m.width + this.style.padding * 2;
     while (dw > this.style.max_width * this.ctx.cwidth) {
       this.display_text = this.display_text.slice(
         0,
         this.display_text.length - 2
       ) + "…";
-      m = measure_text(this.ctx, this.display_text);
+      m = draw.measure_text(this.ctx, this.display_text);
       dw = m.width + this.style.padding * 2;
     }
     this.shape.width = dw;

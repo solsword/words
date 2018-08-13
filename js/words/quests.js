@@ -1,7 +1,12 @@
 // quests.js
 // Quests functionality.
 
-define(["./content", "./dimensions"], function(content, dimensions) {
+define(
+["./draw", "./content", "./dimensions", "./icons"],
+function(draw, content, dimensions, icons) {
+
+  var PADDING = 4;
+  var SPACE = 20;
 
   function matches(hint, word) {
     // Checks whether a word matches a hint.
@@ -252,6 +257,8 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     // Takes a type and a reward and initializes a quest object.
     this.type = type;
     this.reward = reward;
+    this.expanded = false;
+    this.icon = icons.unknown;
   };
 
   Quest.prototype.initialize = function(dimension, words_found) {
@@ -272,6 +279,75 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     return false;
   };
 
+  Quest.prototype.tap = function(rxy) {
+    let x = rxy[0];
+    let y = rxy[1];
+    if (
+      x >= PADDING
+   && x <= PADDING + icons.WIDTH
+   && y >= PADDING
+   && y <= PADDING + icons.HEIGHT
+    ) {
+      let c = this.is_complete();
+      if (c && this.got_bonus()) {
+        // TODO: HERE
+        console.log("QUEST w/ BONUS");
+      } else if (c) {
+        // TODO: HERE
+        console.log("QUEST");
+      }
+    } else {
+      this.expanded = !this.expanded;
+    }
+  }
+
+  Quest.prototype.summary_string = function () {
+    console.warn("summary_string isn't implemented for base Quest.");
+    return "<error>";
+  }
+
+  Quest.prototype.width = function(ctx) {
+    let ss = this.summary_string();
+    let m = draw.measure_text(ctx, ss);
+    return 2*(icons.WIDTH + 2*PADDING) + SPACE + m.width + 2*PADDING;
+  }
+
+  Quest.prototype.height = function (ctx) {
+    let ss = this.summary_string();
+    let m = draw.measure_text(ctx, ss);
+    return Math.max(icons.HEIGHT, m.height) + 2*PADDING;
+  }
+
+  Quest.prototype.draw = function (ctx, width) {
+    // Base implementation draws summary: completion icon, quest type icon, and
+    let c = this.is_complete();
+    let p = c && this.got_bonus();
+    let ss = this.summary_string();
+    let m = draw.measure_text(ctx, ss);
+    let h = Math.max(icons.HEIGHT, m.height) + 2*PADDING;
+    let qcpos = [icons.WIDTH/2 + PADDING, h + PADDING];
+    let qipos = [icons.WIDTH*1.5 + 3*PADDING, h + PADDING];
+    let ss_left = icons.WIDTH*2 + 5*PADDING + SPACE;
+    if (p) {
+      icons.quest_perfect(ctx, qcpos);
+    } else if (c) {
+      icons.quest_finished(ctx, qcpos);
+    } else {
+      icons.quest_in_progress(ctx, qcpos);
+    }
+    this.icon(ctx, qipos);
+    ctx.textBaseline = "middle";
+    let sspos;
+    if (ss_left + m.width < width) {
+      ctx.textAlign = "right";
+      sspos = [width - PADDING, h + PADDING];
+    } else {
+      ctx.textAlign = "left";
+      sspos = [icons.WIDTH*2 + 5*PADDING + SPACE, h + PADDING];
+    }
+    ctx.fillText(ss, sspos[0], sspos[1]);
+  }
+
 
   function HuntQuest(targets, bonuses, params, reward, found) {
     // Targets and bonuses should each be lists of hint strings. Params may
@@ -281,6 +357,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     //
     // "found" is optional and initializes the found-words map.
     Quest.call(this, "hunt", reward);
+    this.icon = icons.hunt;
     this.targets = targets;
     this.bonuses = bonuses;
     this.found = found || {};
@@ -344,44 +421,60 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     return bonus;
   }
 
-  HuntQuest.prototype.summary_display = function () {
-    return {
-      "draw": function (ctx, width) {
-      },
-      "height": function () {
+  HuntQuest.prototype.summary_string = function() {
+    let ft = 0;
+    let fb = 0;
+    for (let t of this.targets) {
+      if (this.found[t]) {
+        ft += 1;
       }
     }
-  }
-
-  HuntQuest.prototype.details_display = function () {
-    return {
-      "draw": function (ctx, width) {
-      },
-      "height": function () {
+    for (let b of this.bonuses) {
+      if (this.found[b]) {
+        fb += 1;
       }
+    }
+    if (fb > 0) {
+      return ft + "+" + fb + "/" + this.targets.length;
+    } else {
+      return ft + "/" + this.targets.length;
     }
   }
 
   HuntQuest.prototype.width = function (ctx) {
-    // TODO: HERE
+    let ss = this.summary_string();
+    let m = draw.measure_text(ctx, ss);
+    let bw = Quest.prototype.width.call(this, ctx);
+    if (this.expanded) {
+      // TODO: HERE
+    } else {
+      return bw;
+    }
   }
 
   HuntQuest.prototype.height = function (ctx) {
-    // TODO: HERE
-  }
-
-  HuntQuest.prototype.tap = function (rxy) {
-    // TODO: HERE
+    let ss = this.summary_string();
+    let m = draw.measure_text(ctx, ss);
+    let bh = Quest.prototype.height.call(this, ctx);
+    if (this.expanded) {
+      // TODO: HERE
+    } else {
+      return bh;
+    }
   }
 
   HuntQuest.prototype.draw = function (ctx, width) {
+    Quest.prototype.draw.call(this, ctx, width);
+    if (this.expanded) {
     // TODO: HERE
+    }
   }
 
 
   function EncircleQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
     Quest.call(this, "encircle", reward);
+    this.icon = icons.encircle;
     this.target = target;
     this.bonus = bonus;
     this.area_encircled = 0;
@@ -412,6 +505,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   function StretchQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
     Quest.call(this, "stretch", reward);
+    this.icon = icons.stretch;
     this.target = target;
     this.bonus = bonus;
     this.span = 0;
@@ -442,6 +536,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   function BranchQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
     Quest.call(this, "branch", reward);
+    this.icon = icons.branch;
     this.target = target;
     this.bonus = bonus;
     this.branches = 0;
@@ -472,6 +567,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
   function BigQuest(target, bonus, reward) {
     // Target and bonus should each be [ length, number] pairs.
     Quest.call(this, reward);
+    this.icon = icons.big;
     this.target = target;
     this.bonus = bonus;
     this.sizes = [];
@@ -516,6 +612,7 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     // Targets and bonuses should each be maps from glyphs to amounts. Found is
     // optional and will initialize the found glyphs map.
     Quest.call(this, "glyph", reward);
+    this.icon = icons.glyphs;
     this.targets = targets;
     this.bonuses = bonuses;
     this.found = found || {};
