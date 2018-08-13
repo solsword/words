@@ -111,6 +111,7 @@ function(
 
   // Word tracking:
   var WORDS_FOUND = {};
+  var FOUND_LISTS = {}; // per dimension
 
   // quests
   var QUESTS = [];
@@ -136,15 +137,54 @@ function(
 
   function find_word(dimension, word, path) {
     DO_REDRAW = 0;
+    // Insert into global found map:
     if (WORDS_FOUND.hasOwnProperty(word)) {
       WORDS_FOUND[word].push([dimension, path[0]]);
     } else {
       WORDS_FOUND[word] = [ [dimension, path[0]] ];
     }
+
+    // Insert into per-dimension alphabetized found list:
+    let dk = dimensions.dim__key(dimension);
+    if (!FOUND_LISTS.hasOwnProperty(dk)) {
+      FOUND_LISTS[dk] = [];
+    }
+    let fl = FOUND_LISTS[dk];
+    let idx = Math.floor(fl.length / 2);
+    let adj = Math.floor(fl.length / 4);
+    while (adj > 0) {
+      if (word < fl[idx]) {
+        idx -= adj;
+      } else if (word > fl[idx]) {
+        idx += adj;
+      } else {
+        // found it!
+        break;
+      }
+      adj = Math.floor(adj/2);
+    }
+
+    // TODO: Double-check insertion position!
+    if (fl[idx] == undefined) { // empty list or past end
+      if (idx > fl.length) {
+        console.warn(
+          "Invalid past-end index " + idx + " for found list of size "
+        + fl.length + "."
+        );
+      }
+      fl[idx] = word;
+    } else if (fl[idx] < word) {
+      fl.splice(idx, 0, [ word ]);
+    } else if (fl[idx] > word) {
+      fl.splice(idx + 1, 0, [ word ]);
+    } // else it's already there!
+
+    // Update active quests:
     for (var q of QUESTS) {
       q.find_word(dimension, word, path)
     }
   }
+
 
   function add_quest(q) {
     q.initialize(WORDS_FOUND);
@@ -744,9 +784,11 @@ function(
       { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
       { "width": undefined, "height": undefined },
       undefined,
-      WORDS_FOUND,
+      FOUND_LISTS[dimensions.dim__key(CURRENT_DIMENSION)],
       "https://en.wiktionary.org/wiki/<item>"
     );
+    // TODO: Swap items list when dimension changes
+    // TODO: Some way to do so manually?
 
     WORDS_SIDEBAR = new menu.ToggleMenu(
       CTX,

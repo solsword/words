@@ -362,6 +362,22 @@ define(["./content", "./dimensions"], function(content, dimensions) {
     }
   }
 
+  HuntQuest.prototype.width = function (ctx) {
+    // TODO: HERE
+  }
+
+  HuntQuest.prototype.height = function (ctx) {
+    // TODO: HERE
+  }
+
+  HuntQuest.prototype.tap = function (rxy) {
+    // TODO: HERE
+  }
+
+  HuntQuest.prototype.draw = function (ctx, width) {
+    // TODO: HERE
+  }
+
 
   function EncircleQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.

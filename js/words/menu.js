@@ -10,6 +10,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   var HIT = false;
   var PATH = null;
   var DEFAULT_MARGIN = 0.05;
+  var SMALL_MARGIN = 0.03;
   var MENU_FONT_SIZE = 28;
 
   var CANVAS_SIZE = [800, 800]; // in pixels; use set_canvas_size
@@ -685,10 +686,13 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     return false;
   }
 
-  function ScrollBox(ctx, pos, shape, style, items) {
+  function ScrollBox(ctx, pos, shape, style, items, wrapper) {
     // A ScrollBox displays a vertical list of items, allowing the user to
     // scroll vertically and/or horizontally to view them if they're too
-    // big/numerous for the box.
+    // big/numerous for the box. If a wrapper is supplied, it will be handed an
+    // item and be expected to return an object that can provide .height(ctx),
+    // .width(ctx), .draw(ctx, width), and .tap(rxy) functions, otherwise the
+    // items themselves should supply those functions.
     BaseMenu.call(this, ctx, pos, shape, style);
     this.style.scrollbar_width = this.style.scrollbar_width || 24;
     this.scroll_position = [-this.style.padding, -this.style.padding];
@@ -700,17 +704,38 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
   ScrollBox.prototype = Object.create(BaseMenu.prototype);
   ScrollBox.prototype.constructor = ScrollBox;
-      /*
-       * TODO: Work this snippet into ListMenu items
-      if (this.base_url) {
-        // TODO: Contextual case preservation?
-        var target = this.base_url.replace(
-          "<item>",
-          locale.lower(il[line])
-        );
-        window.open(target);
-      }
-      */
+
+  ScrollBox.prototype.get_item_height = function(it) {
+    if (this.wrapper) {
+      return this.wrapper(it).height(this.ctx);
+    } else {
+      return it.height(this.ctx);
+    }
+  }
+
+  ScrollBox.prototype.get_item_width = function(it) {
+    if (this.wrapper) {
+      return this.wrapper(it).width(this.ctx);
+    } else {
+      return it.width(this.ctx);
+    }
+  }
+
+  ScrollBox.prototype.draw_item = function(it, ctx, width) {
+    if (this.wrapper) {
+      return this.wrapper(it).draw(ctx, width);
+    } else {
+      return it.draw(ctx, width);
+    }
+  }
+
+  ScrollBox.prototype.tap_item = function(it, rxy) {
+    if (this.wrapper) {
+      return this.wrapper(it).tap(rxy);
+    } else {
+      return it.tap(rxy);
+    }
+  }
 
   ScrollBox.prototype.item_max_width = function() {
     if (this.style.fixed_item_width) {
@@ -718,7 +743,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     } else {
       let result = 0;
       for (let it of this.items) {
-        let w = it.width(this.ctx);
+        let w = this.get_item_width(it);
         if (w > result) {
           result = w;
         }
@@ -733,7 +758,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     } else {
       let result = 0;
       for (let it of this.items) {
-        result += it.height(this.ctx);
+        result += this.get_item_height(it);
       }
       return result;
     }
@@ -827,7 +852,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         idx = 0;
         let remaining = lry;
         for (let it of this.items) {
-          let ih = it.height(this.ctx);
+          let ih = this.get_item_height(it);
           remaining -= ih;
           if (remaining < 0) {
             iry = ih + remaining;
@@ -841,7 +866,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         // out-of-range selection
         return;
       }
-      this.items[idx].tap([lry, irx]);
+      this.tap_item(this.items[idx], [lry, irx]);
     }
   }
 
@@ -1081,7 +1106,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       let rbot = rtop + h - clip_bot;
       let found_top = false;
       for (let it of this.items) {
-        let h = it.height(this.ctx);
+        let h = this.get_item_height(it);
         rtop -= h;
         rbot -= h
         if (!found_top && rtop < 0) {
@@ -1104,10 +1129,10 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     let off_y = 0;
     for (let idx = st_idx; idx <= ed_idx; ++idx) {
       let it = this.items[idx];
-      let h = it.height(this.ctx);
+      let h = this.get_item_height(it);
       ctx.save();
       ctx.translate(off_x, off_y);
-      it.draw(ctx);
+      this.draw_item(it, ctx, w - asw);
       ctx.restore();
       off_y += h;
     }
@@ -1127,181 +1152,90 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     // replaced by the selected item. Example:
     //
     // "https://en.wiktionary.org/wiki/<item>"
-    //
-    // TODO: Handle too-wide words using a hover popup?
-    BaseMenu.call(this, ctx, pos, shape, style);
-    this.items = items;
+    let the_list = this;
+    ScrollBox.call(
+      this,
+      ctx,
+      pos,
+      shape,
+      style,
+      items,
+      function (it) {
+        return {
+          "width": function (ctx) {
+            let result = 0;
+            let m = ctx.measureText(this.prefix);
+            result += m.width * (1 + 2 * SMALL_MARGIN);
+            let m = ctx.measureText(it);
+            result += m.width * (1 + 2 * SMALL_MARGIN);
+            return result;
+          },
+          "height": function (ctx) {
+            let result = 0;
+            let m = ctx.measureText(this.prefix);
+            result = m.height * (1 + 2 * SMALL_MARGIN);
+            let m = ctx.measureText(it);
+            let h = m.height * (1 + 2 * SMALL_MARGIN);
+            if (h > result) {
+              result = h;
+            }
+            return result;
+          },
+          "tap": function (rxy) {
+            let m = ctx.measureText(this.prefix);
+            let w = m.width * (1 + 2 * SMALL_MARGIN);
+            if (rxy[0] <= w && this.base_url) { // trigger the link
+              let target = this.base_url.replace("<item>", locale.lower(it));
+              window.open(target);
+            }
+          },
+          "draw": function (ctx) {
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top"
+            // TODO: Box up the text!
+
+            let pm = ctx.measureText(this.prefix);
+            let phm = pm.width * SMALL_MARGIN;
+            let pvm = pm.height * SMALL_MARGIN;
+            let pw = pm.width * (1 + 2*SMALL_MARGIN);
+            ctx.fillText(this.prefix, phm, pvm);
+
+            let im = ctx.measureText(it);
+            let ihm = im.width * SMALL_MARGIN;
+            let ivm = im.height * SMALL_MARGIN;
+            ctx.fillText(it, pw + ihm, ivm);
+          },
+        }
+      }
+    );
     this.base_url = base_url;
     if (prefix == undefined) {
-      this.prefix = "· ";
+      this.prefix = "·";
     } else {
       this.prefix = prefix;
     }
   }
 
-  ListMenu.prototype = Object.create(BaseMenu.prototype);
+  ListMenu.prototype = Object.create(ScrollBox.prototype);
   ListMenu.prototype.constructor = ListMenu;
 
-  ListMenu.prototype.item_count = function() {
-    if (Array.isArray(this.items)) {
-      return this.items.length;
-    } else {
-      return Object.keys(this.items).length;
-    }
-  }
 
-  ListMenu.prototype.item_list = function() {
-    if (Array.isArray(this.items)) {
-      return this.items;
-    } else {
-      let result = Object.keys(this.items);
-      // TODO: Locale when sorting?
-      result.sort();
-      return result;
-    }
-  }
-
-  ListMenu.prototype.draw_item = function(ctx, xy, max_width, text, val) {
-    // Draw a single item, given its text and value (value is ignored).
-    var m = ctx.measureText(text);
-    while (m.width > max_width) {
-      if (text.length <= 1) { break; }
-      text = text.slice(0, text.length - 2);
-      text += "…"
-      m = ctx.measureText(text);
-    }
-    ctx.fillText(text, xy[0], xy[1]);
-  }
-
-  ListMenu.prototype.draw = function(ctx) {
-    var needs_update = false;
-    // draw a box (w/ border)
-    BaseMenu.prototype.draw.apply(this, [ctx]);
-    let il = this.item_list();
-
-    // absolute position/size:
-    var ap = this.abspos();
-    var as = this.absshape();
-    var lh = this.style.line_height * ctx.viewport_scale;
-
-    // adjust scroll position
-    var min_scroll = -this.style.padding;
-    var max_scroll = il.length * lh - (as[1] - 2 * this.style.padding);
-    if (max_scroll < 0) { max_scroll = 0; }
-    if (this.scroll_position < min_scroll) {
-      needs_update = true;
-      var yd = min_scroll - this.scroll_position;
-      if (yd < 3) {
-        this.scroll_position = min_scroll;
-      } else {
-        this.scroll_position += yd/3;
-      }
-    } else if (this.scroll_position > max_scroll) {
-      needs_update = true;
-      var yd = this.scroll_position - max_scroll;
-      if (yd < 3) {
-        this.scroll_position = max_scroll;
-      } else {
-        this.scroll_position -= yd/3;
-      }
-    }
-
-    // draw scrollbar:
-    var sbw = this.style.scrollbar_width * ctx.viewport_scale;
-    ctx.fillStyle = this.color("button");
-    ctx.strokeStyle = this.color("border");
-    ctx.rect(ap[0] + as[0] - sbw, ap[1], sbw, as[1]);
-    ctx.stroke();
-    ctx.fill();
-    ctx.fillStyle = this.color("selected_button");
-    if (il.length > 1) {
-      var tsh = max_scroll - min_scroll;
-      var twh = lh * il.length;
-      var sb_st = (this.scroll_position - min_scroll) / twh;
-      var sb_ed = ((this.scroll_position + as[1]) - min_scroll) / twh;
-      if (sb_st < 0) { sb_st = 0; }
-      if (sb_ed > 1) { sb_ed = 1; }
-      sb_st *= as[1];
-      sb_ed *= as[1];
-      ctx.beginPath();
-      ctx.rect(ap[0] + as[0] - sbw, ap[1] + sb_st, sbw, sb_ed - sb_st);
-      ctx.fill();
-    } else {
-      // fill whole scrollbar rect
-      ctx.fill();
-    }
-
-    // set clip region:
-    ctx.rect(ap[0], ap[1], as[0], as[1]);
-    ctx.save()
-    ctx.clip();
-    // style setup:
-    this.set_font(ctx);
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    // draw words:
-    let prefix = this.prefix;
-    if (!il || il.length == 0) {
-      il = [ "---" ];
-      prefix = ""
-    }
-    var st_line = Math.floor(this.scroll_position / lh) - 1;
-    if (st_line < 0) { st_line = 0; }
-    var line = st_line;
-    var ry = line * lh - this.scroll_position;
-    var max_width = as[0] - 2 * this.style.padding;
-    while (ry < as[1] + lh && line < il.length) {
-      // draw word:
-      let key = il[line];
-      let val = undefined;
-      if (!Array.isArray(this.items)) {
-        let val = this.items[key];
-      }
-      this.draw_item(
-        ctx,
-        [ap[0] + this.style.padding, ap[1] + ry],
-        max_width,
-        prefix + key,
-        val
-      );
-      // increment and continue
-      line += 1;
-      ry = line * lh - this.scroll_position;
-    }
-    // undo clipping:
-    ctx.restore();
-    return needs_update;
-  }
-
-  function QuestList(ctx, pos, shape, style, quest_status) {
+  function QuestList(ctx, pos, shape, style, quests) {
     // A QuestList is a scrollable list of target words, which highlights
     // discovered words until the quest is complete.
-    ListMenu.call(this, ctx, pos, shape, style, quest_status, undefined, "");
-    this.style.text_outline_width = this.style.text_outline_width || 1.5;
+    ScrollBox.call(
+      this,
+      ctx,
+      pos,
+      shape,
+      style,
+      quests
+    );
   }
 
-  QuestList.prototype = Object.create(ListMenu.prototype);
+  QuestList.prototype = Object.create(ScrollBox.prototype);
   QuestList.prototype.constructor = QuestList;
 
-  QuestList.prototype.draw_item = function(ctx, xy, max_width, text, val) {
-    // Draw a single item, highlighting it if the value is truth-y.
-    var m = ctx.measureText(text);
-    while (m.width > max_width) {
-      if (text.length <= 1) { break; }
-      text = text.slice(0, text.length - 2);
-      text += "…"
-      m = ctx.measureText(text);
-    }
-    if (val) {
-      ctx.lineWidth = this.style.text_outline_width*2;
-      ctx.strokeStyle = this.color("text_outline");
-      ctx.strokeText(text, xy[0], xy[1]);
-      // TODO: Why isn't this firing?
-      console.log("stroke");
-    }
-    ctx.fillStyle = this.color("text");
-    ctx.fillText(text, xy[0], xy[1]);
-  }
 
   function WordList(ctx, pos, shape, style, words, base_url) {
     // A WordList is a scrollable list of words. Tapping on a word opens a
@@ -1311,6 +1245,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
   WordList.prototype = Object.create(ListMenu.prototype);
   WordList.prototype.constructor = WordList;
+
 
   function ButtonMenu(ctx, pos, shape, style, text, action) {
     // A ButtonMenu is both a menu and a clickable button. The action is

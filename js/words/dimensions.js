@@ -54,6 +54,16 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     },
   };
 
+  function dim__key(d) {
+    return "" + d;
+  }
+
+  function key__dim(k) {
+    // TODO: HERE HOW?
+    console.error("key__dim isn't implemented yet!");
+    return undefined;
+  }
+
   function same(d1, d2) {
     // Whether two dimensions are the same or not.
     return utils.is_equal(d1, d2);
