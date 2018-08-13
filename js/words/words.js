@@ -135,6 +135,15 @@ function(
   // Grid test:
   var GRID_TEST_DATA = undefined;
 
+  function found_list(dimension) {
+    // Returns (possibly after creating) the found list for the given dimension
+    let dk = dimensions.dim__key(dimension);
+    if (!FOUND_LISTS.hasOwnProperty(dk)) {
+      FOUND_LISTS[dk] = [];
+    }
+    return FOUND_LISTS[dk];
+  }
+
   function find_word(dimension, word, path) {
     DO_REDRAW = 0;
     // Insert into global found map:
@@ -145,38 +154,28 @@ function(
     }
 
     // Insert into per-dimension alphabetized found list:
-    let dk = dimensions.dim__key(dimension);
-    if (!FOUND_LISTS.hasOwnProperty(dk)) {
-      FOUND_LISTS[dk] = [];
-    }
-    let fl = FOUND_LISTS[dk];
-    let idx = Math.floor(fl.length / 2);
-    let adj = Math.floor(fl.length / 4);
-    while (adj > 0) {
+    let fl = found_list(dimension);
+    let st = 0;
+    let ed = fl.length;
+    let idx = st + Math.floor((ed - st)/2);
+    while (ed - st > 0) {
       if (word < fl[idx]) {
-        idx -= adj;
+        ed = idx;
       } else if (word > fl[idx]) {
-        idx += adj;
+        st = idx + 1;
       } else {
         // found it!
         break;
       }
-      adj = Math.floor(adj/2);
+      idx = st + Math.floor((ed - st)/2);
     }
 
-    // TODO: Double-check insertion position!
-    if (fl[idx] == undefined) { // empty list or past end
-      if (idx > fl.length) {
-        console.warn(
-          "Invalid past-end index " + idx + " for found list of size "
-        + fl.length + "."
-        );
-      }
+    if (fl[idx] == undefined) { // empty list
       fl[idx] = word;
-    } else if (fl[idx] < word) {
-      fl.splice(idx, 0, [ word ]);
     } else if (fl[idx] > word) {
-      fl.splice(idx + 1, 0, [ word ]);
+      fl.splice(idx, 0, word);
+    } else if (fl[idx] < word) {
+      fl.splice(idx + 1, 0, word);
     } // else it's already there!
 
     // Update active quests:
@@ -249,6 +248,12 @@ function(
         CURRENT_GLYPHS_BUTTON.remove_glyph();
       }
       DO_REDRAW = 0;
+    },
+    // TODO: DEBUG
+    "q": function (e) { // "find' a bunch of words for testing purposes
+      for (let w of "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()") {
+        find_word(CURRENT_DIMENSION, w, []);
+      }
     }
   }
 
@@ -784,7 +789,7 @@ function(
       { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
       { "width": undefined, "height": undefined },
       undefined,
-      FOUND_LISTS[dimensions.dim__key(CURRENT_DIMENSION)],
+      found_list(CURRENT_DIMENSION),
       "https://en.wiktionary.org/wiki/<item>"
     );
     // TODO: Swap items list when dimension changes

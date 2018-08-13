@@ -165,6 +165,8 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     "DIMENSION_KINDS": DIMENSION_KINDS,
     "DIMENSION_LAYOUTS": DIMENSION_LAYOUTS,
     "DIMENSION_FLAVORS": DIMENSION_FLAVORS,
+    "dim__key": dim__key,
+    "key__dim": key__dim,
     "same": same,
     "kind": kind,
     "layout": layout,

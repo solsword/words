@@ -12,6 +12,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   var DEFAULT_MARGIN = 0.05;
   var SMALL_MARGIN = 0.03;
   var MENU_FONT_SIZE = 28;
+  var ARROW_SIZE_FRACTION = 4;
 
   var CANVAS_SIZE = [800, 800]; // in pixels; use set_canvas_size
 
@@ -25,6 +26,18 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   var MEDIUM_MAX_RATIO = 2.5;
 
   var TEXT_OUTLINE_WIDTH = 3;
+
+  function measure_text(ctx, text) {
+    let m = ctx.measureText(text);
+    // This seems to be as good as any of the relevant hacks since we always
+    // set fonts in px units. It doesn't include descenders of course.
+    m.height = Number.parseFloat(ctx.font);
+    // An estimate to accommodate descenders; will generally leave extra space
+    // overall...
+    // TODO: Better than this!
+    m.height *= 1.4;
+    return m;
+  }
 
   function set_canvas_size(sz) {
     CANVAS_SIZE = sz;
@@ -50,7 +63,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       } else {
         test_line = word;
       }
-      var m = ctx.measureText(test_line);
+      var m = measure_text(ctx, test_line);
       if (m.width <= max_width) {
         // Next word fits:
         line = test_line;
@@ -60,7 +73,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         // TODO: Don't hyphenate things like numbers?!?
         var fit = 0;
         for (i = test_line.length-2; i > -1; i -= 1) {
-          if (ctx.measureText(test_line.slice(0,i) + "-").width <= max_width) {
+          if (measure_text(ctx, test_line.slice(0,i) + "-").width <= max_width){
             fit = i;
             break;
           }
@@ -116,7 +129,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       if (th / nw <= NARROW_MAX_RATIO && th < CANVAS_SIZE[1]) {
         // fits
         if (narrow.length == 1) {
-          var tw = ctx.measureText(narrow[0]).width;
+          var tw = measure_text(ctx, narrow[0]).width;
           return {
             "lines": narrow,
             "width": tw,
@@ -141,7 +154,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         if (medium.length == 1) {
           return {
             "lines": medium,
-            "width": ctx.measureText(medium[0]).width,
+            "width": measure_text(ctx, medium[0]).width,
             "height": th,
             "line_height": lh
           };
@@ -162,7 +175,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       if (wide.length == 1) {
         return {
           "lines": wide,
-          "width": ctx.measureText(wide[0]).width,
+          "width": measure_text(ctx, wide[0]).width,
           "height": th,
           "line_height": lh
         };
@@ -686,13 +699,13 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     return false;
   }
 
-  function ScrollBox(ctx, pos, shape, style, items, wrapper) {
+  function ScrollBox(ctx, pos, shape, style, items, delegate) {
     // A ScrollBox displays a vertical list of items, allowing the user to
     // scroll vertically and/or horizontally to view them if they're too
-    // big/numerous for the box. If a wrapper is supplied, it will be handed an
-    // item and be expected to return an object that can provide .height(ctx),
-    // .width(ctx), .draw(ctx, width), and .tap(rxy) functions, otherwise the
-    // items themselves should supply those functions.
+    // big/numerous for the box. If a delegate is supplied, it should provide
+    // .height(item, ctx), .width(item, ctx), .draw(item, ctx, width), and
+    // .tap(item, rxy) functions, otherwise the items themselves should supply
+    // those functions (sans the item input).
     BaseMenu.call(this, ctx, pos, shape, style);
     this.style.scrollbar_width = this.style.scrollbar_width || 24;
     this.scroll_position = [-this.style.padding, -this.style.padding];
@@ -700,38 +713,39 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     this.scroll_drag = false;
     this.press_time = 0;
     this.items = items;
+    this.delegate = delegate;
   }
 
   ScrollBox.prototype = Object.create(BaseMenu.prototype);
   ScrollBox.prototype.constructor = ScrollBox;
 
   ScrollBox.prototype.get_item_height = function(it) {
-    if (this.wrapper) {
-      return this.wrapper(it).height(this.ctx);
+    if (this.delegate) {
+      return this.delegate.height(it, this.ctx);
     } else {
       return it.height(this.ctx);
     }
   }
 
   ScrollBox.prototype.get_item_width = function(it) {
-    if (this.wrapper) {
-      return this.wrapper(it).width(this.ctx);
+    if (this.delegate) {
+      return this.delegate.width(it, this.ctx);
     } else {
       return it.width(this.ctx);
     }
   }
 
   ScrollBox.prototype.draw_item = function(it, ctx, width) {
-    if (this.wrapper) {
-      return this.wrapper(it).draw(ctx, width);
+    if (this.delegate) {
+      return this.delegate.draw(it, ctx, width);
     } else {
       return it.draw(ctx, width);
     }
   }
 
   ScrollBox.prototype.tap_item = function(it, rxy) {
-    if (this.wrapper) {
-      return this.wrapper(it).tap(rxy);
+    if (this.delegate) {
+      return this.delegate.tap(it, rxy);
     } else {
       return it.tap(rxy);
     }
@@ -790,7 +804,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   ScrollBox.prototype.scroll_limits = function() {
     let as = this.absshape();
     let w = as[0];
-    let y = as[1];
+    let h = as[1];
 
     let ixw = this.item_max_width();
     let min_horiz = -this.style.padding;
@@ -800,7 +814,12 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     let min_vert = -this.style.padding;
     let max_vert = ith - (h - 2 * this.style.padding);
 
-    return [ min_horiz, max_horiz, min_vert, max_vert ];
+    return [
+      min_horiz,
+      Math.max(min_horiz, max_horiz),
+      min_vert,
+      Math.max(min_vert, max_vert)
+    ];
   }
 
   ScrollBox.prototype.tap = function (pos, hit) {
@@ -817,10 +836,10 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     }
 
     let sbg = this.sb_geom();
-    let sb_vmin = sb_geom[0];
-    let sb_vmax = sb_geom[1];
-    let sb_hmin = sb_geom[2];
-    let sb_hmax = sb_geom[3];
+    let sb_vmin = sbg[0];
+    let sb_vmax = sbg[1];
+    let sb_hmin = sbg[2];
+    let sb_hmax = sbg[3];
 
     let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
 
@@ -830,15 +849,15 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       let vx = sl[3];
       this.scroll_position = [
         this.scroll_position[0],
-        vn + (vx - vn) * (y / h),
+        vn + (vx - vn) * (y / h)
       ];
     } else if (y >= sb_hmin && y <= sb_hmax) { // hit on the horizontal bar
       let sl = this.scroll_limits();
       let hn = sl[0];
       let hx = sl[1];
       this.scroll_position = [
-        hn + (hx - hn) * (x / (w - asw))
-        this.scroll_position[1],
+        hn + (hx - hn) * (x / (w - asw)),
+        this.scroll_position[1]
       ];
     } else { // hit on an item
       let lrx = x + this.scroll_position[0];
@@ -866,7 +885,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         // out-of-range selection
         return;
       }
-      this.tap_item(this.items[idx], [lry, irx]);
+      this.tap_item(this.items[idx], [lrx, iry]);
     }
   }
 
@@ -886,49 +905,50 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     let h = as[1];
 
     let sbg = this.sb_geom();
-    let sb_vmin = sb_geom[0];
-    let sb_vmax = sb_geom[1];
-    let sb_hmin = sb_geom[2];
-    let sb_hmax = sb_geom[3];
+    let sb_vmin = sbg[0];
+    let sb_vmax = sbg[1];
+    let sb_hmin = sbg[2];
+    let sb_hmax = sbg[3];
+
+    let sl = this.scroll_limits();
+    let hn = sl[0];
+    let hx = sl[1];
+    let vn = sl[2];
+    let vx = sl[3];
 
     if (
       this.scroll_drag == "vert"
    || (this.press_last == undefined && x >= sb_vmin && x <= sb_vmax)
     ) { // hit on the vertical scrollbar
       this.scroll_drag = "vert";
-      let sl = this.scroll_limits();
-      let vn = sl[2];
-      let vx = sl[3];
-      this.scroll_position = vn + (vx - vn) * (y / h);
+      this.scroll_position = [
+        this.scroll_position[0],
+        vn + (vx - vn) * (y / h)
+      ];
     } else if (
       this.scroll_drag == "horiz"
    || (this.press_last == undefined && y >= sb_hmin & y <= sb_hmax)
     ) { // hit on the horizontal scrollbar
       this.scroll_drag == "horiz"
       let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
-      let sl = this.scroll_limits();
-      let hn = sl[0];
-      let hx = sl[1];
-      this.scroll_position = hn + (hx - hn) * (x / (w - asw));
+      this.scroll_position = [
+        hn + (hx - hn) * (x / (w - asw)),
+        this.scroll_position[1]
+      ];
     } else { // hit elsewhere in the window
-      let sl = this.scroll_limits();
-      let hn = sl[0];
-      let hx = sl[1];
-      let vn = sl[2];
-      let vx = sl[3];
       if (this.press_last != undefined && hit) {
         this.scroll_position[0] -= x - this.press_last[0];
         this.scroll_position[1] -= y - this.press_last[1];
-        if (this.scroll_position[0] < hn) { this.scroll_position[0] = hn; }
-        if (this.scroll_position[0] > hx) { this.scroll_position[0] = hx; }
-        if (this.scroll_position[1] < vn) { this.scroll_position[1] = vn; }
-        if (this.scroll_position[1] > vx) { this.scroll_position[1] = vx; }
       }
       if (this.press_last != undefined || hit) {
         this.press_time += 1;
         this.press_last = rp;
       }
     }
+    if (this.scroll_position[0] < hn) { this.scroll_position[0] = hn; }
+    if (this.scroll_position[0] > hx) { this.scroll_position[0] = hx; }
+    if (this.scroll_position[1] < vn) { this.scroll_position[1] = vn; }
+    if (this.scroll_position[1] > vx) { this.scroll_position[1] = vx; }
   }
 
   ScrollBox.prototype.swipe = function (path, st_hit, ed_hit) {
@@ -967,7 +987,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     ctx.stroke();
     ctx.fill();
     ctx.fillStyle = this.color("selected_button");
-    if (this.items.length > 1) {
+    if (this.items.length > 0) {
       let tsh = vx - vn;
       let ith = this.item_total_height();
       let sb_st = (this.scroll_position[1] - vn) / ith;
@@ -983,7 +1003,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       // Draw little arrows if there's room
       let sb_h = sb_ed - sb_st;
       if (sb_h >= asw) {
-        let ao = asw/8;
+        let ao = asw/ARROW_SIZE_FRACTION;
         let left = ox + w - asw + ao;
         let middle = ox + w - asw/2;
         let right = ox + w - ao;
@@ -1046,7 +1066,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       // Draw little arrows if there's room
       let sb_w = sb_ed - sb_st;
       if (sb_w >= asw) {
-        let ao = asw/8;
+        let ao = asw/ARROW_SIZE_FRACTION;
         let top = oy + h - asw + ao;
         let middle = oy + h - asw/2;
         let bot = oy + h - ao;
@@ -1087,10 +1107,13 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
 
     // draw items:
-    let off_x = this.scroll_position[0];
+    let off_x = -this.scroll_position[0];
     let st_idx = undefined;
     let ed_idx = undefined;
+    let toff = 0; // pixels to push first item up above box
     if (this.style.fixed_item_height) {
+      // TODO: DEBUG THIS!
+      toff = this.scroll_position[1] % this.style.fixed_item_height;
       st_idx = Math.floor(
         this.scroll_position[1]
       / this.style.fixed_item_height
@@ -1098,7 +1121,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       ed_idx = Math.floor(
         (this.scroll_position[1] + h - clip_bot)
       / this.style.fixed_item_height
-      );
+      ) + 1;
     } else {
       st_idx = 0;
       ed_idx = 0;
@@ -1107,31 +1130,33 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       let found_top = false;
       for (let it of this.items) {
         let h = this.get_item_height(it);
-        rtop -= h;
-        rbot -= h
-        if (!found_top && rtop < 0) {
+        if (!found_top && rtop < h) {
+          toff = rtop;
           found_top = true;
         } else if (!found_top) {
           st_idx += 1;
         }
-        if (rbot < 0) {
+        if (rbot < h) {
+          ed_idx += 1;
           break;
         } else {
           ed_idx += 1;
         }
+        rtop -= h;
+        rbot -= h;
       }
     }
+    if (st_idx >= this.items.length) { st_idx = this.items.length - 1; }
+    if (ed_idx > this.items.length) { ed_idx = this.items.length; }
     if (st_idx < 0) { st_idx = 0; }
     if (ed_idx < 0) { ed_idx = 0; }
-    if (st_idx >= this.items.length) { st_idx = this.items.lenth - 1; }
-    if (ed_idx >= this.items.length) { ed_idx = this.items.lenth - 1; }
 
-    let off_y = 0;
-    for (let idx = st_idx; idx <= ed_idx; ++idx) {
+    let off_y = -toff;
+    for (let idx = st_idx; idx < ed_idx; ++idx) {
       let it = this.items[idx];
       let h = this.get_item_height(it);
       ctx.save();
-      ctx.translate(off_x, off_y);
+      ctx.translate(ox + off_x, oy + off_y);
       this.draw_item(it, ctx, w - asw);
       ctx.restore();
       off_y += h;
@@ -1144,12 +1169,10 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   }
 
   function ListMenu(ctx, pos, shape, style, items, base_url, prefix) {
-    // A ListMenu displays a scrollable list of items, arranged alphabetically
-    // by default, with optional clickable prefixes for each item.
-    // If base_url is left undefined or given some false value, tapping won't
-    // open links.
-    // base_url should have the string "<item>" in it, which will be
-    // replaced by the selected item. Example:
+    // A ListMenu displays a scrollable list of items with optional clickable
+    // prefixes for each item. If base_url is left undefined or given some
+    // false value, tapping won't open links. base_url should have the string
+    // "<item>" in it, which will be replaced by the selected item. Example:
     //
     // "https://en.wiktionary.org/wiki/<item>"
     let the_list = this;
@@ -1160,52 +1183,60 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       shape,
       style,
       items,
-      function (it) {
-        return {
-          "width": function (ctx) {
-            let result = 0;
-            let m = ctx.measureText(this.prefix);
-            result += m.width * (1 + 2 * SMALL_MARGIN);
-            let m = ctx.measureText(it);
-            result += m.width * (1 + 2 * SMALL_MARGIN);
-            return result;
-          },
-          "height": function (ctx) {
-            let result = 0;
-            let m = ctx.measureText(this.prefix);
-            result = m.height * (1 + 2 * SMALL_MARGIN);
-            let m = ctx.measureText(it);
-            let h = m.height * (1 + 2 * SMALL_MARGIN);
-            if (h > result) {
-              result = h;
-            }
-            return result;
-          },
-          "tap": function (rxy) {
-            let m = ctx.measureText(this.prefix);
-            let w = m.width * (1 + 2 * SMALL_MARGIN);
-            if (rxy[0] <= w && this.base_url) { // trigger the link
-              let target = this.base_url.replace("<item>", locale.lower(it));
-              window.open(target);
-            }
-          },
-          "draw": function (ctx) {
-            ctx.textAlign = "left";
-            ctx.textBaseline = "top"
-            // TODO: Box up the text!
+      {
+        "width": function (it, ctx) {
+          let result = 0;
+          the_list.set_font(ctx);
+          let m = measure_text(ctx, the_list.prefix);
+          result += m.width * (1 + 2 * SMALL_MARGIN);
+          m = measure_text(ctx, it);
+          result += m.width * (1 + 2 * SMALL_MARGIN);
+          return result;
+        },
+        "height": function (it, ctx) {
+          let result = 0;
+          the_list.set_font(ctx);
+          let m = measure_text(ctx, the_list.prefix);
+          result = m.height * (1 + 2 * SMALL_MARGIN);
+          m = measure_text(ctx, it);
+          let h = m.height * (1 + 2 * SMALL_MARGIN);
+          if (h > result) {
+            result = h;
+          }
+          return result;
+        },
+        "tap": function (it, rxy) {
+          the_list.set_font(ctx);
+          let m = measure_text(ctx, the_list.prefix);
+          let w = m.width * (1 + 2 * SMALL_MARGIN);
+          if (rxy[0] <= w && the_list.base_url) { // trigger the link
+            let target = the_list.base_url.replace("<item>", locale.lower(it));
+            window.open(target);
+          }
+        },
+        "draw": function (it, ctx) {
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle"
+          // TODO: Box up the text!
 
-            let pm = ctx.measureText(this.prefix);
-            let phm = pm.width * SMALL_MARGIN;
-            let pvm = pm.height * SMALL_MARGIN;
-            let pw = pm.width * (1 + 2*SMALL_MARGIN);
-            ctx.fillText(this.prefix, phm, pvm);
+          let pm = measure_text(ctx, the_list.prefix);
+          let phm = pm.width * SMALL_MARGIN;
+          let pvm = pm.height * SMALL_MARGIN;
+          let pw = pm.width * (1 + 2*SMALL_MARGIN);
+          let ph = pm.height * (1 + 2*SMALL_MARGIN);
+          ctx.fillText(the_list.prefix, phm, ph/2);
+          ctx.strokeStyle = the_list.color("border");
+          ctx.rect(0, 0, pw, ph);
 
-            let im = ctx.measureText(it);
-            let ihm = im.width * SMALL_MARGIN;
-            let ivm = im.height * SMALL_MARGIN;
-            ctx.fillText(it, pw + ihm, ivm);
-          },
-        }
+          let im = measure_text(ctx, it);
+          let ihm = im.width * SMALL_MARGIN;
+          let ivm = im.height * SMALL_MARGIN;
+          let iw = im.width * (1 + 2*SMALL_MARGIN);
+          let ih = im.height * (1 + 2*SMALL_MARGIN);
+          ctx.fillText(it, pw + ihm, ih/2);
+          ctx.strokeStyle = the_list.color("border");
+          ctx.rect(0, 0, iw, ih);
+        },
       }
     );
     this.base_url = base_url;
@@ -1240,7 +1271,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   function WordList(ctx, pos, shape, style, words, base_url) {
     // A WordList is a scrollable list of words. Tapping on a word opens a
     // definition link for that word, while swiping scrolls the menu.
-    ListMenu.call(this, ctx, pos, shape, style, words, base_url, "📖 ");
+    ListMenu.call(this, ctx, pos, shape, style, words, base_url, "📖");
   }
 
   WordList.prototype = Object.create(ListMenu.prototype);
@@ -1309,14 +1340,14 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     // Sets display_text and shape.width based on text contents.
     this.set_font(this.ctx);
     this.display_text = this.glyphs.join("");
-    var m = this.ctx.measureText(this.display_text);
+    var m = measure_text(this.ctx, this.display_text);
     var dw = m.width + this.style.padding * 2;
     while (dw > this.style.max_width * this.ctx.cwidth) {
       this.display_text = this.display_text.slice(
         0,
         this.display_text.length - 2
       ) + "…";
-      m = this.ctx.measureText(this.display_text);
+      m = measure_text(this.ctx, this.display_text);
       dw = m.width + this.style.padding * 2;
     }
     this.shape.width = dw;
