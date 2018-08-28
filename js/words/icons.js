@@ -83,6 +83,13 @@ define([], function() {
     ctx.fillText("✓", ...xy); // TODO
   }
 
+  function item_bonus(ctx, xy) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fillText("+", ...xy); // TODO
+  }
+
   return {
     "WIDTH": WIDTH,
     "HEIGHT": HEIGHT,
@@ -97,5 +104,6 @@ define([], function() {
     "quest_finished": quest_finished,
     "quest_perfect": quest_perfect,
     "item_complete": item_complete,
+    "item_bonus": item_bonus,
   }
 });

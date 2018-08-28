@@ -46,8 +46,8 @@ function(
   // TODO: Measure this!
 
   // TODO: DEBUG
-  //var CURRENT_DIMENSION = ["F/R", "base", 10983];
-  var CURRENT_DIMENSION = ["F/R", "成语", 10983];
+  var CURRENT_DIMENSION = ["F/R", "base", 10983];
+  //var CURRENT_DIMENSION = ["F/R", "成语", 10983];
   /*/ *
   var CURRENT_DIMENSION = [
     "P/D/F",

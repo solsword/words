@@ -970,6 +970,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
     // draw vertical scrollbar:
     let asw = this.style.scrollbar_width * ctx.viewport_scale;
+    ctx.beginPath();
     ctx.fillStyle = this.color("button");
     ctx.strokeStyle = this.color("border");
     ctx.rect(ox + w - asw, oy, asw, h);
@@ -1146,7 +1147,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       let h = this.get_item_height(it);
       ctx.save();
       ctx.translate(ox + off_x, oy + off_y);
-      this.draw_item(it, ctx, w - asw - this.style.padding);
+      this.draw_item(it, ctx, w - asw - this.style.padding*2);
       ctx.restore();
       off_y += h;
     }

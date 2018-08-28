@@ -5,7 +5,7 @@ define(
 ["./draw", "./content", "./dimensions", "./icons", "./colors"],
 function(draw, content, dimensions, icons, colors) {
 
-  var PADDING = 4;
+  var PADDING = 8;
   var SPACE = 20;
 
   function matches(hint, word) {
@@ -319,15 +319,28 @@ function(draw, content, dimensions, icons, colors) {
   }
 
   Quest.prototype.draw = function (ctx, width) {
-    // Base implementation draws summary: completion icon, quest type icon, and
+    // Base implementation draws border, summary: completion icon, and quest
+    // type icon.
+    // Draw border:
+    let tw = Math.max(this.width(ctx), width);
+    let th = this.height(ctx);
+    ctx.beginPath();
+    ctx.fillStyle = colors.menu_color("button");
+    ctx.strokeStyle = colors.menu_color("border");
+    ctx.rect(PADDING/2, PADDING/2, tw-PADDING, th-PADDING);
+    ctx.stroke();
+    ctx.fill();
+    // Figure out positions & states:
     let complete = this.is_complete();
     let perfect = complete && this.got_bonus();
     let ss = this.summary_string();
     let m = draw.measure_text(ctx, ss);
     let h = Math.max(icons.HEIGHT, m.height) + 2*PADDING;
-    let qcpos = [icons.WIDTH/2 + PADDING, h + PADDING];
-    let qipos = [icons.WIDTH*1.5 + 3*PADDING, h + PADDING];
+    let qcpos = [icons.WIDTH/2 + PADDING, h/2];
+    let qipos = [icons.WIDTH*1.5 + 3*PADDING, h/2];
     let ss_left = icons.WIDTH*2 + 5*PADDING + SPACE;
+    ctx.strokeStyle = colors.menu_color("text");
+    // Draw completion icon:
     if (perfect) {
       icons.quest_perfect(ctx, qcpos);
     } else if (complete) {
@@ -335,7 +348,9 @@ function(draw, content, dimensions, icons, colors) {
     } else {
       icons.quest_in_progress(ctx, qcpos);
     }
+    // Draw quest icon:
     this.icon(ctx, qipos);
+    // Draw summary text:
     ctx.fillStyle = colors.menu_color("text");
     ctx.textBaseline = "middle";
     let sspos;
@@ -346,7 +361,7 @@ function(draw, content, dimensions, icons, colors) {
       ctx.textAlign = "left";
       sspos = ss_left;
     }
-    ctx.fillText(ss, sspos, h + PADDING);
+    ctx.fillText(ss, sspos, h/2);
   }
 
 
@@ -493,45 +508,64 @@ function(draw, content, dimensions, icons, colors) {
     Quest.prototype.draw.call(this, ctx, width);
     let bh = Quest.prototype.height.call(this, ctx);
     if (this.expanded) {
+      // A line after the summary
+      ctx.beginPath();
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.moveTo(SPACE, bh);
+      ctx.lineTo(width - SPACE, bh);
+      ctx.stroke();
+      // Line height
       let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-      ctx.textBaseline = "middle";
-      ctx.textAlign = "left";
       let line = 0;
       let c = [];
+      let h;
       for (let t of this.targets) {
-        let h = bh + PADDING + (line + 0.5) * lh;
+        h = bh + (line + 0.5) * lh;
         if (this.found[t]) {
-          ctx.fillStyle = colors.menu_color("button_text");
-          ctx.strokeStyle = colors.menu_color("button_text");
-          icons.item_complete(
-            ctx,
-            [SPACE + icons.WIDTH/2, h + icons.HEIGHT/2]
-          );
-          // TODO: more here?
-        } else {
           ctx.fillStyle = colors.menu_color("text");
           ctx.strokeStyle = colors.menu_color("text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, h]
+          );
+        } else {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
         }
         let es = this.ex_string(t);
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
         ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
         line += 1;
       }
-      // TODO: Draw a separator line? Some kind of icon?
+      h = bh + PADDING + line*lh;
+      // Draw a separator line before bonus entries
+      // TODO: Make this clearer
+      ctx.beginPath();
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.moveTo(SPACE, h);
+      ctx.lineTo(width - SPACE, h);
+      ctx.stroke();
       for (let b of this.bonuses) {
-        let h = bh + 2*PADDING + (line + 0.5) * lh;
+        h = bh + PADDING + (line + 0.5) * lh;
         if (this.found[b]) {
-          ctx.fillStyle = colors.menu_color("button_text");
-          ctx.strokeStyle = colors.menu_color("button_text");
-          icons.item_complete(
-            ctx,
-            [SPACE + icons.WIDTH/2, h + icons.HEIGHT/2]
-          );
-          // TODO: more here?
-        } else {
           ctx.fillStyle = colors.menu_color("text");
           ctx.strokeStyle = colors.menu_color("text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, h]
+          );
+        } else {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
+          icons.item_bonus(
+            ctx,
+            [SPACE + icons.WIDTH/2, h]
+          );
         }
         let es = this.ex_string(b);
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
         ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
         line += 1;
       }
