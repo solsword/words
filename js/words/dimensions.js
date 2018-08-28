@@ -8,6 +8,7 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
   // TODO: Better here!
   var MULTIPLANAR_DOMAINS = [
     "base",
+    "成语",
     "عربى",
     "かんたんなひらがな", // DEBUG TODO
     "türk",

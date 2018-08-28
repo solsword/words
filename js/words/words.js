@@ -38,7 +38,7 @@ function(
   var CURRENT_SWIPES = [];
   var ACTIVE_POKES = [];
   // TODO: ADJUST THIS
-  var POKE_DELAY = 24; // delay before a poke happens in seconds
+  var POKE_DELAY = 2; // delay before a poke happens in seconds
   var SEL_CLEAR_ANIM = undefined;
   var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
@@ -46,7 +46,8 @@ function(
   // TODO: Measure this!
 
   // TODO: DEBUG
-  var CURRENT_DIMENSION = ["F/R", "base", 10983];
+  //var CURRENT_DIMENSION = ["F/R", "base", 10983];
+  var CURRENT_DIMENSION = ["F/R", "成语", 10983];
   /*/ *
   var CURRENT_DIMENSION = [
     "P/D/F",

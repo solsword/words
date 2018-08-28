@@ -155,9 +155,10 @@ function() {
     CURRENT_SCHEME = SCHEMES[cs];
     // TODO: Set styles non-destructively
     document.body.style = "background: " + outer_color("background") + ";";
-    document.getElementById("canvas").style = (
-      "border_color: " + outer_color("edge") + ";"
-    );
+    let canvas = document.getElementById("canvas");
+    if (canvas) {
+      canvas.style = ("border_color: " + outer_color("edge") + ";");
+    }
   }
 
   // Initialize default color scheme:
