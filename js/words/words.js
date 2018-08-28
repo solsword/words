@@ -180,13 +180,15 @@ function(
 
     // Update active quests:
     for (var q of QUESTS) {
+      // TODO: Why isn't this being called?
+      console.log("HERE");
       q.find_word(dimension, word, path)
     }
   }
 
 
   function add_quest(q) {
-    q.initialize(WORDS_FOUND);
+    q.initialize(CURRENT_DIMENSION, WORDS_FOUND);
     QUESTS.push(q);
   }
 

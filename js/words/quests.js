@@ -2,8 +2,8 @@
 // Quests functionality.
 
 define(
-["./draw", "./content", "./dimensions", "./icons"],
-function(draw, content, dimensions, icons) {
+["./draw", "./content", "./dimensions", "./icons", "./colors"],
+function(draw, content, dimensions, icons, colors) {
 
   var PADDING = 4;
   var SPACE = 20;
@@ -288,11 +288,11 @@ function(draw, content, dimensions, icons) {
    && y >= PADDING
    && y <= PADDING + icons.HEIGHT
     ) {
-      let c = this.is_complete();
-      if (c && this.got_bonus()) {
+      let complete = this.is_complete();
+      if (complete && this.got_bonus()) {
         // TODO: HERE
         console.log("QUEST w/ BONUS");
-      } else if (c) {
+      } else if (complete) {
         // TODO: HERE
         console.log("QUEST");
       }
@@ -320,32 +320,33 @@ function(draw, content, dimensions, icons) {
 
   Quest.prototype.draw = function (ctx, width) {
     // Base implementation draws summary: completion icon, quest type icon, and
-    let c = this.is_complete();
-    let p = c && this.got_bonus();
+    let complete = this.is_complete();
+    let perfect = complete && this.got_bonus();
     let ss = this.summary_string();
     let m = draw.measure_text(ctx, ss);
     let h = Math.max(icons.HEIGHT, m.height) + 2*PADDING;
     let qcpos = [icons.WIDTH/2 + PADDING, h + PADDING];
     let qipos = [icons.WIDTH*1.5 + 3*PADDING, h + PADDING];
     let ss_left = icons.WIDTH*2 + 5*PADDING + SPACE;
-    if (p) {
+    if (perfect) {
       icons.quest_perfect(ctx, qcpos);
-    } else if (c) {
+    } else if (complete) {
       icons.quest_finished(ctx, qcpos);
     } else {
       icons.quest_in_progress(ctx, qcpos);
     }
     this.icon(ctx, qipos);
+    ctx.fillStyle = colors.menu_color("text");
     ctx.textBaseline = "middle";
     let sspos;
     if (ss_left + m.width < width) {
       ctx.textAlign = "right";
-      sspos = [width - PADDING, h + PADDING];
+      sspos = width - PADDING;
     } else {
       ctx.textAlign = "left";
-      sspos = [icons.WIDTH*2 + 5*PADDING + SPACE, h + PADDING];
+      sspos = ss_left;
     }
-    ctx.fillText(ss, sspos[0], sspos[1]);
+    ctx.fillText(ss, sspos, h + PADDING);
   }
 
 
@@ -386,17 +387,19 @@ function(draw, content, dimensions, icons) {
   }
 
   HuntQuest.prototype.find_word = function(dimension, word) {
-    if (!dimensions.same(this.dimension, dimension)) {
-      return;
-    }
+    console.log(["FW", dimension, this.dimension]);
+    if (!dimensions.same(this.dimension, dimension)) { return; }
+    console.log("Test");
     for (var t of this.targets) {
       if (matches(t, word)) {
         this.found[t] = true;
+        console.log("Found match: " + t + " := " + word);
       }
     }
     for (var b of this.bonuses) {
       if (matches(b, word)) {
         this.found[b] = true;
+        console.log("Found match: " + b + " := " + word);
       }
     }
   }
@@ -441,23 +444,46 @@ function(draw, content, dimensions, icons) {
     }
   }
 
+  HuntQuest.prototype.ex_string = function (target) {
+    // TODO: Incorporate actual word found?
+    return target;
+  }
+
   HuntQuest.prototype.width = function (ctx) {
     let ss = this.summary_string();
-    let m = draw.measure_text(ctx, ss);
-    let bw = Quest.prototype.width.call(this, ctx);
+    let xw = Quest.prototype.width.call(this, ctx);
     if (this.expanded) {
-      // TODO: HERE
-    } else {
-      return bw;
-    }
+      for (let t of this.targets) {
+        let es = this.ex_string(t);
+        let m = draw.measure_text(ctx, es);
+        let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
+        if (w > xw) {
+          xw = w;
+        }
+      }
+      for (let b of this.bonuses) {
+        let es = this.ex_string(b);
+        let m = draw.measure_text(ctx, es);
+        let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
+        if (w > xw) {
+          xw = w;
+        }
+      }
+    } // else nothing; xw from the base call stands.
+    return xw;
   }
 
   HuntQuest.prototype.height = function (ctx) {
     let ss = this.summary_string();
     let m = draw.measure_text(ctx, ss);
     let bh = Quest.prototype.height.call(this, ctx);
+    let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
     if (this.expanded) {
-      // TODO: HERE
+      return (
+        bh
+      + (this.targets.length + this.bonuses.length) * lh
+      + 2*PADDING
+      );
     } else {
       return bh;
     }
@@ -465,8 +491,50 @@ function(draw, content, dimensions, icons) {
 
   HuntQuest.prototype.draw = function (ctx, width) {
     Quest.prototype.draw.call(this, ctx, width);
+    let bh = Quest.prototype.height.call(this, ctx);
     if (this.expanded) {
-    // TODO: HERE
+      let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      let line = 0;
+      let c = [];
+      for (let t of this.targets) {
+        let h = bh + PADDING + (line + 0.5) * lh;
+        if (this.found[t]) {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, h + icons.HEIGHT/2]
+          );
+          // TODO: more here?
+        } else {
+          ctx.fillStyle = colors.menu_color("text");
+          ctx.strokeStyle = colors.menu_color("text");
+        }
+        let es = this.ex_string(t);
+        ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
+        line += 1;
+      }
+      // TODO: Draw a separator line? Some kind of icon?
+      for (let b of this.bonuses) {
+        let h = bh + 2*PADDING + (line + 0.5) * lh;
+        if (this.found[b]) {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, h + icons.HEIGHT/2]
+          );
+          // TODO: more here?
+        } else {
+          ctx.fillStyle = colors.menu_color("text");
+          ctx.strokeStyle = colors.menu_color("text");
+        }
+        let es = this.ex_string(b);
+        ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
+        line += 1;
+      }
     }
   }
 
@@ -488,8 +556,9 @@ function(draw, content, dimensions, icons) {
     this.area_encircled = unlocked_encircled(this.dimension);
   };
 
-  EncircleQuest.prototype.find_word = function(word, path) {
+  EncircleQuest.prototype.find_word = function(dimension) {
     // Update our measure of encircled area.
+    if (!dimensions.same(this.dimension, dimension)) { return; }
     this.area_encircled = unlocked_encircled(this.dimension);
   };
 
@@ -519,8 +588,9 @@ function(draw, content, dimensions, icons) {
     this.span = unlocked_span(this.dimension);
   };
 
-  StretchQuest.prototype.find_word = function(word, path) {
+  StretchQuest.prototype.find_word = function(dimension) {
     // Update our span measure.
+    if (!dimensions.same(this.dimension, dimension)) { return; }
     this.span = unlocked_span(this.dimension);
   };
 
@@ -550,8 +620,9 @@ function(draw, content, dimensions, icons) {
     this.branches = unlocked_branches(this.dimension);
   };
 
-  BranchQuest.prototype.find_word = function(word, path) {
+  BranchQuest.prototype.find_word = function(dimension) {
     // Update our branches measure.
+    if (!dimensions.same(this.dimension, dimension)) { return; }
     this.branches = unlocked_branches(this.dimension);
   };
 
@@ -581,8 +652,9 @@ function(draw, content, dimensions, icons) {
     this.sizes = unlocked_sizes(this.dimension);
   };
 
-  BigQuest.prototype.find_word = function(word, path) {
+  BigQuest.prototype.find_word = function(dimension, word, path) {
     // Update our sizes array.
+    if (!dimensions.same(this.dimension, dimension)) { return; }
     let l = path.length;
     if (this.sizes[l] == undefined) {
       this.sizes[l] = 1;
@@ -627,7 +699,9 @@ function(draw, content, dimensions, icons) {
     // might possibly be unloaded.
   };
 
-  GlyphQuest.prototype.find_word = function(word, path) {
+  GlyphQuest.prototype.find_word = function(dimension, word) {
+    // Look for target glyph(s)
+    if (!dimensions.same(this.dimension, dimension)) { return; }
     for (var g of word) {
       found[g] = true;
     }
