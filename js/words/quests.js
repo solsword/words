@@ -402,19 +402,15 @@ function(draw, content, dimensions, icons, colors) {
   }
 
   HuntQuest.prototype.find_word = function(dimension, word) {
-    console.log(["FW", dimension, this.dimension]);
     if (!dimensions.same(this.dimension, dimension)) { return; }
-    console.log("Test");
     for (var t of this.targets) {
       if (matches(t, word)) {
         this.found[t] = true;
-        console.log("Found match: " + t + " := " + word);
       }
     }
     for (var b of this.bonuses) {
       if (matches(b, word)) {
         this.found[b] = true;
-        console.log("Found match: " + b + " := " + word);
       }
     }
   }

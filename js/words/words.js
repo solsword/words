@@ -106,10 +106,6 @@ function(
   // Which animation frame we're on.
   var ANIMATION_FRAME = 0;
 
-  var SOFAR_BORDER = "#555";
-  var SOFAR_HIGHLIGHT = "#ccc";
-  var SOFAR_FADE = 0.0;
-
   // Word tracking:
   var WORDS_FOUND = {};
   var FOUND_LISTS = {}; // per dimension
@@ -181,8 +177,6 @@ function(
 
     // Update active quests:
     for (var q of QUESTS) {
-      // TODO: Why isn't this being called?
-      console.log("HERE");
       q.find_word(dimension, word, path)
     }
   }
@@ -973,11 +967,14 @@ function(
       return;
     }
     DO_REDRAW = undefined;
+
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
+    // Tiles
     if (!draw.draw_tiles(CURRENT_DIMENSION, CTX)) {
       DO_REDRAW = MISSING_TILE_RETRY;
     };
+    // Swipes
     CURRENT_SWIPES.forEach(function (swipe, index) {
       if (index == CURRENT_SWIPES.length - 1) {
         draw.draw_swipe(CTX, swipe, true);
@@ -985,6 +982,7 @@ function(
         draw.draw_swipe(CTX, swipe, false);
       }
     });
+    // Pokes
     var poke_redraw_after = undefined;
     var finished_pokes = [];
     ACTIVE_POKES.forEach(function (poke, index) {
@@ -1020,7 +1018,7 @@ function(
       DO_REDRAW = Math.max(poke_redraw_after, 0);
     }
 
-    // Draw loading bars for domains:
+    // Loading bars for domains:
     var loading = dict.LOADING;
     var lks = [];
     for (var l in loading) {
@@ -1035,12 +1033,12 @@ function(
       }
     }
 
-    // Draw menus:
+    // Menus:
     if (menu.draw_active(CTX)) {
       DO_REDRAW = 0;
     }
 
-    // Draw animations:
+    // Animations:
     var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
     if (
       next_horizon != undefined
