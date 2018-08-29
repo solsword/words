@@ -365,6 +365,134 @@ function(draw, content, dimensions, icons, colors) {
   }
 
 
+  function NumericQuest(type, target, bonus, reward) {
+    // Generic subtype for quests that just have numerical targets/bonuses.
+    // Supplies is_complete, got_bonus, summary_string, full_string,
+    // threshold_positions, width, height, and draw functions.
+    Quest.call(this, type, reward);
+    this.icon = icons.unknown;
+    this.target = target;
+    this.bonus = bonus;
+    this.value = 0;
+  }
+
+  NumericQuest.prototype = Object.create(Quest.prototype);
+  NumericQuest.prototype.constructor = NumericQuest;
+
+  NumericQuest.prototype.full_string = function () {
+    // For subtypes, this should return a string that describes the state.
+    console.warn("full_string isn't implemented for base NumericQuest.");
+    return "<error>";
+  }
+
+  NumericQuest.prototype.threshold_positions = function () {
+    // Returns the positions (on a scale of 0--1) of the current value and
+    // target value relative to the bonus value.
+    return [
+      Math.min(1, this.value / this.bonus),
+      Math.min(1, this.target / this.bonus)
+    ];
+  }
+
+  NumericQuest.prototype.is_complete = function () {
+    return this.value >= this.target; 
+  }
+
+  NumericQuest.prototype.got_bonus = function () {
+    return this.value >= this.bonus; 
+  }
+
+  NumericQuest.prototype.summary_string = function() {
+    return "" + this.value + "/" + this.target;
+  }
+
+  NumericQuest.prototype.full_string = function() {
+    if (this.bonus > this.target) {
+      return (
+        ""
+      + this.value
+      + "/"
+      + this.target
+      + " (" + this.bonus + ")"
+      );
+    } else {
+      return (
+        ""
+      + this.value
+      + "/"
+      + this.target
+      );
+    }
+  }
+
+  NumericQuest.prototype.width = function (ctx) {
+    let xw = Quest.prototype.width.call(this, ctx);
+    if (this.expanded) {
+      let m = draw.measure_text(ctx, this.full_string());
+      xw = Math.max(xw, m.width + 2*SPACE + 3*PADDING)
+    }
+    return xw;
+  }
+
+  NumericQuest.prototype.height = function (ctx) {
+    let th = Quest.prototype.height.call(this, ctx);
+    if (this.expanded) {
+      th += draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+    }
+    return th;
+  }
+
+  NumericQuest.prototype.draw = function (ctx, width) {
+    Quest.prototype.draw.call(this, ctx, width);
+    let bh = Quest.prototype.height.call(this, ctx);
+    if (this.expanded) {
+      // A line after the summary
+      ctx.beginPath();
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.moveTo(SPACE, bh);
+      ctx.lineTo(width - SPACE, bh);
+      ctx.stroke();
+      // Line height
+      let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+
+      let bar_height = lh - PADDING;
+      let tp = this.threshold_positions();
+
+      // Full bar:
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.fillStyle = colors.menu_color("background");
+      ctx.rect(PADDING + SPACE, bh + PADDING, SPACE, bar_height);
+      ctx.fill();
+      ctx.stroke();
+
+      // Filled region:
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.fillStyle = colors.menu_color("button_text");
+      ctx.rect(
+        PADDING + SPACE,
+        bh + PADDING + bar_height * (1 - tp[0]),
+        SPACE,
+        bar_height * tp[0];
+      );
+      ctx.fill();
+      ctx.stroke();
+
+      // target level line (pokes out sideways a bit)
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.beginPath();
+      let target_y = bh + PADDING + bar_height * (1 - tp[1]);
+      ctx.moveTo(SPACE, target_y);
+      ctx.lineTo(2*PADDING + 2*SPACE, target_y);
+      ctx.stroke();
+
+      // Draw full string:
+      let txt = this.full_string();
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillText(txt, 2*SPACE + 2*PADDING, bh + 0.5*lh);
+    }
+  }
+
   function HuntQuest(targets, bonuses, params, reward, found) {
     // Targets and bonuses should each be lists of hint strings. Params may
     // include:
@@ -461,7 +589,6 @@ function(draw, content, dimensions, icons, colors) {
   }
 
   HuntQuest.prototype.width = function (ctx) {
-    let ss = this.summary_string();
     let xw = Quest.prototype.width.call(this, ctx);
     if (this.expanded) {
       for (let t of this.targets) {
@@ -485,8 +612,6 @@ function(draw, content, dimensions, icons, colors) {
   }
 
   HuntQuest.prototype.height = function (ctx) {
-    let ss = this.summary_string();
-    let m = draw.measure_text(ctx, ss);
     let bh = Quest.prototype.height.call(this, ctx);
     let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
     if (this.expanded) {
@@ -571,98 +696,65 @@ function(draw, content, dimensions, icons, colors) {
 
   function EncircleQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
-    Quest.call(this, "encircle", reward);
+    NumericQuest.call(this, "encircle", target, bonus, reward);
     this.icon = icons.encircle;
-    this.target = target;
-    this.bonus = bonus;
-    this.area_encircled = 0;
   }
 
-  EncircleQuest.prototype = Object.create(Quest.prototype);
+  EncircleQuest.prototype = Object.create(NumericQuest.prototype);
   EncircleQuest.prototype.constructor = EncircleQuest;
 
   EncircleQuest.prototype.initialize = function(dimension, words_found) {
     Quest.prototype.initialize.call(this, dimension, words_found);
-    this.area_encircled = unlocked_encircled(this.dimension);
+    this.value = unlocked_encircled(this.dimension);
   };
 
   EncircleQuest.prototype.find_word = function(dimension) {
     // Update our measure of encircled area.
     if (!dimensions.same(this.dimension, dimension)) { return; }
-    this.area_encircled = unlocked_encircled(this.dimension);
+    this.value = unlocked_encircled(this.dimension);
   };
-
-  EncircleQuest.prototype.is_complete = function () {
-    return this.area_encircled >= this.target; 
-  }
-
-  EncircleQuest.prototype.got_bonus = function () {
-    return this.area_encircled >= this.bonus; 
-  }
 
 
   function StretchQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
-    Quest.call(this, "stretch", reward);
+    NumericQuest.call(this, "stretch", target, bonus, reward);
     this.icon = icons.stretch;
-    this.target = target;
-    this.bonus = bonus;
-    this.span = 0;
   };
 
-  StretchQuest.prototype = Object.create(Quest.prototype);
+  StretchQuest.prototype = Object.create(NumericQuest.prototype);
   StretchQuest.prototype.constructor = StretchQuest;
 
   StretchQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.prototype.initialize.call(this, dimension, words_found);
-    this.span = unlocked_span(this.dimension);
+    NumericQuest.prototype.initialize.call(this, dimension, words_found);
+    this.value = unlocked_span(this.dimension);
   };
 
   StretchQuest.prototype.find_word = function(dimension) {
     // Update our span measure.
     if (!dimensions.same(this.dimension, dimension)) { return; }
-    this.span = unlocked_span(this.dimension);
+    this.value = unlocked_span(this.dimension);
   };
-
-  StretchQuest.prototype.is_complete = function () {
-    return this.span >= this.target; 
-  }
-
-  StretchQuest.prototype.got_bonus = function () {
-    return this.span >= this.bonus; 
-  }
 
 
   function BranchQuest(target, bonus, reward) {
     // Target and bonus should each be area numbers.
-    Quest.call(this, "branch", reward);
+    NumericQuest.call(this, "branch", target, bonus, reward);
     this.icon = icons.branch;
-    this.target = target;
-    this.bonus = bonus;
-    this.branches = 0;
   }
 
-  BranchQuest.prototype = Object.create(Quest.prototype);
+  BranchQuest.prototype = Object.create(NumericQuest.prototype);
   BranchQuest.prototype.constructor = BranchQuest;
 
   BranchQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.prototype.initialize.call(this, dimension, words_found);
-    this.branches = unlocked_branches(this.dimension);
+    NumericQuest.prototype.initialize.call(this, dimension, words_found);
+    this.value = unlocked_branches(this.dimension);
   };
 
   BranchQuest.prototype.find_word = function(dimension) {
     // Update our branches measure.
     if (!dimensions.same(this.dimension, dimension)) { return; }
-    this.branches = unlocked_branches(this.dimension);
+    this.value = unlocked_branches(this.dimension);
   };
-
-  BranchQuest.prototype.is_complete = function () {
-    return this.branches >= this.target; 
-  }
-
-  BranchQuest.prototype.got_bonus = function () {
-    return this.branches >= this.bonus; 
-  }
 
 
   function BigQuest(target, bonus, reward) {
@@ -693,20 +785,122 @@ function(draw, content, dimensions, icons, colors) {
     }
   };
 
-  BigQuest.prototype.is_complete = function () {
+  BigQuest.prototype.target_count = function () {
     let count = 0;
     for (let i = this.target[0]; i < this.sizes.length; ++i) {
       count += this.sizes[i] || 0;
     }
-    return count >= this.target[1];
+    return count;
   }
 
-  BigQuest.prototype.got_bonus = function () {
+  BigQuest.prototype.bonus_count = function () {
     let count = 0;
     for (let i = this.bonus[0]; i < this.sizes.length; ++i) {
       count += this.sizes[i] || 0;
     }
-    return count >= this.bonus[1];
+    return count;
+  }
+
+  BigQuest.prototype.is_complete = function () {
+    return this.target_count() >= this.target[1];
+  }
+
+  BigQuest.prototype.got_bonus = function () {
+    return this.bonus_count() >= this.bonus[1];
+  }
+
+  BigQuest.prototype.summary_string = function () {
+    return "" + this.target_count() + "/" + this.target[1];
+    // TODO: Include bonus info somehow?
+  }
+
+  BigQuest.prototype.target_string = function () {
+    return (
+      "" + this.target[0] + "+: "
+    + this.target_count() + "/" + this.target[1]
+    );
+  }
+
+  BigQuest.prototype.bonus_string = function () {
+    return (
+      "" + this.bonus[0] + "+: "
+    + this.bonus_count() + "/" + this.bonus[1]
+    );
+  }
+  
+  BigQuest.prototype.width = function(ctx) {
+    let xw = Quest.prototype.width.call(this, ctx);
+    if (this.expanded) {
+      let tw = draw.measure_text(this.target_string()).width;
+      tw += SPACE + icons.WIDTH + 2*PADDING;
+      let bw = draw.measure_text(this.bonus_string()).width;
+      bw += SPACE + icons.WIDTH + 2*PADDING;
+      xw = Math.max(xw, tw, bw);
+    }
+    return xw;
+  }
+
+  BigQuest.prototype.height = function(ctx) {
+    let bh = Quest.prototype.height.call(this, ctx);
+    let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+    let result = bh + lh + PADDING;
+    if (this.bonus[0] != this.target[0] || this.bonus[1] != this.target[1]) {
+      result += lh;
+    }
+    return result;
+  }
+
+  BigQuest.prototype.draw = function (ctx, width) {
+    Quest.prototype.draw.call(this, ctx, width);
+    let bh = Quest.prototype.height.call(this, ctx);
+    if (this.expanded) {
+      // A line after the summary
+      ctx.beginPath();
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.moveTo(SPACE, bh);
+      ctx.lineTo(width - SPACE, bh);
+      ctx.stroke();
+      // Line height
+      let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+      if (this.is_complete()) {
+        // Draw check mark
+        ctx.fillStyle = colors.menu_color("text");
+        ctx.strokeStyle = colors.menu_color("text");
+        icons.item_complete(
+          ctx,
+          [SPACE + icons.WIDTH/2, bh + 0.5*lh]
+        );
+      } else {
+        ctx.fillStyle = colors.menu_color("button_text");
+        ctx.strokeStyle = colors.menu_color("button_text");
+      }
+      // Draw target text:
+      let ts = this.target_string();
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillText(ts, PADDING + SPACE + icons.WIDTH, bh + 0.5*lh);
+
+      if (this.bonus[0] != this.target[0] || this.bonus[1] != this.target[1]) {
+        // draw bonus info too
+        if (this.got_bonus()) {
+          // Draw check mark
+          ctx.fillStyle = colors.menu_color("text");
+          ctx.strokeStyle = colors.menu_color("text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, bh + 1.5*lh]
+          );
+        } else {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
+        }
+        // Draw bonus text:
+        let bs = this.bonus_string();
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillText(bs, PADDING + SPACE + icons.WIDTH, bh + 0.5*lh);
+      }
+    }
   }
 
 
@@ -733,14 +927,20 @@ function(draw, content, dimensions, icons, colors) {
     // Look for target glyph(s)
     if (!dimensions.same(this.dimension, dimension)) { return; }
     for (var g of word) {
-      found[g] = true;
+      if (this.targets[g] || this.bonuses[g]) {
+        if (this.found.hasOwnProperty(g)) {
+          this.found[g] += 1;
+        } else {
+          this.found[g] = 1;
+        }
+      }
     }
   }
 
   GlyphQuest.prototype.is_complete = function () {
     let missing = false;
-    for (let g of this.targets) {
-      if (!found[g]) {
+    for (let g of Object.keys(this.targets)) {
+      if (!this.found[g] || this.found[g] < this.targets[g]) {
         missing = true;
       }
     }
@@ -749,12 +949,146 @@ function(draw, content, dimensions, icons, colors) {
 
   GlyphQuest.prototype.got_bonus = function () {
     let missing = false;
-    for (let g of this.bonuses) {
-      if (!found[g]) {
+    for (let g of Object.keys(this.bonuses)) {
+      if (!this.found[g] || this.found[g] < this.bonuses[g]) {
         missing = true;
       }
     }
     return !missing;
+  }
+
+  GlyphQuest.prototype.summary_string = function() {
+    let ft = 0;
+    let fb = 0;
+    for (let t of Object.keys(this.targets)) {
+      if (this.found[t] != undefined && this.found[t] >= this.targets[t]) {
+        ft += 1;
+      }
+    }
+    for (let b of Object.keys(this.bonuses)) {
+      if (this.found[b] != undefined && this.found[b] >= this.bonuses[b]) {
+        fb += 1;
+      }
+    }
+    if (fb > 0) {
+      return ft + "+" + fb + "/" + this.targets.length;
+    } else {
+      return ft + "/" + this.targets.length;
+    }
+  }
+
+  GlyphQuest.prototype.ex_tstring = function (t) {
+    return "" + t + ": " + (this.found[t] || 0) + "/" + this.targets[t];
+  }
+
+  GlyphQuest.prototype.ex_bstring = function (b) {
+    return "" + b + ": " + (this.found[b] || 0) + "/" + this.bonuses[b];
+  }
+
+  GlyphQuest.prototype.width = function (ctx) {
+    let xw = Quest.prototype.width.call(this, ctx);
+    if (this.expanded) {
+      for (let t of Object.keys(this.targets)) {
+        let es = this.ex_tstring(t);
+        let m = draw.measure_text(ctx, es);
+        let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
+        if (w > xw) {
+          xw = w;
+        }
+      }
+      for (let b of Object.keys(this.bonuses)) {
+        let es = this.ex_bstring(b);
+        let m = draw.measure_text(ctx, es);
+        let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
+        if (w > xw) {
+          xw = w;
+        }
+      }
+    } // else nothing; xw from the base call stands.
+    return xw;
+  }
+
+  // TODO
+  GlyphQuest.prototype.height = function (ctx) {
+    let bh = Quest.prototype.height.call(this, ctx);
+    let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+    if (this.expanded) {
+      return (
+        bh
+      + (this.targets.length + this.bonuses.length) * lh
+      + 2*PADDING
+      );
+    } else {
+      return bh;
+    }
+  }
+
+  GlyphQuest.prototype.draw = function (ctx, width) {
+    Quest.prototype.draw.call(this, ctx, width);
+    let bh = Quest.prototype.height.call(this, ctx);
+    if (this.expanded) {
+      // A line after the summary
+      ctx.beginPath();
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.moveTo(SPACE, bh);
+      ctx.lineTo(width - SPACE, bh);
+      ctx.stroke();
+      // Line height
+      let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
+      let line = 0;
+      let c = [];
+      let h;
+      for (let t of Object.keys(this.targets)) {
+        h = bh + (line + 0.5) * lh;
+        if (this.found[t]) {
+          ctx.fillStyle = colors.menu_color("text");
+          ctx.strokeStyle = colors.menu_color("text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, h]
+          );
+        } else {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
+        }
+        let es = this.ex_tstring(t);
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
+        line += 1;
+      }
+      h = bh + PADDING + line*lh;
+      // Draw a separator line before bonus entries
+      // TODO: Make this clearer
+      ctx.beginPath();
+      ctx.strokeStyle = colors.menu_color("text");
+      ctx.moveTo(SPACE, h);
+      ctx.lineTo(width - SPACE, h);
+      ctx.stroke();
+      for (let b of Object.keys(this.bonuses)) {
+        h = bh + PADDING + (line + 0.5) * lh;
+        if (this.found[b]) {
+          ctx.fillStyle = colors.menu_color("text");
+          ctx.strokeStyle = colors.menu_color("text");
+          icons.item_complete(
+            ctx,
+            [SPACE + icons.WIDTH/2, h]
+          );
+        } else {
+          ctx.fillStyle = colors.menu_color("button_text");
+          ctx.strokeStyle = colors.menu_color("button_text");
+          icons.item_bonus(
+            ctx,
+            [SPACE + icons.WIDTH/2, h]
+          );
+        }
+        let es = this.ex_bstring(b);
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
+        line += 1;
+      }
+    }
   }
 
   return {
