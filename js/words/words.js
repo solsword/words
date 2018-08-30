@@ -29,6 +29,8 @@ function(
 
   var VIEWPORT_SIZE = 800.0;
 
+  // TODO: Toggle this!
+  var DEMO = true;
   var SWIPING = false;
   var PRESS_RECORDS = [undefined, undefined];
   var LAST_RELEASE = undefined;
@@ -46,8 +48,8 @@ function(
   // TODO: Measure this!
 
   // TODO: DEBUG
-  var CURRENT_DIMENSION = ["F/R", "base", 10983];
-  //var CURRENT_DIMENSION = ["F/R", "成语", 10983];
+  //var CURRENT_DIMENSION = ["F/R", "base", 10983];
+  var CURRENT_DIMENSION = ["F/R", "成语", 10983];
   /*/ *
   var CURRENT_DIMENSION = [
     "P/D/F",
@@ -196,6 +198,9 @@ function(
 
   var COMMANDS = {
     // DEBUG:
+    "D": function (e) {
+      DEMO = !DEMO;
+    },
     "d": function (e) {
       CURRENT_DIMENSION = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
       DO_REDRAW = 0;
@@ -361,25 +366,29 @@ function(
   }
 
   function test_selection() {
-    var combined_swipe = combine_arrays(CURRENT_SWIPES);
-    var domains = new Set();
+    let combined_swipe = combine_arrays(CURRENT_SWIPES);
+    let domains = new Set();
     combined_swipe.forEach(function (gp) {
-      var tile = content.tile_at(CURRENT_DIMENSION, gp);
+      let tile = content.tile_at(CURRENT_DIMENSION, gp);
       if (tile != null) {
         generate.domains_list(tile.domain).forEach(function (d) {
           domains.add(d);
         });
       }
     });
-    var entries = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
+    let entries = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (entries.length > 0) {
       // Found a match:
-      var connected = false;
-      combined_swipe.forEach(function (gp) {
-        if (content.is_unlocked(CURRENT_DIMENSION, gp)) {
-          connected = true;
-        }
-      });
+      let connected = false;
+      if (DEMO) {
+        connected = true;
+      } else {
+        combined_swipe.forEach(function (gp) {
+          if (content.is_unlocked(CURRENT_DIMENSION, gp)) {
+            connected = true;
+          }
+        });
+      }
       if (connected) {
         // Match is connected:
         // clear our swipes and glyphs and add to our words found
@@ -554,11 +563,15 @@ function(
       let wp = draw.world_pos(ctx, vpos);
       let gp = grid.grid_pos(wp);
       let valid = false;
-      for (let d = 0; d < 6; ++d) {
-        let np = grid.neighbor(gp, d);
-        if (content.is_unlocked(CURRENT_DIMENSION, np)) {
-          valid = true;
-          break;
+      if (DEMO) {
+        valid = true;
+      } else {
+        for (let d = 0; d < 6; ++d) {
+          let np = grid.neighbor(gp, d);
+          if (content.is_unlocked(CURRENT_DIMENSION, np)) {
+            valid = true;
+            break;
+          }
         }
       }
       if (valid) {

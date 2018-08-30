@@ -472,7 +472,7 @@ function(draw, content, dimensions, icons, colors) {
         PADDING + SPACE,
         bh + PADDING + bar_height * (1 - tp[0]),
         SPACE,
-        bar_height * tp[0];
+        bar_height * tp[0]
       );
       ctx.fill();
       ctx.stroke();
