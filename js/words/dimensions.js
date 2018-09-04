@@ -149,33 +149,46 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
   }
 
   function kind(dimension) {
-    return DIMENSION_KINDS[dimension[0][0]];
+    return dimension.kind;
   }
 
   function layout(dimension) {
-    let k = kind(dimension);
-    return DIMENSION_LAYOUTS[k][dimension[0][2]];
+    return dimension.layout;
   }
 
   function flavor(dimension) {
-    let k = kind(dimension);
-    return DIMENSION_FLAVORS[k][dimension[0][4]];
+    return dimension.flavor;
   }
 
   function natural_domain(dimension) {
-    return dimension[1];
+    return dimension.domain;
   }
 
   function seed(dimension) {
-    return dimension[2];
+    return dimension.seed;
   }
 
   function pocket_word_count(dimension) {
-    return dimension[3].length;
+    if (dimension.kind == "pocket") {
+      // TODO: HERE
+      return 0;
+    } else if (dimension.kind == "custom") {
+      return dimension.words.length;
+    } else {
+      return NaN;
+    }
   }
 
   function pocket_nth_word(dimension, n) {
-    return dimension[3][n];
+    if (dimension.kind == "pocket") {
+      // TODO: HERE
+      console.log("pocket_nth_word needs implementation!");
+      return "huh";
+    } else if (dimension.kind == "custom") {
+      return dimension.words[n];
+    } else {
+      return undefined;
+    }
   }
 
   function pocket_words(dimension) {
@@ -189,14 +202,17 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
   }
 
   function neighboring_dimension(dimension, offset) {
-    let i = MULTIPLANAR_DOMAINS.indexOf(dimension[1]);
-    return [
-      dimension[0],
-      MULTIPLANAR_DOMAINS[
+    let nd = natural_domain(dimension);
+    let i = MULTIPLANAR_DOMAINS.indexOf(nd);
+    return {
+      "kind": kind(dimension),
+      "layout": layout(dimension),
+      "domain": MULTIPLANAR_DOMAINS[
         anarchy.posmod((i + offset), MULTIPLANAR_DOMAINS.length)
       ],
-      dimension[2]
-    ];
+      // TODO: Seed pairing
+      "seed": seed(dimension),
+    }
   }
 
   function stacked_dimension(dimension, offset) {

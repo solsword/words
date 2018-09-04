@@ -1,7 +1,7 @@
 // dict.js
 // Dictionary implementation.
 
-define(["./locale"], function(locale) {
+define(["./utils", "./locale"], function(utils, locale) {
 
   // Whether or not to issue console warnings.
   var WARNINGS = true;
@@ -21,7 +21,7 @@ define(["./locale"], function(locale) {
   // The number of bins in the domain length sumtable. Each bin corresponds to
   // the count of words with the given length, except the last bin, which
   // contains all of the words at least as long as the number of bins.
-  var DOMAIN_LENGTH_BINS = 32;
+  var DOMAIN_LENGTH_BINS = 64;
 
   var FINALIZE_URL = "js/words/workers/finalize_dict.js";
   //var FINALIZE_URL = "js/words/workers/test.js";
@@ -271,7 +271,11 @@ define(["./locale"], function(locale) {
       return b[2] - a[2]; // put most-frequent words first
     });
     // Argsort by length
-    // TODO: HERE
+    let by_length = utils.range(entries.length);
+    by_length.sort(function (a, b) {
+      return entries[b][0].length - entries[a][0].length;
+      // indices of longest words first
+    });
     // Create a sumtable for frequency and length counts, ending with grouped
     // bins for frequencies/lengths over the cutoffs:
     var fq_counttable = [];
@@ -318,7 +322,7 @@ define(["./locale"], function(locale) {
     var lt_sumtable = [];
     sum = 0;
     for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
-      // length counttable is normal (things no-longer-than-this)
+      // length counttable is normal (things no-longer-than-this (minus 1))
       sum += lt_counttable[i];
       lt_sumtable[i] = sum;
     }
@@ -331,9 +335,9 @@ define(["./locale"], function(locale) {
       "entries": entries,
       "total_count": total_count,
       "high_frequency_entries": hf_entries,
-      "length_ordering": length_ordered,
+      "length_ordering": by_length,
       "long_entries": long_entries,
-      "count_sums": fq_sumtable
+      "count_sums": fq_sumtable,
       "length_sums": lt_sumtable
     }
 
@@ -540,6 +544,43 @@ define(["./locale"], function(locale) {
     return domain.entries[0];
   }
 
+  function words_no_longer_than(domain, L) {
+    // Returns the number of words in the given domain that are no longer than
+    // the given length. Note: this will be inefficient if there are lots of
+    // words longer than DOMAIN_LENGTH_BINS glyphs long.
+    if (L - 1 < DOMAIN_LENGTH_BINS - 1) {
+      return domain.length_sums[L - 1];
+    } else {
+      let count = domain.length_sums[DOMAIN_LENGTH_BINS - 2];
+      for (
+        let i = domain.length_sums[DOMAIN_LENGTH_BINS - 2];
+        i < domain.length_ordering.length;
+        ++i
+      ) {
+        let len = domain.entries[domain.length_ordering[i]][0].length;
+        if (len > L) {
+          return count;
+        } else {
+          count += 1;
+        }
+      }
+      return count;
+    }
+  }
+
+  function nth_short_word(domain, L, n) {
+    // Returns the nth word no longer than L glyphs in the given domain. N is
+    // wrapped to fit in the appropriate number for words_no_longer_than.
+    // Undefined is returned if there are no words in the domain short enough.
+    // Returns a [glyphs, word, frequency] triple.
+    let max = words_no_longer_than(domain, L);
+    if (max == 0) {
+      return undefined;
+    }
+    n %= max;
+    return domain.entries[domain.length_ordering[n]];
+  }
+
   return {
     "WARNINGS": WARNINGS,
     "LOADING": LOADING,
@@ -550,5 +591,7 @@ define(["./locale"], function(locale) {
     "find_word_in_domain": find_word_in_domain,
     "unrolled_word": unrolled_word,
     "load_json_or_list_from_data": load_json_or_list_from_data,
+    "words_no_longer_than": words_no_longer_than,
+    "nth_short_word": nth_short_word,
   };
 });

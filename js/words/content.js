@@ -112,6 +112,7 @@ define(
       delete QUEUED[sgk]; // allow re-queue
       return;
     }
+    // TODO: DEBUG
     var st = generate.generate_supertile(dimension, [sgp[0], sgp[1]], SEED);
     if (st != undefined) {
       cache_supertile(sgk, st);

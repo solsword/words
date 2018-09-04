@@ -1,5 +1,14 @@
 define([], function () {
 
+  // Generates an array containing the N numbers 0 .. N-1
+  function range(n) {
+    let result = [];
+    for (let i = 0; i < n; ++i) {
+      result.push(i);
+    }
+    return result;
+  }
+
   // Test for deep equality (through arrays and objects)
   function is_equal(a, b) {
     if (Array.isArray(a)) {
@@ -56,6 +65,7 @@ define([], function () {
   }
 
   return {
+    "range": range,
     "is_equal": is_equal,
     "string__array": string__array,
   }

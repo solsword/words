@@ -335,9 +335,20 @@ function(anarchy, dict, grid, dimensions, caching) {
 
   function sample_word(domain, seed, max_len, max_attempts) {
     // Sample a word from the given domain, weighted according to word
-    // frequencies. Up to max_attempts will be made to find a word no longer
-    // than max_len before giving up, in which case undefined is returned.
-    // Returns a [glyphs, word, frequency] triple.
+    // frequencies. Up to max_attempts (default 20) will be made to find a word
+    // no longer than max_len before giving up, in which case a flat-weighted
+    // word under that length will be returned, or undefined if there are no
+    // such words in the given domain. Returns a [glyphs, word, frequency]
+    // triple. If max_len is not given, max_attempts will be ignored, all words
+    // will be considered and undefined will never result.
+    if (max_len == undefined) {
+      let n = anarchy.cohort_shuffle(712839, domain.total_count, seed);
+      return dict.unrolled_word(n, domain);
+    }
+
+    if (max_attempts == undefined) {
+      max_attempts = 20;
+    }
 
     for (let i = 0; i < max_attempts; ++i) {
       let ii = anarchy.cohort_shuffle(i, domain.total_count, seed);
@@ -346,8 +357,9 @@ function(anarchy, dict, grid, dimensions, caching) {
         return entry;
       }
     }
-    // If we got here, we couldn't find any word that was short enough!
-    return undefined;
+    let smc = dict.words_no_longer_than(domain, max_len);
+    let n = anarchy.cohort_shuffle(712839, smc, seed);
+    return dict.nth_short_word(domain, max_len, n); // undefined if none exists
   }
 
   function ultratile_punctuation_parameters(ugp) {
@@ -1193,9 +1205,20 @@ function(anarchy, dict, grid, dimensions, caching) {
     return result;
   }
 
-  function augment_words(supertile, domain, seed) {
+  function augment_words(supertile, domain, seed, leave_empty) {
+    // Finds all open spaces in the supertile and organizes them into linear
+    // paths, and then fills some or all of those paths with words from the
+    // given domain, leaving at least the given number of spaces empty (or none
+    // if leave_empty is not given). More spaces may be left empty if the
+    // available space (or its partition into linear paths) doesn't leave
+    // enough space in some places to fit a whole word from the domain.
+    // TODO: Use on-deck words in order to create more reverse-searchability.
     let attempts = 0;
+    let sseed = seed;
     let open_spaces = 0;
+    let worms = [];
+    // First, find all worms of open space in the supertile
+    // TODO: FIND WORMS
     for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
       let xy = grid.index__gp(i);
       if (!grid.is_valid_subindex(xy)) {
@@ -1236,7 +1259,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // the available space. Returns the number of glyphs inserted, or undefined
     // if no suitable word was found.
     // TODO: HERE
-    return n;
+    return 0;
   }
 
   function fill_voids(supertile, default_domain, seed) {
@@ -2114,6 +2137,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     "WARNINGS": WARNINGS,
     "toggle_socket_colors": toggle_socket_colors,
     "sample_glyph": sample_glyph,
+    "sample_word": sample_word,
     "mix_seeds": mix_seeds,
     "generate_supertile": generate_supertile,
     "domains_list": domains_list,
