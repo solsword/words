@@ -30,7 +30,7 @@ function(
   var VIEWPORT_SIZE = 800.0;
 
   // TODO: Toggle this!
-  var DEMO = true;
+  var FREE_MODE = true;
   var SWIPING = false;
   var PRESS_RECORDS = [undefined, undefined];
   var LAST_RELEASE = undefined;
@@ -47,21 +47,30 @@ function(
   var MS_PER_FRAME = 1000/60;
   // TODO: Measure this!
 
-  // TODO: DEBUG
-  //var CURRENT_DIMENSION = ["F/R", "base", 10983];
-  var CURRENT_DIMENSION = ["F/R", "成语", 10983];
+  var CURRENT_DIMENSION = {
+    "kind": "full",
+    "layout": "reasonable",
+    // TODO: DEBUG
+    // "domain": "base",
+    "domain": "成语",
+    "seed": 10983
+  };
+
   /*/ *
-  var CURRENT_DIMENSION = [
-    "P/D/F",
-    "base",
-    10985
-  ]
-  var CURRENT_DIMENSION = [
-    "C/C/B",
-    "base",
-    10985,
-    // ["THIS", "IS", "A", "POCKET", "TEST"]
-    [
+  var CURRENT_DIMENSION = {
+    "kind": "pocket",
+    "layout": "dense",
+    "flavor": "full",
+    "domain": "base",
+    "seed": 10985
+  }
+  var CURRENT_DIMENSION = {
+    "kind": "custom",
+    "layout": "dense",
+    "flavor": "bare",
+    "domain": "base",
+    "seed": 10985
+    "words": [
       "ABACUS",
       "BENEVOLENCE",
       "CONCEPTUALIZATION",
@@ -90,7 +99,7 @@ function(
       "ZYGOTE",
     ]
     // TODO: how to make sure words are in the domain?!?
-  ];
+  };
   // */
 
   // Mouse scroll correction factors:
@@ -199,7 +208,7 @@ function(
   var COMMANDS = {
     // DEBUG:
     "D": function (e) {
-      DEMO = !DEMO;
+      FREE_MODE = !FREE_MODE;
     },
     "d": function (e) {
       CURRENT_DIMENSION = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
@@ -380,7 +389,7 @@ function(
     if (entries.length > 0) {
       // Found a match:
       let connected = false;
-      if (DEMO) {
+      if (FREE_MODE) {
         connected = true;
       } else {
         combined_swipe.forEach(function (gp) {
@@ -555,15 +564,11 @@ function(
 
     if (isdbl) {
       // this is a double-click or double-tap
-      // Get rid of last two swipes & update glyphs
-      CURRENT_SWIPES.pop();
-      CURRENT_SWIPES.pop();
-      update_current_glyphs();
       // Find grid position and check adjacency
       let wp = draw.world_pos(ctx, vpos);
       let gp = grid.grid_pos(wp);
       let valid = false;
-      if (DEMO) {
+      if (FREE_MODE) {
         valid = true;
       } else {
         for (let d = 0; d < 6; ++d) {
@@ -575,6 +580,11 @@ function(
         }
       }
       if (valid) {
+        // Get rid of last two swipes & update glyphs
+        CURRENT_SWIPES.pop();
+        CURRENT_SWIPES.pop();
+        update_current_glyphs();
+        // Check for already-active poke here
         let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
         let found = undefined;
         var found_time;
@@ -592,6 +602,7 @@ function(
           entry[2] = ACTIVE_POKES[found][2];
           ACTIVE_POKES.splice(found, 1);
         }
+        // Add entry to active pokes list:
         ACTIVE_POKES.push(entry);
         if (ACTIVE_POKES.length > content.POKE_LIMIT) {
           ACTIVE_POKES.shift();

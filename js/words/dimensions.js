@@ -17,27 +17,42 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
 
   var DIMENSION_KINDS = {
     "F": "full",
+    "full": "F",
     "P": "pocket",
+    "pocket": "P",
     "C": "custom",
+    "custom": "C",
   }
 
   var DIMENSION_LAYOUTS = {
     "full": {
       "S": "simple",
+      "simple": "S",
       "E": "easy",
+      "easy": "E",
       "R": "reasonable",
+      "reasonable": "R",
       "H": "hard",
+      "hard": "H",
     },
     "pocket": {
       "C": "compact",
+      "compact": "C",
       "D": "dense",
+      "dense": "D",
       "L": "loose",
+      "loose": "L",
       "S": "scattered",
+      "scattered": "S",
     },
     "custom": {
       "C": "compact",
+      "compact": "C",
       "D": "dense",
+      "dense": "D",
       "L": "loose",
+      "loose": "L",
+      "scattered": "S",
       "S": "scattered",
     },
   };
@@ -45,24 +60,87 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
   var DIMENSION_FLAVORS = {
     "pocket": {
       "B": "bare",
+      "bare": "B",
       "F": "full",
+      "full": "F",
       "R": "round",
+      "round": "R",
     },
     "custom": {
       "B": "bare",
+      "bare": "B",
       "F": "full",
+      "full": "F",
       "R": "round",
+      "round": "R",
     },
   };
 
   function dim__key(d) {
-    return "" + d;
+    let k = DIMENSION_KINDS[d.kind];
+    let l = DIMENSION_LAYOUTS[d.kind][d.layout];
+    let result = k + "/" + l;
+    if (d.kind != "full") {
+      let f = DIMENSION_FLAVORS[d.kind][d.flavor];
+      result += "/" + f;
+    }
+    result += "#" + d.seed + ":" + d.domain
+    if (d.kind == "custom") {
+      for (let w of d.words) {
+        result += "," + w;
+      }
+    }
+    return result;
   }
 
   function key__dim(k) {
-    // TODO: HERE HOW?
-    console.error("key__dim isn't implemented yet!");
-    return undefined;
+    let kind = DIMENSION_KINDS[k[0]];
+    let layout = DIMENSION_KINDS[kind][k[2]];
+    let result = {
+      "kind": kind,
+      "layout": layout,
+    }
+    if (kind != "full") {
+      result["flavor"] = DIMENSION_FLAVORS[kind][k[4]];
+    }
+    let seed = "";
+    let domain = "";
+    let thisword = "";
+    let words = [];
+    let mode = "preseed";
+    for (let i = 0; i < k.length; ++i) {
+      if (mode == "preseed") {
+        if (k[i] == "#") {
+          mode = "seed";
+        }
+      } else if (mode == "seed") {
+        if (k[i] == ":") {
+          mode = "domain"
+        } else {
+          seed += k[i];
+        }
+      } else if (mode == "domain") {
+        if (k[i] == ",") {
+          mode = "words"
+        } else {
+          domain += k[i];
+        }
+      } else if (mode == "words") {
+        if (k[i] == ",") {
+          words.push(thisword);
+          thisword = "";
+        } else {
+          thisword += k[i];
+        }
+      }
+    }
+    words.push(thisword);
+    result["domain"] = domain;
+    result["seed"] = Number.parseInt(seed);
+    if (this.kind == "custom") {
+      result["words"] = words;
+    }
+    return result;
   }
 
   function same(d1, d2) {

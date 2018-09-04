@@ -14,8 +14,12 @@ function(anarchy, dict, grid, dimensions, caching) {
   // Minimum number of objects in each ultratile.
   var MIN_OBJECTS_PER_ULTRATILE = 8;
 
-  // Number of embedding attempts to make before giving up.
+  // Number of attempts to make before giving up on embedding or augmenting.
   var EMBEDDING_ATTEMPTS = 500;
+  var AUGMENT_ATTEMPTS = 20;
+
+  // Minimum number of open spots required to continue augmentation attempts.
+  var AUGMENT_VIABLE_SIZE = 4;
 
   function toggle_socket_colors() {
     DEBUG_SHOW_SOCKETS = !DEBUG_SHOW_SOCKETS;
@@ -329,46 +333,18 @@ function(anarchy, dict, grid, dimensions, caching) {
     return weighted_shuffle(probs, seed);
   }
 
-  function sample_word(domain, seed, bias, max_len) {
-    // Sample a word from the given domain, weighted according to sequential
-    // unigram probabilities adjusted by the given bias factor, which should be
-    // between -1 (bias away from common glyph combinations) to 1 (bias towards
-    // common combinations). Returns a full domain entry a (glyphs-string,
-    // word-string pair). If there are no words short enough in the domain,
-    // this will return undefined.
+  function sample_word(domain, seed, max_len, max_attempts) {
+    // Sample a word from the given domain, weighted according to word
+    // frequencies. Up to max_attempts will be made to find a word no longer
+    // than max_len before giving up, in which case undefined is returned.
+    // Returns a [glyphs, word, frequency] triple.
 
-    var dom = lookup_domain(domain);
-    var index = dom.index;
-    var l = 0
-    while (l < max_len) {
-      seed = anarchy.lfsr(seed);
-      var try_order = index_order(index, seed, bias);
-      try_order.forEach(function (key) {
-        if (key == "") { // single-index item
-          var entry = dom.entries[index[key]];
-          if (entry[0].length <= max_len) {
-            return entry;
-          } // else keep going in the outer loop
-        } else if (Array.isArray(index[key])) { // array-of-indices item
-          eindices = index[key].slice();
-          eindices.sort(function (a, b) {
-            var ov = anarchy.udist(seed);
-            seed = anarchy.lfsr(seed);
-            return ov < anarchy.udist(seed);
-          });
-          var result = undefined;
-          eindices.forEach(function (ei) {
-            var entry = dom.entries[ei];
-            if (entry[0].length <= max_len) {
-              return entry;
-            } // else keep going to the next eindex
-          });
-        } else { // sub-index item
-          index = index[key];
-          l += 1;
-          // continue with outer loop
-        }
-      });
+    for (let i = 0; i < max_attempts; ++i) {
+      let ii = anarchy.cohort_shuffle(i, domain.total_count, seed);
+      let entry = dict.unrolled_word(ii, domain);
+      if (entry[0].length <= max_len) {
+        return entry;
+      }
     }
     // If we got here, we couldn't find any word that was short enough!
     return undefined;
@@ -1100,6 +1076,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "domains": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
+      "words": [],
     };
 
     var default_domain = dimensions.natural_domain(dimension);
@@ -1166,6 +1143,7 @@ function(anarchy, dict, grid, dimensions, caching) {
 
       // TODO: Handle longer words gracefully
       var glyphs = entry[0].slice();
+      result.words.push(glyphs);
       var maxlen = 12;
 
       // pick embedding direction & portion to embed
@@ -1206,23 +1184,72 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
     r = anarchy.lfsr(r);
 
+    // First try to add more words, then fill any remaining voids:
+    augment_words(result, default_domain, r);
+    r = anarchy.lfsr(r);
     fill_voids(result, default_domain, r);
 
-    // all glyphs have been filled in, we're done here!
+    // all glyphs have been filled in; we're done here!
     return result;
+  }
+
+  function augment_words(supertile, domain, seed) {
+    let attempts = 0;
+    let open_spaces = 0;
+    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+      let xy = grid.index__gp(i);
+      if (!grid.is_valid_subindex(xy)) {
+        continue;
+      }
+      if (supertile.glyphs[i] == undefined) {
+        open_spaces += 1;
+      }
+    }
+    while (attempts < AUGMENT_ATTEMPTS && open_spaces >= AUGMENT_VIABLE_SIZE) {
+      for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+        let u = anarchy.cohort_shuffle(
+          i,
+          grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE,
+          sseed
+        ); // iterate in shuffled order
+        let xy = grid.index__gp(u);
+        if (!grid.is_valid_subindex(xy) || supertile.glyphs[u] != undefined) {
+          // skip out-of-bounds and already-filled indices
+          continue;
+        }
+        let size = add_word_at(supertile, domain, seed);
+        seed = anarchy.lfsr(seed);
+        if (size) {
+          open_spaces -= size;
+        }
+        attempts += 1;
+      }
+    }
+  }
+
+  function add_word_at(supertile, domain, seed) {
+    // Attempts to add a random word from the given domain to the given
+    // supertile starting at the given (must-be-empty) position. The word added
+    // is not totally random, but is instead constrained by the amount of
+    // available space: First empty space is found, and then the given domain's
+    // index is searched in a weighted fashion for a word that's no longer than
+    // the available space. Returns the number of glyphs inserted, or undefined
+    // if no suitable word was found.
+    // TODO: HERE
+    return n;
   }
 
   function fill_voids(supertile, default_domain, seed) {
     // Given a partially-filled supertile, fill remaining spots with letters
     // according to unigram, bigram, and trigram probabilities from the given
     // dimensions.
-    var sseed = seed;
-    var r = seed;
-    var baseline_counts = {}; // combined glyph counts caches
-    var binary_counts = {};
-    var trinary_counts = {};
-    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
-      var u = anarchy.cohort_shuffle(
+    let sseed = seed;
+    let r = seed;
+    let baseline_counts = {}; // combined glyph counts caches
+    let binary_counts = {};
+    let trinary_counts = {};
+    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+      let u = anarchy.cohort_shuffle(
         i,
         grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE,
         sseed
@@ -1232,13 +1259,13 @@ function(anarchy, dict, grid, dimensions, caching) {
         continue;
       }
       if (supertile.glyphs[u] == undefined) { // need to fill it in
-        var neighbors = []; // list filled-in neighbors
-        var nbdoms = []; // list their domains
-        for (var j = 0; j < 6; ++j) {
-          var nb = grid.neighbor(xy, j);
-          var ni = grid.gp__index(nb);
-          var ng = supertile.glyphs[ni];
-          var nd = supertile.domains[ni];
+        let neighbors = []; // list filled-in neighbors
+        let nbdoms = []; // list their domains
+        for (let j = 0; j < 6; ++j) {
+          let nb = grid.neighbor(xy, j);
+          let ni = grid.gp__index(nb);
+          let ng = supertile.glyphs[ni];
+          let nd = supertile.domains[ni];
           if (ng != undefined && nd != "__object__") {
             neighbors.push(ng);
             nbdoms.push(supertile.domains[ni]);
@@ -1246,8 +1273,8 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
 
         // Simplify mixed-domain neighbors list to single-domain + glyphs list:
-        var nbdom = undefined;
-        var nbglyphs = undefined;
+        let nbdom = undefined;
+        let nbglyphs = undefined;
         if (neighbors.length == 0) { // should be rare
           nbdom = default_domain;
           nbglyphs = [];
@@ -1259,17 +1286,17 @@ function(anarchy, dict, grid, dimensions, caching) {
             nbdom = nbdoms[0];
             nbglyphs = neighbors.slice();
           } else {
-            var ri = (r & 0x10) >>> 4; // check an arbitrary bit
+            let ri = (r & 0x10) >>> 4; // check an arbitrary bit
             r = anarchy.lfsr(r);
             nbdom = nbdoms[ri];
             nbglyphs = [ neighbors[ri] ];
           }
         } else { // more than 2 neighbors: pick some
-          var maxdom = undefined;
-          var maxcount = 0;
-          var domcounts = {};
-          var domglyphs = {};
-          for (var j = 0; j < nbdoms.length; ++j) {
+          let maxdom = undefined;
+          let maxcount = 0;
+          let domcounts = {};
+          let domglyphs = {};
+          for (let j = 0; j < nbdoms.length; ++j) {
             if (domcounts.hasOwnProperty(nbdoms[j])) {
               domcounts[nbdoms[j]] += 1;
               domglyphs[nbdoms[j]].push(neighbors[j]);
@@ -1288,9 +1315,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
         // Now that we have single-domain neighbors, pick a glyph:
         supertile.domains[u] = nbdom;
-        var unicounts = undefined;
-        var bicounts = undefined;
-        var tricounts = undefined;
+        let unicounts = undefined;
+        let bicounts = undefined;
+        let tricounts = undefined;
         if (nbglyphs.length == 0) {
           if (baseline_counts.hasOwnProperty(nbdom)) {
             unicounts = baseline_counts[nbdom];
@@ -1352,261 +1379,6 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
       }
     }
-  }
-
-  function complete_glyph_set(glyphs, domains) {
-    // Takes a list of glyphs, and returns a completed glyph set that has a
-    // valid sharemap (where each word can link to at least two others using
-    // different letters, and all words are reachable from each other.
-    // TODO: HERE
-  }
-
-  function deficient_indices(graph) {
-    // A consistent glyph list should ensure that each glyph sequence in the
-    // list shares at least two glyphs with at least two different other
-    // sequences, and that the graph of connections is connected. This function
-    // returns a (possibly empty) set of indices for words that violate one or
-    // more of these properties. The set contains every index which:
-    //
-    //  a) has fewer than 2 total connection points...
-    //  b) has fewer than 2 total other words it can connect to...
-    // or
-    //  c) is disconnected from the first word in the graph.
-    //
-    // Note that no guarantees are made about the distribution of connected
-    // words across connection points, or about the relative positions of
-    // connection points in a word.
-
-    let deficient = new Set();
-
-    // Check that each word links to at least two others, and from at least two 
-    // positions.
-    for (let i = 0; i < glyphs.length; ++i) {
-      if (!graph.hasOwnProperty(i)) {
-        // unlinked node
-        deficient.add(i);
-        continue;
-      }
-      let count = 0;
-      let destinations = new Set();
-      let word = glyphs[i];
-      for (let fr = 0; fr < word.length; ++fr) {
-        if (word.hasOwnProperty(fr)) {
-          count += 1;
-          for (dest of word[fr]) {
-            destinations.add(dest[0]);
-          }
-        }
-      }
-      if (count < 2 || destinations.size < 2) {
-        // under-linked node
-        deficient.add(i);
-      }
-    }
-
-    // Check reachability:
-    let reachable = new Set();
-    let edge = undefined;
-    let next_edge = new Set();
-    next_edge.add(0);
-    let count = 0;
-    for (let i = 0; i < glyphs.length; ++i) {
-      edge = next_edge;
-      if (edge.size == 0) {
-        break;
-      }
-      edge.forEach(function (idx) {
-        reachable.add(idx);
-        for (k of Object.keys(graph[idx])) {
-          if (!reachable.has(k)) {
-            next_edge.add(k);
-            count += 1;
-          }
-        }
-      });
-    }
-    if (count < glyphs.length) {
-      // reachability problem
-      for (let i = 0; i < glyphs.length; ++i) {
-        if (!reachable.has(i)) {
-          deficient.add(i);
-        }
-      }
-    }
-
-    return deficient;
-  }
-
-  function find_links(glyphs) {
-    // This function returns a mapping from list indices to maps from glyph
-    // indices to pairs of (other-list-index, other-glyph-index) that contains
-    // all possible crossover points. You can use the check_links function to
-    // check for disconnectedness or limited link capacity.
-    var graph = {};
-    
-    // Discover all possible links
-    for (let i = 0; i < glyphs.length; ++i) {
-      let seq = glyphs[i];
-      for (let j = i+1; j < glyphs.length; ++j) {
-        let oseq = glyphs[j];
-        for (let fr = 0; fr < seq.length; ++fr) {
-          for (let to = 0; to < oseq.length; ++to) {
-            if (seq[fr] === oseq[to]) {
-              if (!graph.hasOwnProperty(i)) {
-                graph[i] = {};
-              }
-              if (!graph.hasOwnProperty(j)) {
-                graph[j] = {};
-              }
-
-              if (graph[i].hasOwnProperty(fr)) {
-                graph[i][fr].push([j, to]);
-              } else {
-                graph[i][fr] = [ [j, to] ];
-              }
-              if (graph[j].hasOwnProperty(to)) {
-                graph[j][to].push([i, fr]);
-              } else {
-                graph[j][to] = [ [i, fr] ];
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return graph;
-  }
-
-  function complete_bs(glyphs_list, links, seed) {
-    // This function performs complete backtracking search to place at least
-    // one copy of every word in the given glyphs list (which should have been
-    // used to construct the given links graph using find_links and which
-    // shouldn't be deficient) into a layout. It returns the created layout
-    // object, which is just a map from coordinates to glyphs.
-
-    // Pick a random starting glyph from a random word:
-    let r = anarchy.prng(1829123, seed);
-    let sw = anarchy.posmod(r, glyphs_list.length);
-    r = anarchy.prng(r, seed);
-    let sg = anarchy.posmod(r, glyphs_list[sw].length);
-    r = anarchy.prng(r, seed);
-
-    let in_flight = [
-      {"pos": [0, 0], "word": sw, "index": sg, "fwd": true, "skip": false},
-      {"pos": [0, 0], "word": sw, "index": sg, "fwd": false, "skip": false},
-    ];
-
-    let layout = {};
-    layout[grid.coords__key([0, 0])] = [sw, sg];
-    let index_layout = bs_helper(
-      layout,
-      links,
-      in_flight,
-      new Set(),
-      seed,
-      false
-    );
-
-    // TODO: Convert from indices to glyphs
-    let result = {};
-    for (let k of Object.keys(index_layout)) {
-      let v = index_layout[k];
-      result[k] = glyphs_list[v[0]][v[1]];
-    }
-    return result;
-  }
-
-  function bs_helper(layout_so_far, links, in_flight, included, seed, finished){
-    // Recursive backtracking search. Produces a layout described in terms of
-    // glyphs-list and per-word index pairs, not raw glyphs.
-
-    if (
-      finished
-   || included.size >= Object.keys(links).length
-    ) { // everything is included
-      finished = true;
-    }
-
-    if (in_flight.length == 0) { // nowhere left to build
-      if (!finished) {
-        return undefined;
-      } else {
-        return layout_so_far;
-      }
-    }
-
-    let wpot_total = 0;
-    for (let hi = 0; hi < in_flight.length; ++hi) {
-      // TODO: HERE
-    }
-
-    for (let hi = 0; hi < in_flight.length; ++hi) {
-      let shi = anarchy.cohort_shuffle(hi, in_flight.length, seed + 327821);
-      let head = in_flight[hi];
-
-      if (!head.skip) {
-        // branch here
-        let priority_links = [];
-        let repeat_links = [];
-        let possible_links = links[head.word][head.index];
-        if (possible_links != undefined) {
-          for (let i = 0; i < possible_links.length; ++i) {
-            let pl = possible_links[i];
-            if (!included.has(pl[0])) {
-              priority_links.push(pl);
-            } else {
-              repeat_links.push(pl);
-            }
-          }
-        }
-        let joined_links = priority_links.concat(repeat_links);
-
-        for (let li = 0; li < joined_links.length; ++li) {
-          let sli = anarchy.cohort_shuffle(
-            li,
-            priority_links.length,
-            seed + 498
-          );
-          let sel = priority_links[sli];
-
-          let next_included = new Set(included);
-          next_included.add(sel[0]);
-
-          for (let next_skip = 1; next_skip > -1; --next_skip) {
-            let next_in_flight = clone_in_flight(in_flight);
-            next_in_flight.push({
-              "pos": [head.pos[0], head.pos[1]],
-              "word": sel[0],
-              "index": sel[1],
-              "fwd": true,
-              "skip": next_skip
-            });
-            next_in_flight.push({
-              "pos": [head.pos[0], head.pos[1]],
-              "word": sel[0],
-              "index": sel[1],
-              "fwd": false,
-              "skip": next_skip
-            });
-            let test = bs_helper(
-              layout_so_far,
-              links,
-              next_in_flight,
-              next_included,
-              seed,
-              finished
-            );
-            if (test != undefined) { // found our result!
-              return test;
-            }
-          }
-        }
-      }
-
-      // 
-    }
-
   }
 
   function place_glyphs_in_layout(layout, glyphs_lists, seed) {

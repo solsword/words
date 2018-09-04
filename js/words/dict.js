@@ -18,6 +18,11 @@ define(["./locale"], function(locale) {
   var DOMAIN_FREQUENCY_BINS = 256;
   // TODO: Use a sparse table for better memory and time efficiency!
 
+  // The number of bins in the domain length sumtable. Each bin corresponds to
+  // the count of words with the given length, except the last bin, which
+  // contains all of the words at least as long as the number of bins.
+  var DOMAIN_LENGTH_BINS = 32;
+
   var FINALIZE_URL = "js/words/workers/finalize_dict.js";
   //var FINALIZE_URL = "js/words/workers/test.js";
 
@@ -265,29 +270,57 @@ define(["./locale"], function(locale) {
     entries.sort(function (a, b) {
       return b[2] - a[2]; // put most-frequent words first
     });
-    // Create a sumtable for each frequency count, starting with a grouped
-    // bin for frequencies over a cutoff:
-    var counttable = [];
+    // Argsort by length
+    // TODO: HERE
+    // Create a sumtable for frequency and length counts, ending with grouped
+    // bins for frequencies/lengths over the cutoffs:
+    var fq_counttable = [];
+    var lt_counttable = [];
     for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
-      counttable[i] = 0;
+      fq_counttable[i] = 0;
+    }
+    for (var i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
+      lt_counttable[i] = 0;
     }
     var hf_entries = 0;
+    var long_entries = 0;
     var freq = undefined;
+    var len = undefined;
     for (var i = 0; i < entries.length; ++i) {
+      // count words by frequency and length
       freq = entries[i][2];
       if (freq >= DOMAIN_FREQUENCY_BINS) {
-        counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
+        fq_counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
         hf_entries += 1;
       } else {
-        counttable[freq - 1] += freq;
+        fq_counttable[freq - 1] += freq;
+      }
+
+      len = entries[i][0].length;
+      if (len >= DOMAIN_LENGTH_BINS) {
+        lt_counttable[DOMAIN_LENGTH_BINS-1] += 1;
+        long_entries += 1;
+      } else {
+        lt_counttable[len - 1] += 1;
       }
     }
-    var sumtable = [];
+
+    // Create sumtables:
+    var fq_sumtable = [];
     var sum = 0;
     for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+      // frequency sumtable is reversed (things at-least-this-frequent)
       var j = DOMAIN_FREQUENCY_BINS - i - 1;
-      sum += counttable[j];
-      sumtable[i] = sum;
+      sum += fq_counttable[j];
+      fq_sumtable[i] = sum;
+    }
+
+    var lt_sumtable = [];
+    sum = 0;
+    for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+      // length counttable is normal (things no-longer-than-this)
+      sum += lt_counttable[i];
+      lt_sumtable[i] = sum;
     }
 
     var json = {
@@ -298,7 +331,10 @@ define(["./locale"], function(locale) {
       "entries": entries,
       "total_count": total_count,
       "high_frequency_entries": hf_entries,
-      "count_sums": sumtable
+      "length_ordering": length_ordered,
+      "long_entries": long_entries,
+      "count_sums": fq_sumtable
+      "length_sums": lt_sumtable
     }
 
     directives.forEach(function (d) {

@@ -14,7 +14,8 @@ require(["../locale"], function (locale) {
     // entries, picked out from the full list by the indices array. Calls
     // itself recursively until INDEX_BIN_SIZE is satisfied or
     // INDEX_DEPTH_LIMIT is met. Returns an object mapping glyphs to
-    // sub-indices or an array for terminal entries.
+    // sub-indices or an array for terminal entries. Each object result
+    // includes a "_count_" key indicating the total entries under that index.
     var result = { "_count_": indices.length };
     var nkeys = 0;
     indices.forEach(function (idx) {
