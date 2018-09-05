@@ -1251,23 +1251,29 @@ function(
     loading.innerText = (
       "Done counting; done building index; building JSON string..."
     );
-    var jstring = JSON.stringify(output);
-    loading.innerText = (
-      "Done loading. Receive output below."
+    dict.stringify_and_callback(
+      output,
+      function (str) {
+        offer_string(name, str);
+      }
     );
+  }
+
+  function offer_string(name, str) {
+    loading.innerText = "Done loading. Receive output below.";
 
     var file_input = document.getElementById("words_list");
 
     var output_bin = document.getElementById("output_bin");
     output_bin.removeAttribute("disabled");
-    output_bin.innerText = jstring;
+    output_bin.innerText = str;
     output_bin.onclick = function () { this.select(); };
     output_bin.ontouchend = output_bin.onclick;
 
     var download_button = document.getElementById("download_button");
     download_button.removeAttribute("disabled");
     download_button.onmousedown = function () {
-      var blob = new Blob([jstring], {type: "text/json;charset=utf-8"});
+      var blob = new Blob([str], {type: "text/json;charset=utf-8"});
       var ourl = URL.createObjectURL(blob);
       var link = document.getElementById("download_link");
       link.setAttribute("href", ourl);

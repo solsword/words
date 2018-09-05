@@ -6,7 +6,7 @@ var msg_handler;
 
 require(["../locale"], function (locale) {
 
-  var INDEX_DEPTH_LIMIT = 6;
+  var INDEX_DEPTH_LIMIT = 7;
   var INDEX_BIN_SIZE = 64;
 
   function create_index(entries, indices, position) {

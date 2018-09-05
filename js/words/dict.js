@@ -24,7 +24,7 @@ define(["./utils", "./locale"], function(utils, locale) {
   var DOMAIN_LENGTH_BINS = 64;
 
   var FINALIZE_URL = "js/words/workers/finalize_dict.js";
-  //var FINALIZE_URL = "js/words/workers/test.js";
+  var STRINGIFY_URL = "js/words/workers/stringify.js";
 
   function lookup_domain(name) {
     // Looks up a domain by name.
@@ -97,11 +97,10 @@ define(["./utils", "./locale"], function(utils, locale) {
     // counting or indexing. The finished callback gets two arguments, the
     // domain name and the finished JSON.
     var worker = new Worker(FINALIZE_URL);
-    worker.payload = [name, json];
     worker.onmessage = function (msg) {
       // Gets a name + finalized domain from the worker and adds the domain.
       if (msg.data == "worker_ready") { // initial ready message
-        worker.postMessage(worker.payload);
+        worker.postMessage([name, json]); // hand over stuff to work on
       } else if (msg.data[0] == "count-progress") { // counting progress
         if (count_progress_callback) {
           count_progress_callback(msg.data[1]);
@@ -114,6 +113,19 @@ define(["./utils", "./locale"], function(utils, locale) {
         if (finished_callback) {
           finished_callback(msg.data[0], msg.data[1]);
         }
+      }
+    }
+  }
+
+  function stringify_and_callback(object, callback) {
+    // Uses a web worker to turn the given object into a JSON string, and calls
+    // the callback with the string result when ready.
+    let worker = new Worker(STRINGIFY_URL);
+    worker.onmessage = function (msg) {
+      if (msg.data == "worker_ready") { // initial ready message
+        worker.postMessage(object); // hand over object to stringify
+      } else {
+        callback(msg.data); // must be the final result
       }
     }
   }
@@ -591,6 +603,7 @@ define(["./utils", "./locale"], function(utils, locale) {
     "find_word_in_domain": find_word_in_domain,
     "unrolled_word": unrolled_word,
     "load_json_or_list_from_data": load_json_or_list_from_data,
+    "stringify_and_callback": stringify_and_callback,
     "words_no_longer_than": words_no_longer_than,
     "nth_short_word": nth_short_word,
   };

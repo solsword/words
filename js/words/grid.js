@@ -37,6 +37,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   ]
 
   // Directions as indices into the NEIGHBORS array:
+  var N_DIRECTIONS = 6;
   var N = 0;
   var NE = 1;
   var SE = 2;

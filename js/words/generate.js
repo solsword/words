@@ -14,12 +14,8 @@ function(anarchy, dict, grid, dimensions, caching) {
   // Minimum number of objects in each ultratile.
   var MIN_OBJECTS_PER_ULTRATILE = 8;
 
-  // Number of attempts to make before giving up on embedding or augmenting.
+  // Number of attempts to make before giving up on embedding.
   var EMBEDDING_ATTEMPTS = 500;
-  var AUGMENT_ATTEMPTS = 20;
-
-  // Minimum number of open spots required to continue augmentation attempts.
-  var AUGMENT_VIABLE_SIZE = 4;
 
   function toggle_socket_colors() {
     DEBUG_SHOW_SOCKETS = !DEBUG_SHOW_SOCKETS;
@@ -151,12 +147,6 @@ function(anarchy, dict, grid, dimensions, caching) {
       );
     }
   }
-
-  // TODO: These?
-  var ADD_NOVEL_LETTER_WEIGHT = 4;
-  var ADD_REPEAT_LETTER_WEIGHT = 2;
-  var NOVEL_BRANCH_WEIGHT = 2;
-  var REPEAT_BRANCH_WEIGHT = 1;
 
   function domains_list(domain_or_combo) {
     // Returns an array of all domains in the given group or combo.
@@ -1109,7 +1099,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     // Add an active element to the center:
     result.glyphs[grid.SG_CENTER_IDX] = "🗍";
     result.domains[grid.SG_CENTER_IDX] = "__object__";
-    // TODO: HERE
+    // TODO: Scatter objects
+    // TODO: Interesting objects
 
     // Pick a word for each socket and embed it (or the relevant part of it).
     for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
@@ -1211,43 +1202,102 @@ function(anarchy, dict, grid, dimensions, caching) {
     // given domain, leaving at least the given number of spaces empty (or none
     // if leave_empty is not given). More spaces may be left empty if the
     // available space (or its partition into linear paths) doesn't leave
-    // enough space in some places to fit a whole word from the domain.
+    // enough space in some places to fit a whole word from the domain. Fewer
+    // empty spaces may remain if there weren't that many spaces open to begin
+    // with.
     // TODO: Use on-deck words in order to create more reverse-searchability.
+    if (leave_empty == undefined) {
+      leave_empty = 0;
+    }
     let attempts = 0;
     let sseed = seed;
+    let dseed = seed;
     let open_spaces = 0;
     let worms = [];
+    let claimed = {};
     // First, find all worms of open space in the supertile
     // TODO: FIND WORMS
-    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+    function can_grow(i) {
       let xy = grid.index__gp(i);
-      if (!grid.is_valid_subindex(xy)) {
+      return (
+        grid.is_valid_subindex(xy)
+     && supertile.glyphs[i] == undefined
+     && !claimed.hasOwnProperty(grid.coords__key(xy))
+      );
+    }
+    function claim_space(i) {
+      let xy = grid.index__gp(i);
+      claimed[grid.coords__key(xy)] = true;
+      open_spaces += 1;
+    }
+    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+      let ii = anarchy.cohort_shuffle(
+        i,
+        grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE,
+        sseed
+      ); // iterate in shuffled order
+      if (!can_grow(ii)) {
         continue;
       }
-      if (supertile.glyphs[i] == undefined) {
-        open_spaces += 1;
+      // Build a worm here:
+      let origin = ii;
+      let worm = [origin];
+      claim_space(ii);
+      worms.push(worm);
+      // grow twice for head & tail
+      for (let j = 0; j < 2; ++j) {
+        if (j == 0) { // tail grows at end
+          let here = worm[worm.length - 1];
+        } else { // head grows at front
+          let here = worm[0];
+        }
+        while (true) {
+          let dseed = anarchy.lfsr(dseed);
+          let hxy = grid.index__gp(here);
+          let did_grow = false;
+          for (let d = 0; d < N_DIRECTIONS; ++d) {
+            let dd = anarchy.cohort_shuffle(d, N_DIRECTIONS, dseed);
+            let nb = grid.neighbor(hxy, dd);
+            let ni = grid.gp__index(nb);
+            if (can_grow(ni)) {
+              claim_space(ni);
+              if (j == 0) { // tail grows at end
+                worm.push(ni);
+              } else { // head grows at front
+                worm.unshift(ni);
+              }
+              here = ni;
+              did_grow = true;
+              break;
+            }
+          }
+          if (!did_grow) {
+            break; // we've run out of room to grow this end
+          }
+        }
+      } // done growing this worm; loop again to grow the next one
+    } // done growing all possible worms
+
+    // Now fill up worms with glyphs:
+    // TODO: Allow multiple words per worm?
+    for (let i = 0; i < worms.length; ++i) {
+      let ii = anarhcy.cohort_shuffle(i, worms.length, sseed);
+      let worm = worms[ii];
+      let remaining = open_spaces - leave_empty;
+      let fill = sample_word(domain, seed, Math.min(worm.length, remaining));
+      if (fill == undefined) {
+        continue;
+      }
+      seed = anarhcy.lfsr(seed);
+      let glyphs = fill[0].slice();
+      supertile.words.push(glyphs);
+      for (let j = 0; j < glyphs.length; ++j) {
+        supertile.glyphs[worm[j]] = glyphs[j];
+        open_spaces -= 1;
       }
     }
-    while (attempts < AUGMENT_ATTEMPTS && open_spaces >= AUGMENT_VIABLE_SIZE) {
-      for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
-        let u = anarchy.cohort_shuffle(
-          i,
-          grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE,
-          sseed
-        ); // iterate in shuffled order
-        let xy = grid.index__gp(u);
-        if (!grid.is_valid_subindex(xy) || supertile.glyphs[u] != undefined) {
-          // skip out-of-bounds and already-filled indices
-          continue;
-        }
-        let size = add_word_at(supertile, domain, seed);
-        seed = anarchy.lfsr(seed);
-        if (size) {
-          open_spaces -= size;
-        }
-        attempts += 1;
-      }
-    }
+
+    // Done with agumentation
   }
 
   function add_word_at(supertile, domain, seed) {
@@ -1272,19 +1322,19 @@ function(anarchy, dict, grid, dimensions, caching) {
     let binary_counts = {};
     let trinary_counts = {};
     for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
-      let u = anarchy.cohort_shuffle(
+      let ii = anarchy.cohort_shuffle(
         i,
         grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE,
         sseed
       ); // iterate in shuffled order
-      let xy = grid.index__gp(u);
+      let xy = grid.index__gp(ii);
       if (!grid.is_valid_subindex(xy)) { // skip out-of-bounds indices
         continue;
       }
-      if (supertile.glyphs[u] == undefined) { // need to fill it in
+      if (supertile.glyphs[ii] == undefined) { // need to fill it in
         let neighbors = []; // list filled-in neighbors
         let nbdoms = []; // list their domains
-        for (let j = 0; j < 6; ++j) {
+        for (let j = 0; j < N_DIRECTIONS; ++j) {
           let nb = grid.neighbor(xy, j);
           let ni = grid.gp__index(nb);
           let ng = supertile.glyphs[ni];
@@ -1337,7 +1387,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
 
         // Now that we have single-domain neighbors, pick a glyph:
-        supertile.domains[u] = nbdom;
+        supertile.domains[ii] = nbdom;
         let unicounts = undefined;
         let bicounts = undefined;
         let tricounts = undefined;
@@ -1348,7 +1398,7 @@ function(anarchy, dict, grid, dimensions, caching) {
             unicounts = combined_counts(domains_list(nbdom));
             baseline_counts[nbdom] = unicounts;
           }
-          supertile.glyphs[u] = sample_glyph(r, undefined, unicounts);
+          supertile.glyphs[ii] = sample_glyph(r, undefined, unicounts);
           r = anarchy.lfsr(r);
         } else if (nbglyphs.length == 1) {
           if (baseline_counts.hasOwnProperty(nbdom)) {
@@ -1363,7 +1413,7 @@ function(anarchy, dict, grid, dimensions, caching) {
             bicounts = combined_bicounts(domains_list(nbdom));
             binary_counts[nbdom] = bicounts;
           }
-          supertile.glyphs[u] = sample_glyph(
+          supertile.glyphs[ii] = sample_glyph(
             r,
             nbglyphs[0],
             unicounts,
@@ -1391,7 +1441,7 @@ function(anarchy, dict, grid, dimensions, caching) {
             tricounts = combined_tricounts(domains_list(nbdom));
             trinary_counts[nbdom] = tricounts;
           }
-          supertile.glyphs[u] = sample_glyph(
+          supertile.glyphs[ii] = sample_glyph(
             r,
             nbglyphs,
             unicounts,
@@ -1561,8 +1611,8 @@ function(anarchy, dict, grid, dimensions, caching) {
       let fresh = [];
       let next = undefined;
       shs = anarchy.lfsr(shs);
-      for (let nd = 0; nd < 6; ++nd) {
-        let sd = anarchy.cohort_shuffle(nd, 6, shs);
+      for (let nd = 0; nd < N_DIRECTIONS; ++nd) {
+        let sd = anarchy.cohort_shuffle(nd, N_DIRECTIONS, shs);
         let np = grid.neighbor(pos, sd);
         let nk = grid.coords__key(np);
         if (result.hasOwnProperty(nk)) {
@@ -1743,7 +1793,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         result.push(c);
       });
     });
-    return result.slice(0,6);
+    return result.slice(0,N_DIRECTIONS);
   }
 
   function merge_glyph_counts(gs1, gs2) {
