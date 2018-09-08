@@ -806,6 +806,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "GRID_EDGE": GRID_EDGE,
     "VERTICES": VERTICES,
     "NEIGHBORS": NEIGHBORS,
+    "N_DIRECTIONS": N_DIRECTIONS,
     "N": N,
     "NE": NE,
     "SE": SE,

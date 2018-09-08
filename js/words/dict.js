@@ -585,6 +585,7 @@ define(["./utils", "./locale"], function(utils, locale) {
     // wrapped to fit in the appropriate number for words_no_longer_than.
     // Undefined is returned if there are no words in the domain short enough.
     // Returns a [glyphs, word, frequency] triple.
+    // TODO: DEBUG THIS!
     let max = words_no_longer_than(domain, L);
     if (max == 0) {
       return undefined;

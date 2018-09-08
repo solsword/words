@@ -331,9 +331,24 @@ function(anarchy, dict, grid, dimensions, caching) {
     // such words in the given domain. Returns a [glyphs, word, frequency]
     // triple. If max_len is not given, max_attempts will be ignored, all words
     // will be considered and undefined will never result.
+    var domain_objs;
+    if ("" + domain === domain) {
+      domain_objs = dict.lookup_domains(domains_list(domain));
+    } else {
+      domain_objs = [ domain ];
+    }
+    let combined_total = domain_objs
+      .map(d => d.total_count)
+      .reduce((a, b) => a + b);
+
     if (max_len == undefined) {
-      let n = anarchy.cohort_shuffle(712839, domain.total_count, seed);
-      return dict.unrolled_word(n, domain);
+      let n = anarchy.cohort_shuffle(712839, combined_total, seed);
+      let i = 0;
+      while (n >= domain_objs[i].total_count) {
+        n -= domain_objs[i].total_count;
+        i += 1;
+      }
+      return dict.unrolled_word(n, domain_objs[i]);
     }
 
     if (max_attempts == undefined) {
@@ -341,15 +356,34 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     for (let i = 0; i < max_attempts; ++i) {
-      let ii = anarchy.cohort_shuffle(i, domain.total_count, seed);
-      let entry = dict.unrolled_word(ii, domain);
+      let ii = anarchy.cohort_shuffle(i, combined_total, seed);
+      let di = 0;
+      while (ii >= domain_objs[di].total_count) {
+        ii -= domain_objs[di].total_count;
+        di += 1;
+      }
+      let dom = domain_objs[di];
+      let entry = dict.unrolled_word(ii, dom);
       if (entry[0].length <= max_len) {
         return entry;
       }
     }
-    let smc = dict.words_no_longer_than(domain, max_len);
-    let n = anarchy.cohort_shuffle(712839, smc, seed);
-    return dict.nth_short_word(domain, max_len, n); // undefined if none exists
+    let short_total = domain_objs
+      .map(d => dict.words_no_longer_than(d, max_len))
+      .reduce((a, b) => a + b);
+    if (short_total == 0) {
+      return undefined; // no words short enough
+    }
+    let n = anarchy.cohort_shuffle(712839, short_total, seed);
+    let di = 0;
+    let short_words = dict.words_no_longer_than(domain_objs[di], max_len);
+    while (n >= short_words) {
+      n -= short_words;
+      di += 1;
+      short_words = dict.words_no_longer_than(domain_objs[di], max_len);
+    }
+    // undefined if none exists:
+    return dict.nth_short_word(domain_objs[di], max_len, n);
   }
 
   function ultratile_punctuation_parameters(ugp) {
@@ -1252,12 +1286,15 @@ function(anarchy, dict, grid, dimensions, caching) {
           let here = worm[0];
         }
         while (true) {
-          let dseed = anarchy.lfsr(dseed);
+          dseed = anarchy.lfsr(dseed);
           let hxy = grid.index__gp(here);
           let did_grow = false;
-          for (let d = 0; d < N_DIRECTIONS; ++d) {
-            let dd = anarchy.cohort_shuffle(d, N_DIRECTIONS, dseed);
+          for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
+            let dd = anarchy.cohort_shuffle(d, grid.N_DIRECTIONS, dseed);
             let nb = grid.neighbor(hxy, dd);
+            if (!grid.is_valid_subindex(nb)) {
+              continue; // skip out-of-bounds
+            }
             let ni = grid.gp__index(nb);
             if (can_grow(ni)) {
               claim_space(ni);
@@ -1281,35 +1318,34 @@ function(anarchy, dict, grid, dimensions, caching) {
     // Now fill up worms with glyphs:
     // TODO: Allow multiple words per worm?
     for (let i = 0; i < worms.length; ++i) {
-      let ii = anarhcy.cohort_shuffle(i, worms.length, sseed);
+      let ii = anarchy.cohort_shuffle(i, worms.length, sseed);
       let worm = worms[ii];
       let remaining = open_spaces - leave_empty;
-      let fill = sample_word(domain, seed, Math.min(worm.length, remaining));
+      let limit = Math.min(worm.length, remaining)
+      let fill = sample_word(domain, seed, limit);
       if (fill == undefined) {
         continue;
       }
-      seed = anarhcy.lfsr(seed);
+      // TODO: DEBUG
+      if (fill[0].length > limit) {
+        console.warn(["Overfill!", fill[0], limit]);
+      }
+      console.log("Fill (" + limit + "): " + fill[0]);
+      seed = anarchy.lfsr(seed);
       let glyphs = fill[0].slice();
       supertile.words.push(glyphs);
       for (let j = 0; j < glyphs.length; ++j) {
         supertile.glyphs[worm[j]] = glyphs[j];
+        supertile.domains[worm[j]] = domain;
+        if (DEBUG_SHOW_SOCKETS) {
+          console.warn([worm, glyphs]);
+          supertile.colors[worm[j]].push("lb");
+        }
         open_spaces -= 1;
       }
     }
 
     // Done with agumentation
-  }
-
-  function add_word_at(supertile, domain, seed) {
-    // Attempts to add a random word from the given domain to the given
-    // supertile starting at the given (must-be-empty) position. The word added
-    // is not totally random, but is instead constrained by the amount of
-    // available space: First empty space is found, and then the given domain's
-    // index is searched in a weighted fashion for a word that's no longer than
-    // the available space. Returns the number of glyphs inserted, or undefined
-    // if no suitable word was found.
-    // TODO: HERE
-    return 0;
   }
 
   function fill_voids(supertile, default_domain, seed) {
@@ -1334,7 +1370,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       if (supertile.glyphs[ii] == undefined) { // need to fill it in
         let neighbors = []; // list filled-in neighbors
         let nbdoms = []; // list their domains
-        for (let j = 0; j < N_DIRECTIONS; ++j) {
+        for (let j = 0; j < grid.N_DIRECTIONS; ++j) {
           let nb = grid.neighbor(xy, j);
           let ni = grid.gp__index(nb);
           let ng = supertile.glyphs[ni];
@@ -1611,8 +1647,8 @@ function(anarchy, dict, grid, dimensions, caching) {
       let fresh = [];
       let next = undefined;
       shs = anarchy.lfsr(shs);
-      for (let nd = 0; nd < N_DIRECTIONS; ++nd) {
-        let sd = anarchy.cohort_shuffle(nd, N_DIRECTIONS, shs);
+      for (let nd = 0; nd < grid.N_DIRECTIONS; ++nd) {
+        let sd = anarchy.cohort_shuffle(nd, grid.N_DIRECTIONS, shs);
         let np = grid.neighbor(pos, sd);
         let nk = grid.coords__key(np);
         if (result.hasOwnProperty(nk)) {
@@ -1793,7 +1829,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         result.push(c);
       });
     });
-    return result.slice(0,N_DIRECTIONS);
+    return result.slice(0, grid.N_DIRECTIONS);
   }
 
   function merge_glyph_counts(gs1, gs2) {
