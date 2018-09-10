@@ -11,7 +11,7 @@ define(
 
   // TODO: Dynamic zoom!
   // var FONT_SIZE = 24;
-  var FONT_SIZE = 36;
+  var FONT_SIZE = 30;
   var FONT_FACE = "asap";
   //var FONT_FACE = "serif";
 

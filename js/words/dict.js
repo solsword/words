@@ -21,7 +21,7 @@ define(["./utils", "./locale"], function(utils, locale) {
   // The number of bins in the domain length sumtable. Each bin corresponds to
   // the count of words with the given length, except the last bin, which
   // contains all of the words at least as long as the number of bins.
-  var DOMAIN_LENGTH_BINS = 64;
+  var DOMAIN_LENGTH_BINS = 36;
 
   var FINALIZE_URL = "js/words/workers/finalize_dict.js";
   var STRINGIFY_URL = "js/words/workers/stringify.js";
@@ -275,6 +275,9 @@ define(["./utils", "./locale"], function(utils, locale) {
       } else {
         freq = parseInt(freq);
       }
+      if (glyphs == "") {
+        return; // continue our forEach
+      }
       entries.push([glyphs, word, freq]);
       total_count += freq;
     });
@@ -285,7 +288,7 @@ define(["./utils", "./locale"], function(utils, locale) {
     // Argsort by length
     let by_length = utils.range(entries.length);
     by_length.sort(function (a, b) {
-      return entries[b][0].length - entries[a][0].length;
+      return entries[a][0].length - entries[b][0].length;
       // indices of longest words first
     });
     // Create a sumtable for frequency and length counts, ending with grouped
