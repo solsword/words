@@ -211,7 +211,9 @@ function(
       FREE_MODE = !FREE_MODE;
     },
     "d": function (e) {
-      CURRENT_DIMENSION = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
+      let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
+      console.log(nbd);
+      CURRENT_DIMENSION = nbd;
       DO_REDRAW = 0;
     },
     // DEBUG

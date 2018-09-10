@@ -10,6 +10,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
   // Whether to show sockets using tile colors or not.
   var DEBUG_SHOW_SOCKETS = false;
+  function toggle_socket_colors() {
+    DEBUG_SHOW_SOCKETS = !DEBUG_SHOW_SOCKETS;
+  }
 
   // Minimum number of objects in each ultratile.
   var MIN_OBJECTS_PER_ULTRATILE = 8;
@@ -17,9 +20,16 @@ function(anarchy, dict, grid, dimensions, caching) {
   // Number of attempts to make before giving up on embedding.
   var EMBEDDING_ATTEMPTS = 500;
 
-  function toggle_socket_colors() {
-    DEBUG_SHOW_SOCKETS = !DEBUG_SHOW_SOCKETS;
-  }
+  // Word length to ignore when filling worms.
+  var WORM_FILL_SKIP = 2;
+
+  // If this many or more of the words in a domain are shorter than the
+  // WORM_FILL_SKIP value, reduce the skip value to compensate until the
+  // skipped words account for this many or fewer of the domain's words.
+  var WORM_FILL_SKIP_BACKOFF_RATIO = 0.1;
+
+  // Minimum number of spaces to leave empty during worm-based augmentation.
+  var WORMS_LEAVE_EMPTY = 5;
 
   // Smoothing for table sampling.
   var SMOOTHING = 1.5;
@@ -331,12 +341,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // such words in the given domain. Returns a [glyphs, word, frequency]
     // triple. If max_len is not given, max_attempts will be ignored, all words
     // will be considered and undefined will never result.
-    var domain_objs;
-    if ("" + domain === domain) {
-      domain_objs = dict.lookup_domains(domains_list(domain));
-    } else {
-      domain_objs = [ domain ];
-    }
+    var domain_objs = domain_objects(domain);
     let combined_total = domain_objs
       .map(d => d.total_count)
       .reduce((a, b) => a + b);
@@ -1101,6 +1106,17 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
   }
 
+  function domain_objects(dom_or_string) {
+    // Returns a list of domain objects for the given domain, which can be
+    // either a string or a single domain object.
+    if ("" + dom_or_string === dom_or_string) {
+      return dict.lookup_domains(domains_list(dom_or_string));
+    } else {
+      return [ dom_or_string ];
+    }
+  }
+
+
   function generate_full_supertile(dimension, sgp, seed) {
     // Given that the necessary domain(s) and multiplanar info are all
     // available, generates the glyph contents of the supertile at the given
@@ -1108,6 +1124,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // information.
 
     var result = {
+      "pos": sgp,
       "dimension": dimension,
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
@@ -1222,12 +1239,36 @@ function(anarchy, dict, grid, dimensions, caching) {
     r = anarchy.lfsr(r);
 
     // First try to add more words, then fill any remaining voids:
-    augment_words(result, default_domain, r);
+    // TODO: Call augment multiple times with different domains when inclusions
+    // are present?
+    augment_words(result, default_domain, r, WORMS_LEAVE_EMPTY);
     r = anarchy.lfsr(r);
     fill_voids(result, default_domain, r);
 
     // all glyphs have been filled in; we're done here!
     return result;
+  }
+
+  function worm_fill_skip(domain) {
+    // Computes and returns the size of small worms to skip over when
+    // augmenting supertiles using the given domain.
+    var domain_objs = domain_objects(domain);
+    let wfs = WORM_FILL_SKIP;
+    while (wfs > 0) {
+      let short_total = domain_objs
+        .map(d => dict.words_no_longer_than(d, wfs))
+        .reduce((a, b) => a + b);
+      let grand_total = domain_objs
+        .map(d => d.entries.length)
+        .reduce((a, b) => a + b);
+      let ratio = short_total / grand_total;
+      if (ratio >= WORM_FILL_SKIP_BACKOFF_RATIO) {
+        wfs -= 1; // and check again
+      } else {
+        break; // skipping is allowed
+      }
+    }
+    return wfs;
   }
 
   function augment_words(supertile, domain, seed, leave_empty) {
@@ -1244,13 +1285,13 @@ function(anarchy, dict, grid, dimensions, caching) {
       leave_empty = 0;
     }
     let attempts = 0;
-    let sseed = seed;
-    let dseed = seed;
+    let sseed = sghash(seed + 128301982, supertile.pos); // worm origins
+    let dseed = sghash(seed + 9849283, supertile.pos); // worm growth directions
+    let wseed = sghash(seed + 619287712, supertile.pos); // word sampling
     let open_spaces = 0;
     let worms = [];
     let claimed = {};
     // First, find all worms of open space in the supertile
-    // TODO: FIND WORMS
     function can_grow(i) {
       let xy = grid.index__gp(i);
       return (
@@ -1276,14 +1317,15 @@ function(anarchy, dict, grid, dimensions, caching) {
       // Build a worm here:
       let origin = ii;
       let worm = [origin];
-      claim_space(ii);
+      claim_space(origin);
       worms.push(worm);
       // grow twice for head & tail
       for (let j = 0; j < 2; ++j) {
+        let here;
         if (j == 0) { // tail grows at end
-          let here = worm[worm.length - 1];
+          here = worm[worm.length - 1];
         } else { // head grows at front
-          let here = worm[0];
+          here = worm[0];
         }
         while (true) {
           dseed = anarchy.lfsr(dseed);
@@ -1315,34 +1357,43 @@ function(anarchy, dict, grid, dimensions, caching) {
       } // done growing this worm; loop again to grow the next one
     } // done growing all possible worms
 
+    // limit for skipping small worms
+    let wfs = worm_fill_skip(domain);
     // Now fill up worms with glyphs:
-    // TODO: Allow multiple words per worm?
+    // TODO: Fill worms using inclusion domains when nearby?
     for (let i = 0; i < worms.length; ++i) {
       let ii = anarchy.cohort_shuffle(i, worms.length, sseed);
       let worm = worms[ii];
-      let remaining = open_spaces - leave_empty;
-      let limit = Math.min(worm.length, remaining)
-      let fill = sample_word(domain, seed, limit);
-      if (fill == undefined) {
-        continue;
-      }
-      // TODO: DEBUG
-      if (fill[0].length > limit) {
-        console.warn(["Overfill!", fill[0], limit]);
-      }
-      console.log("Fill (" + limit + "): " + fill[0]);
-      seed = anarchy.lfsr(seed);
-      let glyphs = fill[0].slice();
-      supertile.words.push(glyphs);
-      for (let j = 0; j < glyphs.length; ++j) {
-        supertile.glyphs[worm[j]] = glyphs[j];
-        supertile.domains[worm[j]] = domain;
-        if (DEBUG_SHOW_SOCKETS) {
-          console.warn([worm, glyphs]);
-          supertile.colors[worm[j]].push("lb");
+      let wtw = 0; // which Word in This Worm?
+      let remaining;
+      let limit;
+      // multiple words per worm
+      while (worm.length > wfs) {
+        remaining = open_spaces - leave_empty;
+        limit = Math.min(worm.length, remaining)
+        wseed = anarchy.lfsr(wseed + worm[worm.length-1] + wtw);
+        wtw += 1;
+        let fill = sample_word(domain, wseed, limit);
+        if (fill == undefined) {
+          break; // no more possible words for this worm; try next
         }
-        open_spaces -= 1;
+        seed = anarchy.lfsr(seed);
+        let glyphs = fill[0].slice();
+        supertile.words.push(glyphs);
+        for (let j = 0; j < glyphs.length; ++j) {
+          let idx = worm.pop();
+          supertile.glyphs[idx] = glyphs[j];
+          supertile.domains[idx] = domain;
+          if (DEBUG_SHOW_SOCKETS) {
+            let color = ["lb", "rd", "lg"][anarchy.posmod(wseed, 3)];
+            supertile.colors[idx].push(color);
+          }
+          open_spaces -= 1;
+        }
       }
+      if (remaining <= worm.length) {
+        break; // We're totally done: our remaining spaces aren't enough
+      } // Otherwise try the next worm
     }
 
     // Done with agumentation
