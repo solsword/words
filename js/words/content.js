@@ -103,7 +103,7 @@ define(
   }
 
   function supertile_key(dimension, sgp) {
-    return "" + dimension + ":" + sgp[0] + "," + sgp[1];
+    return dimensions.dim__key(dimension) + ":" + sgp[0] + "," + sgp[1];
   }
 
   function eventually_generate_supertile(dimension, sgp, accumulated) {

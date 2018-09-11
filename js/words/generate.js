@@ -1124,7 +1124,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // information.
 
     var result = {
-      "pos": sgp,
+      "pos": sgp.slice(),
       "dimension": dimension,
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
