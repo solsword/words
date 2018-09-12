@@ -1,7 +1,7 @@
 // dict.js
 // Dictionary implementation.
 
-define(["./utils", "./locale"], function(utils, locale) {
+define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
 
   // Whether or not to issue console warnings.
   var WARNINGS = true;
@@ -305,6 +305,8 @@ define(["./utils", "./locale"], function(utils, locale) {
     var long_entries = 0;
     var freq = undefined;
     var len = undefined;
+    var overlength = [];
+    var superlong = [];
     for (var i = 0; i < entries.length; ++i) {
       // count words by frequency and length
       freq = entries[i][2];
@@ -316,6 +318,11 @@ define(["./utils", "./locale"], function(utils, locale) {
       }
 
       len = entries[i][0].length;
+      if (len > grid.SUPERTILE_TILES-1) {
+        superlong.push(i);
+      } else if (len > grid.SOCKET_SIZE) {
+        overlength.push(i);
+      }
       if (len >= DOMAIN_LENGTH_BINS) {
         lt_counttable[DOMAIN_LENGTH_BINS-1] += 1;
         long_entries += 1;
@@ -353,7 +360,9 @@ define(["./utils", "./locale"], function(utils, locale) {
       "length_ordering": by_length,
       "long_entries": long_entries,
       "count_sums": fq_sumtable,
-      "length_sums": lt_sumtable
+      "length_sums": lt_sumtable,
+      "overlength": overlength,
+      "superlong": superlong,
     }
 
     directives.forEach(function (d) {
@@ -588,7 +597,6 @@ define(["./utils", "./locale"], function(utils, locale) {
     // wrapped to fit in the appropriate number for words_no_longer_than.
     // Undefined is returned if there are no words in the domain short enough.
     // Returns a [glyphs, word, frequency] triple.
-    // TODO: DEBUG THIS!
     let max = words_no_longer_than(domain, L);
     if (max == 0) {
       return undefined;

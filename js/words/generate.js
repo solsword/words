@@ -392,12 +392,14 @@ function(anarchy, dict, grid, dimensions, caching) {
   }
 
   function ultratile_punctuation_parameters(ugp) {
-    // Takes an ultragrid position and returns two values:
+    // Takes an ultragrid position and returns three values:
     //
-    // 1. The number of non-inclusion assignment positions within this tile's
-    //    assignment grid tile prior to it.
+    // 1. The number of non-inclusion, non-overlength assignment positions
+    //    within this tile's assignment grid tile prior to it.
     // 2. The number of inclusion assignment positions within this ultragrid
     //    tile.
+    // 3. The number of overlength supertiles within this ultragrid tile.
+    // TODO: #3 HERE
 
     // assignment grid position:
     var ag_x = ugp[0] / grid.ASSIGNMENT_REGION_SIDE;
@@ -825,7 +827,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       // TODO: Pull these together near a destination?
       // compute a suitable seed value for this inclusion:
       var ir = r + mp_offset;
-      for (var i = 0; i < (mp_offset % 7) + 2; ++i) {
+      for (let i = 0; i < (mp_offset % 7) + 2; ++i) {
         ir = anarchy.lfsr(r);
       }
       asg_index = anarchy.cohort_shuffle(
@@ -989,7 +991,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       }
       var dom = domains[ct_idx];
       if (WARNINGS && ct_idx == lesser_counttable.length) {
-        console.warn("Warning: lesser couttable loop failed to break!");
+        console.warn("Warning: lesser counttable loop failed to break!");
         ct_idx = lesser_counttable.length - 1;
         idx %= dom.entries.length;
       }
@@ -1068,7 +1070,6 @@ function(anarchy, dict, grid, dimensions, caching) {
       site,
       glyphs.length - 1 // path connects glyphs
     );
-    // TODO: How can we end up with > 5 glyphs?!?
     var cidx = anarchy.idist(r, 0, filtered.length);
     chosen = filtered[cidx]
 
@@ -1197,8 +1198,20 @@ function(anarchy, dict, grid, dimensions, caching) {
 
       // TODO: Handle longer words gracefully
       var glyphs = entry[0].slice();
+      var maxlen = grid.SOCKET_SIZE;
+      if (glyphs.length > maxlen) {
+        // TODO: Distribute these words elsehow
+        // This word will be assigned to a long-word supertile; we can skip it
+        // here in favor of a shorter word:
+        entry = sample_word(domain, r, maxlen);
+        if (entry == undefined) {
+          // No words short enough? Skip all sockets (more food for worms)!
+          // Note: This shouldn't happen much!
+          break;
+        }
+        glyphs = entry[0].slice();
+      }
       result.words.push(glyphs);
-      var maxlen = 12;
 
       // pick embedding direction & portion to embed
       var flip = (r % 2) == 0;
@@ -1206,14 +1219,16 @@ function(anarchy, dict, grid, dimensions, caching) {
       var half_max = Math.floor(maxlen / 2);
       var min_cut = glyphs.length - half_max;
       var max_cut = half_max;
+      var cut;
       if (min_cut == max_cut) {
-        var cut = min_cut;
+        cut = min_cut;
       } else if (min_cut > max_cut) {
-        // TODO: Handle these overlength words properly!
+        // This shouldn't be possible any more...
+        console.error("Slicing glyphs for overlength word: '" + glyphs + "'");
         glyphs = glyphs.slice(0, maxlen);
         cut = half_max;
       } else {
-        var cut = anarchy.idist(r, min_cut, max_cut + 1);
+        cut = anarchy.idist(r, min_cut, max_cut + 1);
       }
       r = anarchy.lfsr(r);
       if (flip ^ grid.is_canonical(socket)) { // take first half
@@ -1249,6 +1264,14 @@ function(anarchy, dict, grid, dimensions, caching) {
     return result;
   }
 
+  function supertile_known_words(dimension, sgp, seed) {
+    // Returns a list of words known to be on the given supertile without
+    // generating the supertile. Not all words on the supertile (e.g.,
+    // augmented words) are returned.
+    // TODO: Add maybe-words when standby augmentation is implemented.
+    // TODO: IMPLEMENT THIS!
+  }
+
   function worm_fill_skip(domain) {
     // Computes and returns the size of small worms to skip over when
     // augmenting supertiles using the given domain.
@@ -1280,7 +1303,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // enough space in some places to fit a whole word from the domain. Fewer
     // empty spaces may remain if there weren't that many spaces open to begin
     // with.
-    // TODO: Use on-deck words in order to create more reverse-searchability.
+    // TODO: Use standby words in order to create more reverse-searchability.
     if (leave_empty == undefined) {
       leave_empty = 0;
     }
@@ -2230,8 +2253,8 @@ function(anarchy, dict, grid, dimensions, caching) {
         ["gr"],
       ][cs];
 
-      // TODO: Handle longer words gracefully
-      var maxlen = 10;
+      // Note: long words are chopped for test tiles
+      var maxlen = grid.SOCKET_SIZE;
 
       // pick embedding direction & portion to embed
       var flip = (r % 2) == 0;
@@ -2242,7 +2265,6 @@ function(anarchy, dict, grid, dimensions, caching) {
       if (min_cut == max_cut) {
         var cut = min_cut;
       } else if (min_cut > max_cut) {
-        // TODO: Handle these overlength words properly!
         glyphs = glyphs.slice(0, maxlen);
         cut = half_max;
       } else {
@@ -2268,6 +2290,56 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // done with test supertile
     return result;
+  }
+
+  function overlength_per_assignment_region(dom_or_combo) {
+    // Computes the number of overlength slots per assignment region required
+    // to comfortably support all overlength words in a domain.
+    let domains;
+    if ("" + dom_or_combo === dom_or_combo) {
+      domains = dict.lookup_domains(domains_list(dom_or_string));
+    } else {
+      domains = [ dom_or_string ];
+    }
+    let total_overlength = 0;
+    let total_entries = 0;
+    for (let dom of domains) {
+      total_overlength += dom.overlength.length;
+      total_entries += dom.entries.length;
+    }
+    let ratio = total_overlength / total_entries;
+
+    /* Algebra for desired overlength sockets:
+    ratio = (
+      (grid.ULTRATILE_SOCKETS - 2*x*grid.ASSIGNMENT_SOCKETS)
+      / grid.ULTRATILE_SOCKETS
+    );
+    --------------------------------------------------------
+    ratio = US / US - 2*x*AS/US
+    --------------------------------------------------------
+    ratio - 1 = -2xAS/US
+    --------------------------------------------------------
+    US*(ratio-1)/(2AS) = -x
+    --------------------------------------------------------
+    x = US*(1-ratio)/(2AS)
+    --------------------------------------------------------
+    */
+    let overlength_per_ar = Math.ceil(
+      (
+        grid.ULTRATILE_SOCKETS * (1 - ratio)
+      / 2 * grid.ASSIGNMENT_SOCKETS
+      )
+    * grid.ASSIGNMENT_REGION_TOTAL_SUPERTILES
+    );
+
+    return Math.max(overlength_per_ar, total_overlength);
+  }
+
+  function superlong_ratio(domain) {
+    // Returns the ratio of superlong to all entries in a domain.
+    // TODO: Something with/about superlong words (stuff into pocket
+    // dimensions?)
+    return domain.superlong.length / domain.entries.length;
   }
 
   return {

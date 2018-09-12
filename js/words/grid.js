@@ -89,6 +89,9 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   var ASSIGNMENT_SOCKETS = 3;
   var COMBINED_SOCKETS = 6;
 
+  // Size in glyphs of an assignment socket:
+  var SOCKET_SIZE = 12;
+
   // How big are ultragrid units?
   var ULTRAGRID_SIZE = 12;
 
@@ -126,6 +129,14 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   // accommodate even a relatively large corpus (vocabulary, not count).
   // The units are ultragrid tiles.
   var ASSIGNMENT_REGION_SIDE = 1024;
+
+  // Total number of supertiles in an assignment region.
+  var ASSIGNMENT_REGION_TOTAL_SUPERTILES = (
+    ASSIGNMENT_REGION_SIDE
+  * ASSIGNMENT_REGION_SIDE
+  * ULTRAGRID_SIZE
+  * ULTRAGRID_SIZE
+  );
 
   // Total sockets in an assignment region.
   //   1024 * 1024 * 12 * 12 * 4 ~= 600,000,000
@@ -821,6 +832,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "index__gp": index__gp,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
     "COMBINED_SOCKETS": COMBINED_SOCKETS,
+    "SOCKET_SIZE": SOCKET_SIZE,
     "ULTRAGRID_SIZE": ULTRAGRID_SIZE,
     "ULTRATILE_SOCKETS": ULTRATILE_SOCKETS,
     "ULTRATILE_ROW_SOCKETS": ULTRATILE_ROW_SOCKETS,
@@ -829,6 +841,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "ULTRATILE_CORE_SOCKETS": ULTRATILE_CORE_SOCKETS,
     "ULTRATILE_PRE_CORE": ULTRATILE_PRE_CORE,
     "ASSIGNMENT_REGION_SIDE": ASSIGNMENT_REGION_SIDE,
+    "ASSIGNMENT_REGION_TOTAL_SUPERTILES": ASSIGNMENT_REGION_TOTAL_SUPERTILES,
     "ASSIGNMENT_REGION_TOTAL_SOCKETS": ASSIGNMENT_REGION_TOTAL_SOCKETS,
     "rotate": rotate,
     "rotate_path": rotate_path,
