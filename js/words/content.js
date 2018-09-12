@@ -16,7 +16,8 @@ define(
   var UNLOCKED = [];
   // TODO: DEBUG
   //var UNLOCK_LIMIT = 5;
-  var UNLOCK_LIMIT = 1;
+  //var UNLOCK_LIMIT = 1;
+  var UNLOCK_LIMIT = undefined;
 
   // Same for single-tile pokes:
   var POKES = [];

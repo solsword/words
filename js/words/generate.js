@@ -1149,8 +1149,9 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // Add an active element to the center:
-    result.glyphs[grid.SG_CENTER_IDX] = "🗍";
-    result.domains[grid.SG_CENTER_IDX] = "__object__";
+    // TODO: Objects
+    // result.glyphs[grid.SG_CENTER_IDX] = "🗍";
+    // result.domains[grid.SG_CENTER_IDX] = "__object__";
     // TODO: Scatter objects
     // TODO: Interesting objects
 
@@ -1256,9 +1257,12 @@ function(anarchy, dict, grid, dimensions, caching) {
     // First try to add more words, then fill any remaining voids:
     // TODO: Call augment multiple times with different domains when inclusions
     // are present?
-    augment_words(result, default_domain, r, WORMS_LEAVE_EMPTY);
+    // TODO: Leave some empty spaces
+    //augment_words(result, default_domain, r, WORMS_LEAVE_EMPTY);
+    augment_words(result, default_domain, r, 0);
     r = anarchy.lfsr(r);
-    fill_voids(result, default_domain, r);
+    // TODO: Do fill voids
+    //fill_voids(result, default_domain, r);
 
     // all glyphs have been filled in; we're done here!
     return result;

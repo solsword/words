@@ -741,6 +741,8 @@ function(
 
     // Unlock initial tiles
     // TODO: Better/different here?
+    // TODO: Add starting place
+    /*
     content.unlock_path(
       CURRENT_DIMENSION,
       [
@@ -750,6 +752,7 @@ function(
         [-1, -1],
       ]
     );
+    */
 
     // Grant starting quest
     // TODO: Better/different here?
@@ -805,11 +808,12 @@ function(
         menu.remove_menu(QUEST_MENU);
       }
     );
-    menu.add_menu(QUEST_SIDEBAR);
+    // TODO: Re-enable
+    // menu.add_menu(QUEST_SIDEBAR);
 
     WORDS_LIST_MENU = new menu.WordList(
       CTX,
-      { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
+      { "left": "50%", "right": 80, "top": 30, "bottom": 90 },
       { "width": undefined, "height": undefined },
       undefined,
       found_list(CURRENT_DIMENSION),
@@ -821,9 +825,9 @@ function(
     WORDS_SIDEBAR = new menu.ToggleMenu(
       CTX,
       { "right": 0, "top": 120 },
-      { "width": 40, "height": 40 },
+      { "width": 80, "height": 40 },
       undefined, 
-      "🗍",
+      "找到",
       function () {
         QUEST_SIDEBAR.off();
         menu.add_menu(WORDS_LIST_MENU);
@@ -839,7 +843,12 @@ function(
       undefined,
       undefined,
       {}, 
-      "This is Words, version 0.0.1.",
+      ( "This is Words 成语, version 0.1. Select 成语 and press SPACE. Find "
+      + "as many as you can! You can scroll to see more. Use the ⊗ at the "
+      + "bottom-left or ESCAPE to clear the selection. Review 成语 with the "
+      + "找到 button on the right-hand side. The 🏠 button takes you back to "
+      + "the start."
+      ),
       [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
     );
 
@@ -900,7 +909,8 @@ function(
         );
       }
     );
-    menu.add_menu(RESET_ENERGY_BUTTON);
+    // TODO: Re-enable
+    // menu.add_menu(RESET_ENERGY_BUTTON);
 
     CURRENT_GLYPHS_BUTTON = new menu.GlyphsMenu(
       CTX,

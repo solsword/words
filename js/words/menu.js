@@ -44,7 +44,8 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
     // hyphenation when a single word is too long for a line.
     var words = text.split(' ');
     var line = '';
-    words.forEach(function (word, idx) {
+    for (let idx = 0; idx < words.length; ++idx) {
+      let word = words[idx];
       var test_line = null;
       if (line.length > 0) {
         test_line = line + ' ' + word;
@@ -86,7 +87,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         );
         return [ line ].concat(rest);
       }
-    });
+    }
     // If we fall out here, everything fit onto a single line:
     return [ line ];
   }
@@ -514,6 +515,7 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       this.style.line_height,
       twidth
     );
+    console.log(this.text);
     if (this.shape.width == undefined) {
       this.shape.width = (
         this.text.width
