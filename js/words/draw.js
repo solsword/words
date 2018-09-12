@@ -717,6 +717,16 @@ define(
     }
   }
 
+  function highlight_unlocked(dimension, ctx) {
+    let paths = content.unlocked_paths(dimension);
+    let pal = colors.palette();
+    let c = 0;
+    for (let p of paths) {
+      draw_swipe(ctx, p, "line", colors.bright_color(pal[c]));
+      c = (c + 1) % pal.length;
+    }
+  }
+
   function draw_poke(ctx, poke, ticks, max_ticks) {
     // Takes a context and a grid position and highlights that hex as a poke.
     // Also needs to know the current and max # of ticks of the poke.
@@ -725,35 +735,58 @@ define(
     draw_highlight(ctx, gp, colors.ui_color("poke"));
   }
 
-  function draw_swipe(ctx, gplist, do_highlight) {
+  function draw_swipe(ctx, gplist, method, color) {
     // Takes a context, a list of grid positions defining the current swipe,
-    // and whether or not to highlight this swipe, and draws the swipe.
+    // and a drawing method ("trail", "highlight", or "line"), and draws the
+    // swipe. A color may be specified which will override the UI default color
+    // for swipes.
     if (gplist.length == 0) {
       return;
     }
+    if (method == undefined) {
+      method = "trail";
+    }
 
     // Highlight hexes:
+    let hc = color || colors.ui_color("trail");
     for (var i = 0; i < gplist.length - 1; ++i) {
-      draw_highlight(ctx, gplist[i], colors.ui_color("trail"));
+      draw_highlight(ctx, gplist[i], hc);
     }
-    if (do_highlight) {
-      draw_highlight(ctx, gplist[gplist.length-1],colors.ui_color("highlight"));
+    if (method == "highlight") {
+      let lhc = color || colors.ui_color("highlight");
+      draw_highlight(ctx, gplist[gplist.length-1], lhc);
     } else {
-      draw_highlight(ctx, gplist[gplist.length-1], colors.ui_color("trail"));
+      let lhc = color || colors.ui_color("trail");
+      draw_highlight(ctx, gplist[gplist.length-1], lhc);
     }
 
     // Draw line:
-    if (do_highlight && gplist.length > 1) {
+    if ((method == "highlight" || method == "line") && gplist.length > 1) {
       var wpos = grid.world_pos(gplist[0]);
       var vpos = view_pos(ctx, wpos);
 
-      ctx.strokeStyle = colors.ui_color("trail");
+      ctx.strokeStyle = color || colors.ui_color("trail");
+      ctx.fillStyle = ctx.strokeStyle;
+      if (method == "line") {
+        ctx.lineWidth = 3;
+      } else {
+        ctx.lineWidth = 2;
+      }
+      // dots at ends:
+      let vp = view_pos(ctx, grid.world_pos(gplist[0]));
+      ctx.beginPath();
+      ctx.arc(vp[0], vp[1], 3, 0, 2*Math.PI);
+      ctx.fill();
+      vp = view_pos(ctx, grid.world_pos(gplist[gplist.length-1]));
+      ctx.beginPath();
+      ctx.arc(vp[0], vp[1], 4, 0, 2*Math.PI);
+      ctx.fill();
+      // curves along the path:
       ctx.beginPath();
       ctx.moveTo(vpos[0], vpos[1]);
-      // curves along the path:
       for (var i = 1; i < gplist.length - 1; ++i) {
-        var vcp = view_pos(ctx, grid.world_pos(gplist[i]));
-        var vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
+        let vcp = view_pos(ctx, grid.world_pos(gplist[i]));
+        let vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
         ctx.quadraticCurveTo(
           vcp[0],
           vcp[1],
@@ -775,7 +808,7 @@ define(
     var wpos = grid.world_pos(gpos);
     var vpos = view_pos(ctx, wpos);
 
-    ctx.lineWidth=2;
+    ctx.lineWidth = 2;
 
     // Outer hexagon
     ctx.strokeStyle = color;
@@ -897,6 +930,7 @@ define(
     "draw_supertile": draw_supertile,
     "view_pos": view_pos,
     "world_pos": world_pos,
+    "highlight_unlocked": highlight_unlocked,
     "draw_poke": draw_poke,
     "draw_swipe": draw_swipe,
     "draw_loading": draw_loading,

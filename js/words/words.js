@@ -40,12 +40,13 @@ function(
   var CURRENT_SWIPES = [];
   var ACTIVE_POKES = [];
   // TODO: ADJUST THIS
-  var POKE_DELAY = 2; // delay before a poke happens in seconds
+  var POKE_DELAY = 1; // delay before a poke happens in seconds
   var SEL_CLEAR_ANIM = undefined;
   var EN_CLEAR_ANIM = undefined;
   var LAST_POSITION = [0, 0];
   var MS_PER_FRAME = 1000/60;
   // TODO: Measure this!
+  var COLORFUL_UNLOCKED = true; // whether to color unlocked regions
 
   var CURRENT_DIMENSION = {
     "kind": "full",
@@ -1010,12 +1011,16 @@ function(
     if (!draw.draw_tiles(CURRENT_DIMENSION, CTX)) {
       DO_REDRAW = MISSING_TILE_RETRY;
     };
+    // Highlight unlocked:
+    if (COLORFUL_UNLOCKED) {
+      draw.highlight_unlocked(CURRENT_DIMENSION, CTX);
+    }
     // Swipes
     CURRENT_SWIPES.forEach(function (swipe, index) {
       if (index == CURRENT_SWIPES.length - 1) {
-        draw.draw_swipe(CTX, swipe, true);
+        draw.draw_swipe(CTX, swipe, "highlight");
       } else {
-        draw.draw_swipe(CTX, swipe, false);
+        draw.draw_swipe(CTX, swipe, "trail");
       }
     });
     // Pokes

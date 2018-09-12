@@ -14,7 +14,7 @@ function() {
       "ui": {
  "highlight": "#fff",
       "poke": "#ddd",
-     "trail": "#ddd",
+     "trail": "#ccc",
       },
       "tile": {
        "outline": "#555",
@@ -50,22 +50,28 @@ function() {
 "button_text_outline": "#fff",
       },
       "bright": {
-        "gr": "#888",
-        "bl": "#8bf",
-        "lb": "#bef",
-        "rd": "#f66",
+        "rd": "#f44",
         "yl": "#ff2",
+        "bl": "#46f",
+        "pk": "#f4c",
+        "aq": "#4cf",
+        "or": "#fa2",
         "gn": "#6f6",
-        "lg": "#af7",
+        "cr": "#efa",
+        "lb": "#bef",
+        "lg": "#af4",
       },
       "dark": {
-        "gr": "#444",
-        "bl": "#224",
+        "rd": "#411",
+        "yl": "#431",
+        "bl": "#114",
+        "pk": "#403",
+        "aq": "#034",
+        "or": "#420",
+        "gn": "#141",
+        "cr": "#342",
         "lb": "#335",
-        "rd": "#422",
-        "yl": "#442",
-        "gn": "#242",
-        "lg": "#353",
+        "lg": "#453",
       },
     },
     "graph_paper": {
@@ -112,22 +118,26 @@ function() {
         "button_text_outline": "#555",
       },
       "bright": {
-        "gr": "#888",
-        "bl": "#8bf",
-        "lb": "#bef",
-        "rd": "#f66",
+        "rd": "#f44",
         "yl": "#ff2",
+        "bl": "#46f",
+        "pk": "#f4c",
+        "aq": "#4cf",
         "gn": "#6f6",
-        "lg": "#af7",
+        "cr": "#efa",
+        "lb": "#bef",
+        "lg": "#af4",
       },
       "dark": {
-        "gr": "#444",
-        "bl": "#224",
+        "rd": "#411",
+        "yl": "#431",
+        "bl": "#114",
+        "pk": "#403",
+        "aq": "#034",
+        "gn": "#141",
+        "cr": "#342",
         "lb": "#335",
-        "rd": "#422",
-        "yl": "#442",
-        "gn": "#242",
-        "lg": "#353",
+        "lg": "#453",
       },
     },
     "dusk": {
@@ -165,6 +175,21 @@ function() {
   // set_color_scheme("graph_paper");
   set_color_scheme("underground");
 
+  function palette() {
+    return [
+        "rd", // red
+        "yl", // yellow
+        "bl", // blue
+        "pk", // pink
+        "aq", // aqua
+        "or", // orange
+        "gn", // green
+        "cr", // cream
+        "lb", // light blue
+        "lg", // lime green
+    ];
+  }
+
   return {
     "scheme_names": scheme_names,
     "set_color_scheme": set_color_scheme,
@@ -176,5 +201,6 @@ function() {
     "dark_color": dark_color,
     "menu_color": menu_color,
     "set_color_scheme": set_color_scheme,
+    "palette": palette,
   }
 });
