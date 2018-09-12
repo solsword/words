@@ -48,60 +48,7 @@ function(
   // TODO: Measure this!
   var COLORFUL_UNLOCKED = true; // whether to color unlocked regions
 
-  var CURRENT_DIMENSION = {
-    "kind": "full",
-    "layout": "reasonable",
-    // TODO: DEBUG
-    // "domain": "English",
-    "domain": "成语",
-    "seed": 10983
-  };
-
-  /*/ *
-  var CURRENT_DIMENSION = {
-    "kind": "pocket",
-    "layout": "dense",
-    "flavor": "full",
-    "domain": "English",
-    "seed": 10985
-  }
-  var CURRENT_DIMENSION = {
-    "kind": "custom",
-    "layout": "dense",
-    "flavor": "bare",
-    "domain": "English",
-    "seed": 10985
-    "words": [
-      "ABACUS",
-      "BENEVOLENCE",
-      "CONCEPTUALIZATION",
-      "DECADENT",
-      "ENDOMETRIUM",
-      "FUNCTION",
-      "GABBRO",
-      "HYPHENATION",
-      "INFLORESCENCE",
-      "JUBILEE",
-      "KIDNEY",
-      "LEAVENING",
-      "MONGOOSE",
-      "NIQAB",
-      "OATH",
-      "PHALANX",
-      "QUADRILATERAL",
-      "RADIUM",
-      "SEVERANCE",
-      "TRANSCENDENCE",
-      "ULNA",
-      "VACCINE",
-      "WIZARDRY",
-      "XENOPHOBIA",
-      "YUCCA",
-      "ZYGOTE",
-    ]
-    // TODO: how to make sure words are in the domain?!?
-  };
-  // */
+  var CURRENT_DIMENSION = undefined;
 
   // Mouse scroll correction factors:
   var PIXELS_PER_LINE = 18;
@@ -764,6 +711,80 @@ function(
   }
 
   function start_game() {
+    // figure out context
+    let hash = window.location.hash;
+    let env = {};
+    if (hash.length > 0) {
+      let hashitems = hash.slice(1).split(',');
+      for (let hi of hashitems) {
+        let parts = hi.split('=');
+        if (parts.length == 2) {
+          env[parts[0]] = parts[1];
+        }
+      }
+    }
+
+    let edom = env["domain"];
+    if (!edom || !dimensions.MULTIPLANAR_DOMAINS.includes(edom)) {
+      edom = "成语";
+    }
+    let eseed = Number.parseInt(env["seed"]);
+    if (Number.isNaN(eseed)) {
+      eseed = 10983;
+    }
+    starting_dimension = {
+      "kind": "full",
+      "layout": "reasonable",
+      "domain": edom,
+      "seed": eseed,
+    };
+
+    /*/ *
+    var CURRENT_DIMENSION = {
+      "kind": "pocket",
+      "layout": "dense",
+      "flavor": "full",
+      "domain": "English",
+      "seed": 10985
+    }
+    var CURRENT_DIMENSION = {
+      "kind": "custom",
+      "layout": "dense",
+      "flavor": "bare",
+      "domain": "English",
+      "seed": 10985
+      "words": [
+        "ABACUS",
+        "BENEVOLENCE",
+        "CONCEPTUALIZATION",
+        "DECADENT",
+        "ENDOMETRIUM",
+        "FUNCTION",
+        "GABBRO",
+        "HYPHENATION",
+        "INFLORESCENCE",
+        "JUBILEE",
+        "KIDNEY",
+        "LEAVENING",
+        "MONGOOSE",
+        "NIQAB",
+        "OATH",
+        "PHALANX",
+        "QUADRILATERAL",
+        "RADIUM",
+        "SEVERANCE",
+        "TRANSCENDENCE",
+        "ULNA",
+        "VACCINE",
+        "WIZARDRY",
+        "XENOPHOBIA",
+        "YUCCA",
+        "ZYGOTE",
+      ]
+      // TODO: how to make sure words are in the domain?!?
+    };
+    // */
+
     // set up canvas context
     CANVAS = document.getElementById("canvas");
     CTX = CANVAS.getContext("2d");
@@ -782,7 +803,7 @@ function(
     // Unlock initial tiles
     // TODO: Better/different here?
     // TODO: Add starting place?
-    warp_to([0, 0]);
+    warp_to([0, 0], starting_dimension);
 
     // Grant starting quest
     // TODO: Better/different here?
