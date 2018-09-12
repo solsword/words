@@ -52,7 +52,7 @@ function(
     "kind": "full",
     "layout": "reasonable",
     // TODO: DEBUG
-    // "domain": "base",
+    // "domain": "English",
     "domain": "成语",
     "seed": 10983
   };
@@ -62,14 +62,14 @@ function(
     "kind": "pocket",
     "layout": "dense",
     "flavor": "full",
-    "domain": "base",
+    "domain": "English",
     "seed": 10985
   }
   var CURRENT_DIMENSION = {
     "kind": "custom",
     "layout": "dense",
     "flavor": "bare",
-    "domain": "base",
+    "domain": "English",
     "seed": 10985
     "words": [
       "ABACUS",
@@ -144,17 +144,18 @@ function(
   // Grid test:
   var GRID_TEST_DATA = undefined;
 
-  function found_list(dimension) {
-    // Returns (possibly after creating) the found list for the given dimension
-    let dk = dimensions.dim__key(dimension);
-    if (!FOUND_LISTS.hasOwnProperty(dk)) {
-      FOUND_LISTS[dk] = [];
+  function found_list(domain_name) {
+    // Returns (possibly after creating) the found list for the given domain
+    // (should be given by name).
+    if (!FOUND_LISTS.hasOwnProperty(domain_name)) {
+      FOUND_LISTS[domain_name] = [];
     }
-    return FOUND_LISTS[dk];
+    return FOUND_LISTS[domain_name];
   }
 
-  function find_word(dimension, word, path) {
+  function find_word(dimension, match, path) {
     DO_REDRAW = 0;
+    let word = match[3];
     // Insert into global found map:
     if (WORDS_FOUND.hasOwnProperty(word)) {
       WORDS_FOUND[word].push([dimension, path[0]]);
@@ -162,34 +163,38 @@ function(
       WORDS_FOUND[word] = [ [dimension, path[0]] ];
     }
 
-    // Insert into per-dimension alphabetized found list:
-    let fl = found_list(dimension);
-    let st = 0;
-    let ed = fl.length;
-    let idx = st + Math.floor((ed - st)/2);
-    while (ed - st > 0) {
-      if (word < fl[idx]) {
-        ed = idx;
-      } else if (word > fl[idx]) {
-        st = idx + 1;
-      } else {
-        // found it!
-        break;
+    // Insert into per-domain alphabetized found list(s):
+    let this_dom = match[0];
+    let all_doms = [this_dom].concat(generate.ancestor_domains(this_dom));
+    for (let dom of all_doms) {
+      let fl = found_list(dom);
+      let st = 0;
+      let ed = fl.length;
+      let idx = st + Math.floor((ed - st)/2);
+      while (ed - st > 0) {
+        if (word < fl[idx]) {
+          ed = idx;
+        } else if (word > fl[idx]) {
+          st = idx + 1;
+        } else {
+          // found it!
+          break;
+        }
+        idx = st + Math.floor((ed - st)/2);
       }
-      idx = st + Math.floor((ed - st)/2);
-    }
 
-    if (fl[idx] == undefined) { // empty list
-      fl[idx] = word;
-    } else if (fl[idx] > word) {
-      fl.splice(idx, 0, word);
-    } else if (fl[idx] < word) {
-      fl.splice(idx + 1, 0, word);
-    } // else it's already there!
+      if (fl[idx] == undefined) { // empty list
+        fl[idx] = word;
+      } else if (fl[idx] > word) {
+        fl.splice(idx, 0, word);
+      } else if (fl[idx] < word) {
+        fl.splice(idx + 1, 0, word);
+      } // else it's already there!
+    }
 
     // Update active quests:
     for (var q of QUESTS) {
-      q.find_word(dimension, word, path)
+      q.find_word(dimension, match, path)
     }
   }
 
@@ -200,9 +205,41 @@ function(
   }
 
   function home_view() {
-    var wpos = grid.world_pos([0, 0]);
+    let wpos = grid.world_pos([0, 0]);
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];
+    DO_REDRAW = 0;
+  }
+
+  function warp_to(coordinates, dimension) {
+    // Warps to the given position in the given dimension and unlocks a few
+    // tiles near there (unless FREE_MODE is on).
+    if (dimension) {
+      CURRENT_DIMENSION = dimension;
+    }
+    if (WORDS_LIST_MENU) {
+      WORDS_LIST_MENU.replace_items(
+        found_list(dimensions.natural_domain(CURRENT_DIMENSION))
+      );
+    }
+    // TODO: Update base URL?
+    let wpos = grid.world_pos(coordinates);
+    CTX.viewport_center[0] = wpos[0];
+    CTX.viewport_center[1] = wpos[1];
+    if (!FREE_MODE) {
+      let x = coordinates[0];
+      let y = coordinates[1];
+      let nearby = [
+        [x, y],
+        [x+1, y],
+        [x+1, y+1],
+        [x, y+1],
+        [x-1, y],
+        [x-1, y-1],
+        [x, y-1],
+      ];
+      content.unlock_path(CURRENT_DIMENSION, nearby);
+    }
     DO_REDRAW = 0;
   }
 
@@ -213,9 +250,7 @@ function(
     },
     "d": function (e) {
       let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
-      console.log(nbd);
-      CURRENT_DIMENSION = nbd;
-      DO_REDRAW = 0;
+      warp_to([0, 0], nbd);
     },
     // DEBUG
     "s": function (e) { generate.toggle_socket_colors(); },
@@ -266,7 +301,11 @@ function(
     // TODO: DEBUG
     "q": function (e) { // "find' a bunch of words for testing purposes
       for (let w of "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()") {
-        find_word(CURRENT_DIMENSION, w, []);
+        find_word(
+          CURRENT_DIMENSION,
+          [dimensions.natural_domain(CURRENT_DIMENSION), undefined, [w], w, 1],
+          []
+        );
       }
     }
   }
@@ -388,8 +427,8 @@ function(
         });
       }
     });
-    let entries = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
-    if (entries.length > 0) {
+    let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
+    if (matches.length > 0) {
       // Found a match:
       let connected = false;
       if (FREE_MODE) {
@@ -405,8 +444,8 @@ function(
         // Match is connected:
         // clear our swipes and glyphs and add to our words found
         content.unlock_path(CURRENT_DIMENSION, combined_swipe);
-        entries.forEach(function (e) {
-          find_word(CURRENT_DIMENSION, e[2], combined_swipe);
+        matches.forEach(function (m) {
+          find_word(CURRENT_DIMENSION, m, combined_swipe);
         });
         clear_selection(
           CURRENT_GLYPHS_BUTTON.center(),
@@ -742,18 +781,8 @@ function(
 
     // Unlock initial tiles
     // TODO: Better/different here?
-    // TODO: Add starting place
-    /*
-    content.unlock_path(
-      CURRENT_DIMENSION,
-      [
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [-1, -1],
-      ]
-    );
-    */
+    // TODO: Add starting place?
+    warp_to([0, 0]);
 
     // Grant starting quest
     // TODO: Better/different here?
@@ -817,11 +846,11 @@ function(
       { "left": "50%", "right": 80, "top": 30, "bottom": 90 },
       { "width": undefined, "height": undefined },
       undefined,
-      found_list(CURRENT_DIMENSION),
+      found_list(dimensions.natural_domain(CURRENT_DIMENSION)),
       "https://en.wiktionary.org/wiki/<item>"
     );
     // TODO: Swap items list when dimension changes
-    // TODO: Some way to do so manually?
+    // TODO: Some way to see lists from non-current dimensions?
 
     WORDS_SIDEBAR = new menu.ToggleMenu(
       CTX,

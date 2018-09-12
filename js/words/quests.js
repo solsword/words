@@ -265,7 +265,7 @@ function(draw, content, dimensions, icons, colors) {
     this.dimension = dimension;
   };
 
-  Quest.prototype.find_word = function(dimension, word, path) {
+  Quest.prototype.find_word = function(dimension, match, path) {
     console.error("Quest.find_word isn't implemented.");
   };
 
@@ -519,9 +519,10 @@ function(draw, content, dimensions, icons, colors) {
     if (this.params.retroactive) {
       for (var w of Object.keys(words_found)) {
         for (var pos of words_found[w]) {
+          // TODO: Glyphs instead of words here?
           let dim = pos[0];
           if (dimensions.same(this.dimension, dim)) {
-            this.find_word(dim, w);
+            this.find_word(dim,[undefined, undefined, undefined, w, undefined]);
             break;
           }
         }
@@ -529,8 +530,9 @@ function(draw, content, dimensions, icons, colors) {
     }
   }
 
-  HuntQuest.prototype.find_word = function(dimension, word) {
+  HuntQuest.prototype.find_word = function(dimension, match) {
     if (!dimensions.same(this.dimension, dimension)) { return; }
+    let word = match[3];
     for (var t of this.targets) {
       if (matches(t, word)) {
         this.found[t] = true;
@@ -774,7 +776,7 @@ function(draw, content, dimensions, icons, colors) {
     this.sizes = unlocked_sizes(this.dimension);
   };
 
-  BigQuest.prototype.find_word = function(dimension, word, path) {
+  BigQuest.prototype.find_word = function(dimension, match, path) {
     // Update our sizes array.
     if (!dimensions.same(this.dimension, dimension)) { return; }
     let l = path.length;
@@ -923,10 +925,11 @@ function(draw, content, dimensions, icons, colors) {
     // might possibly be unloaded.
   };
 
-  GlyphQuest.prototype.find_word = function(dimension, word) {
+  GlyphQuest.prototype.find_word = function(dimension, match) {
     // Look for target glyph(s)
     if (!dimensions.same(this.dimension, dimension)) { return; }
-    for (var g of word) {
+    let glyphs = match[2];
+    for (var g of glyphs) {
       if (this.targets[g] || this.bonuses[g]) {
         if (this.found.hasOwnProperty(g)) {
           this.found[g] += 1;

@@ -67,6 +67,15 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
     return result;
   }
 
+  function name_of(domain) {
+    // Takes a domain in name or full form and returns the name.
+    if ("" + domain === domain) {
+      return domain;
+    } else {
+      return domain.name;
+    }
+  }
+
   function finish_loading(name, json) {
     // Takes a JSON object from a domain file and augments it before adding it
     // to DOMAINS.
@@ -423,14 +432,21 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
   }
 
   function check_word(glyphs, domains) {
-    // Returns a list of (index, glyphs, word, frequency) quadruples that match
-    // the given glyphs in one of the given domains. The list will be empty if
-    // there are no matches.
-    var entries = [];
+    // Returns a list of (domain_name, index, glyphs, word, frequency)
+    // quadruples that match the given glyphs in one of the given domains. The
+    // list will be empty if there are no matches.
+    var matches = [];
     domains.forEach(function (domain) {
-      entries = entries.concat(find_word_in_domain(glyphs, domain));
+      matches = matches.concat(
+        find_word_in_domain(
+          glyphs,
+          domain
+        ).map(
+          x => [name_of(domain)].concat(x)
+        )
+      );
     });
-    return entries;
+    return matches;
   }
 
   function find_word_in_domain(glyphs, domain) {
@@ -441,7 +457,7 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
 
     // For unordered domains, sort glyphs so that indexing will work:
     var dom = domain;
-    if (dom + "" === dom) {
+    if ("" + dom === dom) {
       dom = lookup_domain(dom);
       if (dom == undefined) {
         console.warn("Internal Error: unknown domain '" + domain + "'");
@@ -608,6 +624,7 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
   return {
     "WARNINGS": WARNINGS,
     "LOADING": LOADING,
+    "name_of": name_of,
     "lookup_domain": lookup_domain,
     "lookup_domains": lookup_domains,
     "load_dictionary": load_dictionary,

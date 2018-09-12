@@ -709,6 +709,10 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
   ScrollBox.prototype = Object.create(BaseMenu.prototype);
   ScrollBox.prototype.constructor = ScrollBox;
 
+  ScrollBox.prototype.replace_items = function(new_items) {
+    this.items = new_items;
+  }
+
   ScrollBox.prototype.get_item_height = function(it) {
     if (this.delegate) {
       return this.delegate.height(it, this.ctx);
@@ -1240,6 +1244,10 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
 
   ListMenu.prototype = Object.create(ScrollBox.prototype);
   ListMenu.prototype.constructor = ListMenu;
+
+  ListMenu.prototype.set_base_url = function(new_base_url) {
+    this.base_url = new_base_url;
+  }
 
 
   function QuestList(ctx, pos, shape, style, quests) {

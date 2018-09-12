@@ -61,9 +61,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
   // All known combined domains.
   var DOMAIN_COMBOS = {
-    //"base": [ "türk" ],
-    "base": [ "adj", "adv", "noun", "verb", "stop" ]
+    "English": [ "adj", "adv", "noun", "verb", "stop" ]
   };
+  // TODO: Allow words found in combo domains to appear in a common list!?!
 
   var BASE_PERMUTATIONS = [
     // 46, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
@@ -171,6 +171,37 @@ function(anarchy, dict, grid, dimensions, caching) {
     } else {
       return [ domain_or_combo ];
     }
+  }
+
+  function parent_domains(domain_or_combo) {
+    // Returns a list of all domains within which the given domain (or combo)
+    // is a sub-domain. Does not include ancestors.
+    let name = dict.name_of(domain_or_combo);
+    let parents = [];
+    for (let cd of Object.keys(DOMAIN_COMBOS)) {
+      let sub = DOMAIN_COMBOS[cd];
+      if (sub.includes(name)) {
+        parents.push(cd);
+      }
+    }
+    return parents;
+  }
+
+  function ancestor_domains(domain_or_combo) {
+    // Returns a list of all ancestor domains of the given domain (or combo).
+    let name = dict.name_of(domain_or_combo);
+    let ancestors = {};
+    let check = [ name ];
+    while (check.length > 0) {
+      let here = check.pop();
+      for (let p of parent_domains(here)) {
+        if (!ancestors[p]) {
+          ancestors[p] = true;
+          check.push(p);
+        }
+      }
+    }
+    return Object.keys(ancestors);
   }
 
   function mix_seeds(s1, s2, off) {
@@ -1259,6 +1290,9 @@ function(anarchy, dict, grid, dimensions, caching) {
     // are present?
     // TODO: Leave some empty spaces
     //augment_words(result, default_domain, r, WORMS_LEAVE_EMPTY);
+    augment_words(result, default_domain, r, 0);
+    r = anarchy.lfsr(r);
+    // Double augment may fill extra gaps
     augment_words(result, default_domain, r, 0);
     r = anarchy.lfsr(r);
     // TODO: Do fill voids
@@ -2357,6 +2391,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     "ultratile_punctuation_parameters": ultratile_punctuation_parameters,
     "ultratile_context": ultratile_context,
     "generate_test_supertile": generate_test_supertile,
+    "parent_domains": parent_domains,
+    "ancestor_domains": ancestor_domains,
   };
 });
 
