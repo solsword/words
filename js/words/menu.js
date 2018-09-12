@@ -515,7 +515,6 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
       this.style.line_height,
       twidth
     );
-    console.log(this.text);
     if (this.shape.width == undefined) {
       this.shape.width = (
         this.text.width
