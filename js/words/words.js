@@ -469,9 +469,9 @@ function(
 
   function update_current_glyphs() {
     var glyphs = []
-    CURRENT_SWIPES.forEach(function (sw) {
-      sw.forEach(function (gp) {
-        var g = content.tile_at(CURRENT_DIMENSION, gp)["glyph"];
+    for (let sw of CURRENT_SWIPES) {
+      for (let gp of sw) {
+        let g = content.tile_at(CURRENT_DIMENSION, gp)["glyph"];
         if (g == undefined) { // should never happen in theory:
           console.warn(
             "InternalError: update_current_glyphs found undefined glyph at: "
@@ -480,8 +480,8 @@ function(
           g = "?";
         }
         glyphs.push(g);
-      });
-    });
+      }
+    }
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
   }
 
@@ -552,49 +552,127 @@ function(
     }
 
     if (isdbl) {
-      // this is a double-click or double-tap
-      // Find grid position and check adjacency
+      // This is a double-click or double-tap
+
+      // Find grid position
       let wp = draw.world_pos(ctx, vpos);
       let gp = grid.grid_pos(wp);
-      let valid = false;
-      if (FREE_MODE) {
-        valid = true;
-      } else {
-        for (let d = 0; d < 6; ++d) {
-          let np = grid.neighbor(gp, d);
-          if (content.is_unlocked(CURRENT_DIMENSION, np)) {
-            valid = true;
+
+      // Figure out if we're on part of a swipe:
+      let cancel_from = undefined;
+      let cancel_index = undefined;
+      for (let i = 0; i < CURRENT_SWIPES.length; ++i) {
+        let sw = CURRENT_SWIPES[i];
+        for (let j = 0; j < sw.length; ++j) {
+          let sgp = sw[j];
+          if (utils.is_equal(gp, sgp)) {
+            cancel_from = i;
+            cancel_index = j;
             break;
           }
+        }
+        if (cancel_from != undefined) {
+          break;
         }
       }
-      if (valid) {
-        // Get rid of last two swipes & update glyphs
-        CURRENT_SWIPES.pop();
-        CURRENT_SWIPES.pop();
-        update_current_glyphs();
-        // Check for already-active poke here
-        let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
-        let found = undefined;
-        var found_time;
-        for (let i = 0; i < ACTIVE_POKES.length; ++i) {
-          if (
-            utils.is_equal(ACTIVE_POKES[i][0], entry[0])
-         && utils.is_equal(ACTIVE_POKES[i][1], entry[1])
-          ) {
-            found = i;
-            break;
+
+      if (cancel_from != undefined) {
+        // We double-tapped a swiped glyph to cancel it
+        
+        // Find adjacent grid positions from swipe
+        let csw = CURRENT_SWIPES[cancel_from];
+        let csl = csw.length;
+        let prior = undefined;
+        let next = undefined;
+        if (cancel_index == 0) {
+          if (cancel_from > 0) {
+            psw = CURRENT_SWIPES[cancel_from-1];
+            prior = psw[psw.length-1];
+          }
+        } else {
+          prior = csw[cancel_index-1];
+        }
+        if (cancel_index == csw.length - 1) {
+          nsw = CURRENT_SWIPES[cancel_from+1];
+          if (nsw != undefined) {
+            next = nsw[0];
+          }
+        } else {
+          next = csw[cancel_index+1];
+        }
+
+        // Check continuity
+        if (prior != undefined && next != undefined) {
+          if (grid.is_neighbor(prior, next)) {
+            // Cut out just the one glyph and stitch the rest together:
+            if (csw.length == 1) {
+              CURRENT_SWIPES.splice(cancel_from, 1);
+            } else {
+              csw.splice(cancel_index, 1);
+            }
+          } else {
+            // Cut off everything after the target:
+            if (csw.length == 1) {
+              CURRENT_SWIPES = CURRENT_SWIPES.slice(0, cancel_from);
+            } else {
+              CURRENT_SWIPES = CURRENT_SWIPES.slice(0, cancel_from + 1);
+              CURRENT_SWIPES[cancel_from] = csw.slice(0, cancel_index);
+            }
+          }
+        } else {
+          if (csw.length == 1) {
+            CURRENT_SWIPES.splice(cancel_from, 1);
+          } else {
+            csw.splice(cancel_index, 1);
           }
         }
-        if (found != undefined) {
-          // TODO: Cancel the poke instead?
-          entry[2] = ACTIVE_POKES[found][2];
-          ACTIVE_POKES.splice(found, 1);
+        update_current_glyphs();
+      } else {
+        // We double-tapped an open spot to poke it
+
+        // Check adjacency
+        let wp = draw.world_pos(ctx, vpos);
+        let gp = grid.grid_pos(wp);
+        let valid = false;
+        if (FREE_MODE) {
+          valid = false;
+        } else {
+          for (let d = 0; d < 6; ++d) {
+            let np = grid.neighbor(gp, d);
+            if (content.is_unlocked(CURRENT_DIMENSION, np)) {
+              valid = true;
+              break;
+            }
+          }
         }
-        // Add entry to active pokes list:
-        ACTIVE_POKES.push(entry);
-        if (ACTIVE_POKES.length > content.POKE_LIMIT) {
-          ACTIVE_POKES.shift();
+        if (valid) {
+          // Get rid of last two swipes & update glyphs
+          CURRENT_SWIPES.pop();
+          CURRENT_SWIPES.pop();
+          update_current_glyphs();
+          // Check for already-active poke here
+          let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+          let found = undefined;
+          var found_time;
+          for (let i = 0; i < ACTIVE_POKES.length; ++i) {
+            if (
+              utils.is_equal(ACTIVE_POKES[i][0], entry[0])
+           && utils.is_equal(ACTIVE_POKES[i][1], entry[1])
+            ) {
+              found = i;
+              break;
+            }
+          }
+          if (found != undefined) {
+            // TODO: Cancel the poke instead?
+            entry[2] = ACTIVE_POKES[found][2];
+            ACTIVE_POKES.splice(found, 1);
+          }
+          // Add entry to active pokes list:
+          ACTIVE_POKES.push(entry);
+          if (ACTIVE_POKES.length > content.POKE_LIMIT) {
+            ACTIVE_POKES.shift();
+          }
         }
       }
       DO_REDRAW = 0;
@@ -896,9 +974,9 @@ function(
       {}, 
       ( "This is Words 成语, version 0.1. Select 成语 and press SPACE. Find "
       + "as many as you can! You can scroll to see more. Use the ⊗ at the "
-      + "bottom-left or ESCAPE to clear the selection. Review 成语 with the "
-      + "找到 button on the right-hand side. The 🏠 button takes you back to "
-      + "the start."
+      + "bottom-left or ESCAPE to clear the selection, or double-tap to remove "
+      + "a glyph. Review 成语 with the 找到 button on the right-hand side. The "
+      + "🏠 button takes you back to the start."
       ),
       [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
     );
@@ -1057,22 +1135,21 @@ function(
 
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
+
     // Tiles
     if (!draw.draw_tiles(CURRENT_DIMENSION, CTX)) {
       DO_REDRAW = MISSING_TILE_RETRY;
     };
+
     // Highlight unlocked:
     if (COLORFUL_UNLOCKED) {
       draw.highlight_unlocked(CURRENT_DIMENSION, CTX);
     }
+
     // Swipes
-    CURRENT_SWIPES.forEach(function (swipe, index) {
-      if (index == CURRENT_SWIPES.length - 1) {
-        draw.draw_swipe(CTX, swipe, "highlight");
-      } else {
-        draw.draw_swipe(CTX, swipe, "trail");
-      }
-    });
+    let combined = combine_arrays(CURRENT_SWIPES);
+    draw.draw_swipe(CTX, combined, "highlight");
+
     // Pokes
     var poke_redraw_after = undefined;
     var finished_pokes = [];
