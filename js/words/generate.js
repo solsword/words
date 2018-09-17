@@ -422,8 +422,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     return dict.nth_short_word(domain_objs[di], max_len, n);
   }
 
-  function ultratile_punctuation_parameters(ugp) {
-    // Takes an ultragrid position and returns three values:
+  function ultratile_punctuation_parameters(domain_name, ugp) {
+    // Takes a domain name and an ultragrid position and returns three values:
     //
     // 1. The number of non-inclusion, non-overlength assignment positions
     //    within this tile's assignment grid tile prior to it.
@@ -436,10 +436,27 @@ function(anarchy, dict, grid, dimensions, caching) {
     var ag_x = ugp[0] / grid.ASSIGNMENT_REGION_SIDE;
     var ag_y = ugp[1] / grid.ASSIGNMENT_REGION_SIDE;
 
+    // ultragrid position:
     var ug_x = ugp[0] % grid.ASSIGNMENT_REGION_SIDE;
     var ug_y = ugp[1] % grid.ASSIGNMENT_REGION_SIDE;
     ug_x = (ug_x + grid.ASSIGNMENT_REGION_SIDE) % grid.ASSIGNMENT_REGION_SIDE;
     ug_y = (ug_y + grid.ASSIGNMENT_REGION_SIDE) % grid.ASSIGNMENT_REGION_SIDE;
+
+    // density of overlength tiles in this assignment grid unit:
+    let ol_allowance = Math.ceil(
+      overlength_per_assignment_region(domain_name)
+    / ASSIGNMENT_REGION_TOTAL_SUPERTILES
+    );
+    let ol_capacity = (grid.ULTRAGRID_SIZE - 2) * (grid.ULTRAGRID_SIZE - 2);
+    if (ol_allowance >= 0.75 * ol_capacity) {
+      // Phase change: with so many overlength words, we move to an
+      // overlength-primary model of word assignment.
+      // TODO: HERE
+    } else {
+      // Overlength words can be reasonably accommodated by the normal
+      // allowance mechanism.
+      // TODO: HERE
+    }
 
     // density of inclusions in this assignment grid unit:
     var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
@@ -492,7 +509,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     return [ nat_prior, incl_here ];
   }
 
-  function assignment_punctuation_parameters(agp) {
+  function assignment_punctuation_parameters(domain_name, agp) {
     // The converse of ultratile_punctuation_parameters, this looks up the same
     // parameters using the assignment position (assignment grid coordinates
     // plus linear assignment number in that tile) instead of the ultratile
@@ -583,10 +600,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
-  function ultratile_context(ugp, seed) {
-    // Takes an ultragrid position and computes generation info including
-    // mutiplanar offsets for each assignment position in that ultratile, and
-    // object contents of the ultratile.
+  function ultratile_context(domain_name, ugp, seed) {
+    // Takes a domain string and an ultragrid position and computes generation
+    // info including mutiplanar offsets for each assignment position in that
+    // ultratile, and object contents of the ultratile.
     //
     // Returns an object with the following keys:
     //
@@ -607,7 +624,7 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     var r = sghash(seed + 489813, ugp);
 
-    var info = ultratile_punctuation_parameters(ugp);
+    var info = ultratile_punctuation_parameters(domain_name, ugp);
     var nat_prior = info[0];
     var incl_here = info[1];
 
@@ -798,8 +815,8 @@ function(anarchy, dict, grid, dimensions, caching) {
   // register ultratile_context as a caching domain:
   caching.register_domain(
     "ultratile_context", 
-    function (ugp, seed) {
-      return ugp[0] + "," + ugp[1] + ":" + seed
+    function (ds, ugp, seed) {
+      return ds + ":" + ugp[0] + "," + ugp[1] + ":" + seed
     },
     ultratile_context,
     MULTIPLANAR_INFO_CACHE_SIZE
@@ -872,7 +889,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     return [ asg_x, asg_y, asg_index, mp_offset ];
   }
 
-  function punctuated_assignment_lookup(agp, mp_offset, seed) {
+  function punctuated_assignment_lookup(domain_name, agp, mp_offset, seed) {
     // The inverse of punctuated_assignment_index (see above); this takes an
     // assignment position (assignment grid x/y and linear number) and a
     // multiplanar offset, and returns a (canonical) supergrid assignment
@@ -885,7 +902,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     var asg_y = agp[1];
     var asg_idx = agp[2];
 
-    var params = assignment_punctuation_parameters(agp);
+    var params = assignment_punctuation_parameters(domain_name, agp);
     var ugp = params[0];
     var nat_prior = params[1][0];
     var incl_here = params[1][1];
@@ -893,7 +910,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // fetch utcontext or fail:
     var utcontext = caching.cached_value(
       "ultratile_context", 
-      [ ugp, seed ]
+      [ domain_name, ugp, seed ]
     );
     if (utcontext == null) {
       return undefined;
@@ -1194,7 +1211,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       // Compute ultratile multiplanar info:
       var utcontext = caching.cached_value(
         "ultratile_context",
-        [ [ ugp[0], ugp[1] ], seed ]
+        [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], seed ]
       );
       if (utcontext == null) {
         return undefined;
@@ -1238,7 +1255,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         entry = sample_word(domain, r, maxlen);
         if (entry == undefined) {
           // No words short enough? Skip all sockets (more food for worms)!
-          // Note: This shouldn't happen much!
+          // Note: This should only happen in very odd domains!
           break;
         }
         glyphs = entry[0].slice();
@@ -2333,6 +2350,8 @@ function(anarchy, dict, grid, dimensions, caching) {
   function overlength_per_assignment_region(dom_or_combo) {
     // Computes the number of overlength slots per assignment region required
     // to comfortably support all overlength words in a domain.
+    // TODO: Correct this a bit for (likely) relative infrequency of overlength
+    // words?
     let domains;
     if ("" + dom_or_combo === dom_or_combo) {
       domains = dict.lookup_domains(domains_list(dom_or_string));
@@ -2349,11 +2368,11 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     /* Algebra for desired overlength sockets:
     ratio = (
-      (grid.ULTRATILE_SOCKETS - 2*x*grid.ASSIGNMENT_SOCKETS)
+      (grid.ULTRATILE_SOCKETS - x*2*grid.ASSIGNMENT_SOCKETS)
       / grid.ULTRATILE_SOCKETS
     );
     --------------------------------------------------------
-    ratio = US / US - 2*x*AS/US
+    ratio = US / US - x*2*AS/US
     --------------------------------------------------------
     ratio - 1 = -2xAS/US
     --------------------------------------------------------
@@ -2367,7 +2386,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         grid.ULTRATILE_SOCKETS * (1 - ratio)
       / 2 * grid.ASSIGNMENT_SOCKETS
       )
-    * grid.ASSIGNMENT_REGION_TOTAL_SUPERTILES
+    * grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE
     );
 
     return Math.max(overlength_per_ar, total_overlength);
