@@ -422,15 +422,72 @@ function(anarchy, dict, grid, dimensions, caching) {
     return dict.nth_short_word(domain_objs[di], max_len, n);
   }
 
+  function overlength_socket_cost(ol_tiles) {
+    // Computes the cost in sockets of a given number of overlength supertiles
+    // within an ultragrid cell.
+    return (
+      ol_tiles * 2 * ASSIGNMENT_SOCKETS
+    - overlength_supertile_connections(ol_tiles)
+    );
+  }
+
+  function overlength_supertile_connections(ol_tiles) {
+    // Returns the number of adjacencies between overlength supertiles that
+    // should be created within an ultragrid layout.
+    return Math.min(9, Math.floor(ol_tiles * 3/8));
+  }
+
+  function overlength_allowance(domain_name) {
+    // Computes the number of overlength supertiles per ultratile for the given
+    // domain. Returns a triple:
+    // 1. Whether ultratiles in this domain are primarily overlength.
+    // 2. The number of overlength superiles.
+    // 3. The number of sockets used up by the overlength supertiles.
+
+    // density of overlength tiles in this assignment grid unit:
+    let ol_tile_count = Math.ceil(
+      overlength_per_assignment_region(domain_name)
+    / ASSIGNMENT_REGION_TOTAL_SUPERTILES
+    );
+    let ol_capacity = (grid.ULTRAGRID_SIZE - 2) * (grid.ULTRAGRID_SIZE - 2);
+    let ol_socket_cost;
+    let overlength_primary = false;
+    if (ol_tile_count >= 0.25 * ol_capacity) {
+      // Phase change: with so many overlength words, we move to an
+      // overlength-primary model of word assignment.
+      // Each supertile now gets only a single socket (except eight, which get
+      // none) and the primary assignment basis for all words is to supertiles
+      // instead of sockets.
+      ol_socket_cost = (
+        grid.ULTRATILE_SOCKETS
+      - grid.ULTRATILE_SUPERTILES
+      + 8
+      );
+      ol_tile_count = grid.ULTRATILE_SUPERTILES;
+      overlength_primary = true;
+    } else {
+      // Overlength words can be reasonably accommodated by the normal
+      // allowance mechanism.
+      ol_socket_cost = overlength_socket_cost(ol_tile_count);
+    }
+
+    return [
+      overlength_primary,
+      ol_tile_count,
+      ol_socket_cost
+    ];
+  }
+
   function ultratile_punctuation_parameters(domain_name, ugp) {
-    // Takes a domain name and an ultragrid position and returns three values:
+    // Takes a domain name and an ultragrid position and returns an array:
     //
-    // 1. The number of non-inclusion, non-overlength assignment positions
-    //    within this tile's assignment grid tile prior to it.
-    // 2. The number of inclusion assignment positions within this ultragrid
-    //    tile.
-    // 3. The number of overlength supertiles within this ultragrid tile.
-    // TODO: #3 HERE
+    // 1. Whether or not this ultratile is an overlength-primary tile.
+    // 2. The number of non-inclusion assignment positions within this tile's
+    //    assignment grid tile prior to it.
+    // 3. The number of inclusion assignment positions within this ultratile.
+    // 4. The number of non-inclusion supertiles within this assignment grid
+    //    tile prior to this ultratile.
+    // 5. The number of inclusion supertiles within this ultratile.
 
     // assignment grid position:
     var ag_x = ugp[0] / grid.ASSIGNMENT_REGION_SIDE;
@@ -443,144 +500,240 @@ function(anarchy, dict, grid, dimensions, caching) {
     ug_y = (ug_y + grid.ASSIGNMENT_REGION_SIDE) % grid.ASSIGNMENT_REGION_SIDE;
 
     // density of overlength tiles in this assignment grid unit:
-    let ol_allowance = Math.ceil(
-      overlength_per_assignment_region(domain_name)
-    / ASSIGNMENT_REGION_TOTAL_SUPERTILES
-    );
-    let ol_capacity = (grid.ULTRAGRID_SIZE - 2) * (grid.ULTRAGRID_SIZE - 2);
-    if (ol_allowance >= 0.75 * ol_capacity) {
-      // Phase change: with so many overlength words, we move to an
-      // overlength-primary model of word assignment.
-      // TODO: HERE
-    } else {
-      // Overlength words can be reasonably accommodated by the normal
-      // allowance mechanism.
-      // TODO: HERE
-    }
+    let ol_allowance = overlength_allowance(domain_name);
+    let ol_primary = ol_allowance[0];
+    let ol_tiles = ol_allowance[1];
+    let ol_socket_cost = ol_allowance[2];
+
+    // Size of each segment in sockets:
+    let segment_full_size = grid.ULTRATILE_SOCKETS - ol_socket_cost;
+
+    // segment parameters:
+    let segment = ug_x + grid.ASSIGNMENT_REGION_SIDE * ug_y;
+    let n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
+
+    // defaults:
+    let asg_incl_here = 0;
+    let asg_nat_prior = segment_full_size * segment;
+    let ol_incl_here = 0;
+    let ol_nat_prior = ol_tiles * segment;
 
     // density of inclusions in this assignment grid unit:
-    var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
-    var incl_density = (
+    let d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
+    let incl_density = (
       MIN_INCLUSION_DENSITY
     + anarchy.udist(d_seed) * (MAX_INCLUSION_DENSITY - MIN_INCLUSION_DENSITY)
     );
     d_seed = anarchy.lfsr(d_seed);
 
-    // segment parameters:
-    var segment = ug_x + grid.ASSIGNMENT_REGION_SIDE * ug_y;
-    var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
-    var segment_capacity = Math.floor(
-      MAX_LOCAL_INCLUSION_DENSITY
-    * grid.ULTRATILE_INTERIOR_SOCKETS
-    );
-    var segment_full_size = grid.ULTRATILE_SOCKETS;
+    if (ol_primary) {
+      // Inclusions are among overlength supertiles, not sockets:
+      let segment_capacity = Math.floor(
+        MAX_LOCAL_INCLUSION_DENSITY
+      * ol_tiles
+      );
 
-    // total number of assignment slots reserved for inclusions:
-    var incl_mass = Math.floor(
-      incl_density
-    * grid.ASSIGNMENT_REGION_SIDE
-    * grid.ASSIGNMENT_REGION_SIDE
-    * segment_capacity
-    );
+      // total number of supertiles reserved for inclusions:
+      let incl_mass = Math.floor(
+        incl_density
+      * grid.ASSIGNMENT_REGION_SIDE
+      * grid.ASSIGNMENT_REGION_SIDE
+      * ol_tiles
+      );
 
-    // prior inclusions:
-    var incl_prior = anarchy.distribution_prior_sum(
-      segment,
-      incl_mass,
-      n_segments,
-      segment_capacity,
-      INCLUSION_ROUGHNESS,
-      d_seed
-    );
+      // prior inclusions:
+      let incl_prior = anarchy.distribution_prior_sum(
+        segment,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed
+      );
 
-    // inclusions here:
-    var incl_here = anarchy.distribution_portion(
-      segment,
-      incl_mass,
-      n_segments,
-      segment_capacity,
-      INCLUSION_ROUGHNESS,
-      d_seed // seed must be the same as in distribution_prior_sum above!
-    );
+      // inclusions here:
+      ol_incl_here = anarchy.distribution_portion(
+        segment,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed // seed must be the same as in distribution_prior_sum above!
+      );
 
-    // prior natural (non-inclusion) assignments:
-    var nat_prior = (segment_full_size * segment) - incl_prior;
+      // prior natural (non-inclusion) assignments:
+      ol_nat_prior = (grid.ULTRATILE_SUPERTILES * segment) - incl_prior;
 
-    return [ nat_prior, incl_here ];
+      // asg_* retain defaults
+    } else {
+      // Inclusions are among sockets, not overlength supertiles:
+      let segment_capacity = Math.floor(
+        MAX_LOCAL_INCLUSION_DENSITY
+      * (
+          grid.ULTRATILE_SUPERTILES
+        - ol_socket_cost
+        )
+      );
+
+      // total number of assignment slots reserved for inclusions:
+      let incl_mass = Math.floor(
+        incl_density
+      * grid.ASSIGNMENT_REGION_SIDE
+      * grid.ASSIGNMENT_REGION_SIDE
+      * segment_capacity
+      );
+
+      // prior inclusions:
+      let incl_prior = anarchy.distribution_prior_sum(
+        segment,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed
+      );
+
+      // inclusions here:
+      asg_incl_here = anarchy.distribution_portion(
+        segment,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed // seed must be the same as in distribution_prior_sum above!
+      );
+
+      // prior natural (non-inclusion) assignments:
+      asg_nat_prior = (segment_full_size * segment) - incl_prior;
+
+      // ol_* retain defaults
+    }
+
+    return [
+      ol_primary,
+      asg_nat_prior,
+      asg_incl_here,
+      ol_nat_prior,
+      ol_incl_here,
+    ];
   }
 
-  function assignment_punctuation_parameters(domain_name, agp) {
-    // The converse of ultratile_punctuation_parameters, this looks up the same
-    // parameters using the assignment position (assignment grid coordinates
-    // plus linear assignment number in that tile) instead of the ultratile
-    // position. Returns the discovered ultratile position as well as the prior
-    // and inclusion information, structured as follows:
-    //
-    // [
-    //   [ ultragrid_x, ultragrid_y ],
-    //   [ nat_prior, incl_here ]
-    // ]
+  function assignment_location(domain_name, agp) {
+    // The converse of ultratile_punctuation_parameters, this looks up the
+    // ultratile where a given assignment position (assignment grid coordinates
+    // plus linear assignment number in that tile) will end up. Returns the
+    // discovered ultratile grid coordinates.
 
     var ag_x = agp[0];
     var ag_y = agp[1];
     var ag_idx = agp[2];
 
+    // density of overlength tiles in this assignment grid unit:
+    let ol_allowance = overlength_allowance(domain_name);
+    let ol_primary = ol_allowance[0];
+    let ol_tiles = ol_allowance[1];
+    let ol_socket_cost = ol_allowance[2];
+
     // density of inclusions in this assignment grid unit:
-    var d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
-    var incl_density = (
+    let d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
+    let incl_density = (
       MIN_INCLUSION_DENSITY
     + anarchy.udist(d_seed) * (MAX_INCLUSION_DENSITY - MIN_INCLUSION_DENSITY)
     );
+    // TODO: Avoid LFSR here in favor of reversible seeding? or is this ok?
     d_seed = anarchy.lfsr(d_seed);
 
-    // segment parameters:
-    var segment_full_size = grid.ULTRATILE_SOCKETS;
-    var n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
-    var segment_capacity = Math.floor(
-      MAX_LOCAL_INCLUSION_DENSITY
-    * grid.ULTRATILE_INTERIOR_SOCKETS
-    );
+    // Total number of segments:
+    let n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
 
-    // total number of assignment slots reserved for inclusions:
-    var incl_mass = Math.floor(
-      incl_density
-    * grid.ASSIGNMENT_REGION_SIDE
-    * grid.ASSIGNMENT_REGION_SIDE
-    * segment_capacity
-    );
+    // Size of each segment in sockets:
+    let segment_full_size = grid.ULTRATILE_SOCKETS - ol_socket_cost;
 
-    // compute segment:
-    var segment = anarchy.distribution_segment(
-      ag_idx,
-      incl_mass,
-      n_segments,
-      segment_capacity,
-      INCLUSION_ROUGHNESS,
-      d_seed
-    );
+    // Defaults:
+    let segment = 0;
+    let asg_incl_here = undefined;
+    let asg_nat_prior = undefined;
+    let ol_incl_here = undefined;
+    let ol_nat_prior = undefined;
 
-    // prior inclusions:
-    var incl_prior = anarchy.distribution_prior_sum(
-      segment,
-      incl_mass,
-      n_segments,
-      segment_capacity,
-      INCLUSION_ROUGHNESS,
-      d_seed
-    );
+    if (ol_primary) {
+      // Assignments are primarily made to supertiles directly because there
+      // are so many overlength words.
+      let segment_capacity = Math.floor(
+        MAX_LOCAL_INCLUSION_DENSITY
+      * ol_tiles
+      );
 
-    // inclusions here:
-    var incl_here = anarchy.distribution_portion(
-      segment,
-      incl_mass,
-      n_segments,
-      segment_capacity,
-      INCLUSION_ROUGHNESS,
-      d_seed // seed must be the same as in distribution_prior_sum above!
-    );
+      // total number of supertiles reserved for inclusions:
+      let incl_mass = Math.floor(
+        incl_density
+      * grid.ASSIGNMENT_REGION_SIDE
+      * grid.ASSIGNMENT_REGION_SIDE
+      * ol_tiles
+      );
 
-    // prior natural (non-inclusion) assignments:
-    var nat_prior = (segment_full_size * segment) - incl_prior;
+      // compute segment:
+      let segment = anarchy.distribution_segment(
+        ag_idx,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed
+      );
+
+      // TODO: HERE
+    } else {
+      // Assignments are primarily made to assignment sockets.
+      // segment parameters:
+      let segment_full_size = grid.ULTRATILE_SOCKETS;
+      let segment_capacity = Math.floor(
+        MAX_LOCAL_INCLUSION_DENSITY
+      * grid.ULTRATILE_INTERIOR_SOCKETS
+      );
+
+      // total number of assignment slots reserved for inclusions:
+      let incl_mass = Math.floor(
+        incl_density
+      * grid.ASSIGNMENT_REGION_SIDE
+      * grid.ASSIGNMENT_REGION_SIDE
+      * segment_capacity
+      );
+
+      // compute segment:
+      let segment = anarchy.distribution_segment(
+        ag_idx,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed
+      );
+
+      // prior inclusions:
+      let incl_prior = anarchy.distribution_prior_sum(
+        segment,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed
+      );
+
+      // inclusions here:
+      let incl_here = anarchy.distribution_portion(
+        segment,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed // seed must be the same as in distribution_prior_sum above!
+      );
+
+      // prior natural (non-inclusion) assignments:
+      let nat_prior = (segment_full_size * segment) - incl_prior;
+
+    }
 
     // back out (global) ultragrid position:
     var ugp = [
@@ -594,10 +747,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       )
     ];
 
-    return [
-      ugp,
-      [ nat_prior, incl_here ]
-    ];
+    return ugp;
   }
 
   function ultratile_context(domain_name, ugp, seed) {
@@ -618,7 +768,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     //     non-inclusion assignments on each row of the ultragrid.
     //   objects:
     //     A one-dimensional array of object types to be inserted into each
-    //     supertile in this ultratile (ULTRAGRID_SIZE×ULTRAGRID_SIZE).
+    //     supertile in this ultratile (ULTRAGRID_SIZE × ULTRAGRID_SIZE).
     //     May have missing entries for supertiles that don't have objects in
     //     them. Note that the objects are assigned to supertiles, not sockets.
 
@@ -760,12 +910,11 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // now that multiplanar info is computed, add object info
     // decide how many objects we'll have:
-    var ugtotal = grid.ULTRAGRID_SIZE * grid.ULTRAGRID_SIZE;
     // TODO: continuously varying value here!
     var richness = anarchy.idist(
       r,
       MIN_OBJECTS_PER_ULTRATILE,
-      Math.floor(3 * ugtotal / 4)
+      Math.floor(3 * grid.ULTRATILE_SUPERTILES / 4)
     );
     r = anarchy.lfsr(r);
 
@@ -781,7 +930,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     var shuf_seed = r;
     r = anarchy.lfsr(r);
     for (let i = 0; i < richness; ++i) {
-      var si = anarchy.cohort_shuffle(i, ugtotal, shuf_seed);
+      var si = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, shuf_seed);
       var sgp = [
         si % grid.ULTRAGRID_SIZE,
         Math.floor(si / grid.ULTRAGRID_SIZE)
@@ -902,10 +1051,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     var asg_y = agp[1];
     var asg_idx = agp[2];
 
-    var params = assignment_punctuation_parameters(domain_name, agp);
-    var ugp = params[0];
-    var nat_prior = params[1][0];
-    var incl_here = params[1][1];
+    var ugp = assignment_location(domain_name, agp);
 
     // fetch utcontext or fail:
     var utcontext = caching.cached_value(
@@ -2349,9 +2495,10 @@ function(anarchy, dict, grid, dimensions, caching) {
 
   function overlength_per_assignment_region(dom_or_combo) {
     // Computes the number of overlength slots per assignment region required
-    // to comfortably support all overlength words in a domain.
-    // TODO: Correct this a bit for (likely) relative infrequency of overlength
-    // words?
+    // to comfortably support all overlength words in a domain. Assumes as a
+    // baseline that overlength words should be 1/2 as common as their overall
+    // prevalence per entry (frequency gets ignored).
+    // TODO: Account for the frequency of overlength words?
     let domains;
     if ("" + dom_or_combo === dom_or_combo) {
       domains = dict.lookup_domains(domains_list(dom_or_string));
@@ -2388,6 +2535,9 @@ function(anarchy, dict, grid, dimensions, caching) {
       )
     * grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE
     );
+
+    // Correct frequency:
+    overlength_per_ar = Math.ceil(0.5 * overlength_per_ar);
 
     return Math.max(overlength_per_ar, total_overlength);
   }
