@@ -516,6 +516,7 @@ define([], function() {
     var split_max = Math.floor(half + (total - half) * roughness);
 
     // adjust for capacity limits:
+    // TODO: This in a more aggressive way to avoid pileups?
     if ((total - split_min) > segment_capacity * (n_segments - first_half)) {
       split_min = total - (segment_capacity * (n_segments - first_half));
     }
@@ -691,6 +692,61 @@ define([], function() {
     }
   }
 
+  function distribution_gap_segment(
+    gap_index,
+    total,
+    n_segments,
+    segment_capacity,
+    roughness,
+    seed
+  ) {
+    // Computes the segment number in which a certain item appears (NOT one of
+    // the 'total' items distributed between segments, but instead one of the
+    // empty spaces in those segments; see distribution_portion above).
+    // Requires work proportional to the log of the number of segments.
+
+    // base case
+    if (n_segments == 1) {
+      return 0; // we are in the only segment there is
+    }
+
+    // compute split point:
+    split = distribution_spilt_point(
+      total,
+      n_segments,
+      segment_capacity,
+      roughness,
+      seed
+    );
+
+    let items_split_point = split[0];
+    let segments_split_point = split[1];
+
+    // gaps in the first half:
+    let fh_gaps = segments_split_point * segment_capacity - items_split_point;
+
+    // call ourselves recursively:
+    if (gap_index < fh_gaps) {
+      return distribution_gap_segment(
+        gap_index,
+        items_split_point,
+        segments_split_point,
+        segment_capacity,
+        roughness,
+        seed
+      );
+    } else {
+      return distribution_gap_segment(
+        gap_index - fh_gaps,
+        total - items_split_point,
+        n_segments - segments_split_point,
+        segment_capacity,
+        roughness,
+        seed
+      );
+    }
+  }
+
   function max_smaller(value, sumtable) {
     // Uses binary search to find and return the index of the largest sum in
     // the given sumtable that's smaller than the given value. Works in time
@@ -765,6 +821,7 @@ define([], function() {
     "distribution_portion": distribution_portion,
     "distribution_prior_sum": distribution_prior_sum,
     "distribution_segment": distribution_segment,
+    "distribution_gap_segment": distribution_gap_segment,
 
     "max_smaller": max_smaller,
   };

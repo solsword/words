@@ -569,11 +569,9 @@ function(anarchy, dict, grid, dimensions, caching) {
       // Inclusions are among sockets, not overlength supertiles:
       let segment_capacity = Math.floor(
         MAX_LOCAL_INCLUSION_DENSITY
-      * (
-          grid.ULTRATILE_SUPERTILES
-        - ol_socket_cost
-        )
+      * (grid.ULTRATILE_INTERIOR_SOCKETS - ol_socket_cost)
       );
+      // TODO: spillage of the ol_socket_cost outside the interior sockets!
 
       // total number of assignment slots reserved for inclusions:
       let incl_mass = Math.floor(
@@ -640,21 +638,13 @@ function(anarchy, dict, grid, dimensions, caching) {
       MIN_INCLUSION_DENSITY
     + anarchy.udist(d_seed) * (MAX_INCLUSION_DENSITY - MIN_INCLUSION_DENSITY)
     );
-    // TODO: Avoid LFSR here in favor of reversible seeding? or is this ok?
     d_seed = anarchy.lfsr(d_seed);
 
     // Total number of segments:
     let n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
 
-    // Size of each segment in sockets:
-    let segment_full_size = grid.ULTRATILE_SOCKETS - ol_socket_cost;
-
     // Defaults:
-    let segment = 0;
-    let asg_incl_here = undefined;
-    let asg_nat_prior = undefined;
-    let ol_incl_here = undefined;
-    let ol_nat_prior = undefined;
+    let segment = undefined;
 
     if (ol_primary) {
       // Assignments are primarily made to supertiles directly because there
@@ -673,7 +663,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       );
 
       // compute segment:
-      let segment = anarchy.distribution_segment(
+      segment = anarchy.distribution_gap_segment(
         ag_idx,
         incl_mass,
         n_segments,
@@ -681,15 +671,12 @@ function(anarchy, dict, grid, dimensions, caching) {
         INCLUSION_ROUGHNESS,
         d_seed
       );
-
-      // TODO: HERE
     } else {
       // Assignments are primarily made to assignment sockets.
       // segment parameters:
-      let segment_full_size = grid.ULTRATILE_SOCKETS;
       let segment_capacity = Math.floor(
         MAX_LOCAL_INCLUSION_DENSITY
-      * grid.ULTRATILE_INTERIOR_SOCKETS
+      * (grid.ULTRATILE_INTERIOR_SOCKETS - ol_socket_cost)
       );
 
       // total number of assignment slots reserved for inclusions:
@@ -701,7 +688,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       );
 
       // compute segment:
-      let segment = anarchy.distribution_segment(
+      segment = anarchy.distribution_gap_segment(
         ag_idx,
         incl_mass,
         n_segments,
@@ -709,34 +696,10 @@ function(anarchy, dict, grid, dimensions, caching) {
         INCLUSION_ROUGHNESS,
         d_seed
       );
-
-      // prior inclusions:
-      let incl_prior = anarchy.distribution_prior_sum(
-        segment,
-        incl_mass,
-        n_segments,
-        segment_capacity,
-        INCLUSION_ROUGHNESS,
-        d_seed
-      );
-
-      // inclusions here:
-      let incl_here = anarchy.distribution_portion(
-        segment,
-        incl_mass,
-        n_segments,
-        segment_capacity,
-        INCLUSION_ROUGHNESS,
-        d_seed // seed must be the same as in distribution_prior_sum above!
-      );
-
-      // prior natural (non-inclusion) assignments:
-      let nat_prior = (segment_full_size * segment) - incl_prior;
-
     }
 
     // back out (global) ultragrid position:
-    var ugp = [
+    return [
       (
         (segment % grid.ASSIGNMENT_REGION_SIDE)
       + (ag_x * grid.ASSIGNMENT_REGION_SIDE)
@@ -746,8 +709,10 @@ function(anarchy, dict, grid, dimensions, caching) {
       + (ag_y * grid.ASSIGNMENT_REGION_SIDE)
       )
     ];
+  }
 
-    return ugp;
+  function alt_assignment_location(domain_name, agp) {
+    // TODO: HERE
   }
 
   function ultratile_context(domain_name, ugp, seed) {
@@ -757,51 +722,66 @@ function(anarchy, dict, grid, dimensions, caching) {
     //
     // Returns an object with the following keys:
     //
-    //   nat_prior:
-    //     The number of prior non-inclusion positions in this assignment tile,
-    //     as returned by ultratile_punctuation_parameters (see above).
+    //   asg_nat_prior:
+    //     The number of prior non-inclusion assignment positions in this
+    //     assignment tile, as returned by ultratile_punctuation_parameters
+    //     (see above).
+    //   ol_nat_prior:
+    //     The number of prior non-inclusion overlength supertiles in this
+    //     assignment tile, as returned by ultratile_punctuation_parameters
+    //     (see above).
     //   offsets:
     //     A flat array containing the multiplanar offset for each assignment
     //     position in the given ultragrid tile.
-    //   nat_sums:
+    //   asg_nat_sums:
     //     A one-dimensional array containing the sum of the number of
     //     non-inclusion assignments on each row of the ultragrid.
+    //   ol_nat_sums:
+    //     A one-dimensional array containing the sum of the number of
+    //     non-inclusion overlength supertiles on each row of the ultragrid.
     //   objects:
     //     A one-dimensional array of object types to be inserted into each
     //     supertile in this ultratile (ULTRAGRID_SIZE × ULTRAGRID_SIZE).
     //     May have missing entries for supertiles that don't have objects in
     //     them. Note that the objects are assigned to supertiles, not sockets.
+    // TODO: Figure things out HERE
 
-    var r = sghash(seed + 489813, ugp);
+    let r = sghash(seed + 489813, ugp);
 
-    var info = ultratile_punctuation_parameters(domain_name, ugp);
-    var nat_prior = info[0];
-    var incl_here = info[1];
+    let info = ultratile_punctuation_parameters(domain_name, ugp);
+    let asg_nat_prior = info[0];
+    let asg_incl_here = info[1];
+    let ol_nat_prior = info[0];
+    let ol_incl_here = info[1];
 
-    // initialize result to all-natural:
-    var result = [];
-    for (var i = 0; i < grid.ULTRATILE_SOCKETS; ++i) {
-      result[i] = 0;
+    // initialize multiplanar offsets to all-natural:
+    let mp_offsets = [];
+    for (let i = 0; i < grid.ULTRATILE_SOCKETS; ++i) {
+      mp_offsets[i] = 0;
     }
 
-    var min_ni = incl_here / INCLUSION_MAX_SIZE;
-    var max_ni = incl_here / INCLUSION_MIN_SIZE;
+    let min_ni = incl_here / INCLUSION_MAX_SIZE;
+    let max_ni = incl_here / INCLUSION_MIN_SIZE;
 
-    var n_inclusions = anarchy.idist(r, min_ni, max_ni + 1);
+    let n_inclusions = anarchy.idist(r, min_ni, max_ni + 1);
     r = anarchy.lfsr(r);
 
     // compute the seed location and index of each inclusion:
-    var iseeds = [];
-    var isizes = [];
-    var impi = [];
-    var queues = [];
-    for (var i = 0; i < n_inclusions; ++i) {
+    let iseeds = [];
+    let isizes = [];
+    let impi = [];
+    let queues = [];
+    for (let i = 0; i < n_inclusions; ++i) {
       // random (non-overlapping) seed from core sockets:
-      iseeds[i] = (
-        grid.ULTRATILE_PRE_CORE
-      + anarchy.cohort_shuffle(i, grid.ULTRATILE_CORE_SOCKETS, r)
+      let core_index = anarchy.cohort_shuffle(
+        i,
+        grid.ULTRATILE_CORE_SOCKETS,
+        r
       );
       r = anarchy.lfsr(r);
+      let core_x = core_index % grid.ULTRATILE_CORE_ROW;
+      let core_y = Math.floor(core_index / grid.ULTRATILE_CORE_ROW);
+      iseeds[i] = (core_x + 2) + (core_y + 2) * grid.ULTRATILE_ROW_SOCKETS;
 
       // zero size:
       isizes[i] = 0;
@@ -816,10 +796,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // now iteratively expand each inclusion:
-    var left = incl_here;
-    var blocked = [];
+    let left = incl_here;
+    let blocked = [];
     while (left > 0) {
-      for (var i = 0; i < iseeds.length; ++i) { // each inclusion gets a turn
+      for (let i = 0; i < iseeds.length; ++i) { // each inclusion gets a turn
         // detect blocked inclusions:
         if (queues[i].length == 0) {
           if (isizes[i] >= INCLUSION_MIN_SIZE) {
@@ -829,7 +809,7 @@ function(anarchy, dict, grid, dimensions, caching) {
             continue;
           }
         }
-        var loc = queues[i].shift();
+        let loc = queues[i].shift();
         if (isNaN(loc)) {
           console.warn("NAN");
           console.warn(queues);
@@ -844,44 +824,44 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
 
         // assign to this inclusion & decrement remaining:
-        result[loc] = impi[here];
+        mp_offsets[loc] = impi[here];
         left -= 1;
 
         // add neighbors to queue if possible:
-        var x = Math.floor(loc / grid.ASSIGNMENT_SOCKETS) % grid.ULTRAGRID_SIZE;
-        var y = Math.floor(
+        let x = Math.floor(loc / grid.ASSIGNMENT_SOCKETS) % grid.ULTRAGRID_SIZE;
+        let y = Math.floor(
           loc / (grid.ASSIGNMENT_SOCKETS * grid.ULTRAGRID_SIZE)
         );
-        var a = loc % grid.ASSIGNMENT_SOCKETS;
-        var neighbors = grid.supergrid_asg_neighbors([x, y, a]);
-        for (var j = 0; j < neighbors.length; ++j) {
-          var nb = neighbors[j];
+        let a = loc % grid.ASSIGNMENT_SOCKETS;
+        let neighbors = grid.supergrid_asg_neighbors([x, y, a]);
+        for (let j = 0; j < neighbors.length; ++j) {
+          let nb = neighbors[j];
           if (
             nb[0] > 0
          && nb[0] < grid.ULTRAGRID_SIZE - 1
          && nb[1] > 0
          && nb[1] < grid.ULTRAGRID_SIZE - 1
           ) { // not on the edge (slight asymmetry, but that's alright).
-            var nloc = (
+            let nloc = (
               nb[0] * grid.ASSIGNMENT_SOCKETS
             + nb[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
             + nb[2]
             );
-            var taken = false;
+            let taken = false;
             // check for queue overlap
-            for (var k = 0; k < queues.length; ++k) {
+            for (let k = 0; k < queues.length; ++k) {
               if (queues[k].indexOf(nloc) >= 0) {
                 taken = true;
                 break;
               }
             }
-            if (result[nloc] == 0 && !taken) {
+            if (mp_offsets[nloc] == 0 && !taken) {
               // add to queue in random position:
               // max of two rngs biases towards later indices, letting earlier
               // things mostly stay early.
-              var idx = anarchy.idist(r, 0, queues[here].length);
+              let idx = anarchy.idist(r, 0, queues[here].length);
               r = anarchy.lfsr(r);
-              var alt_idx = anarchy.idist(r, 0, queues[here].length);
+              let alt_idx = anarchy.idist(r, 0, queues[here].length);
               r = anarchy.lfsr(r);
               if (alt_idx > idx) {
                 idx = alt_idx;
@@ -894,24 +874,26 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // now that our results matrix is done, compute row pre-totals
-    var presums = [];
-    var sum = 0;
-    for (var y = 0; y < grid.ULTRAGRID_SIZE - 1; ++y) {
-      presums.push(sum);
-      for (var x = 0; x < grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS; ++x) {
-        var loc = x + y * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS;
-        if (result[loc] == 0) {
+    let asg_presums = [];
+    let sum = 0;
+    for (let y = 0; y < grid.ULTRAGRID_SIZE - 1; ++y) {
+      asg_presums.push(sum);
+      for (let x = 0; x < grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS; ++x) {
+        let loc = x + y * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS;
+        if (mp_offsets[loc] == 0) {
           sum += 1;
         }
       }
     }
     // final row:
-    presums.push(sum);
+    asg_presums.push(sum);
+
+    // TODO: ol_presums!
 
     // now that multiplanar info is computed, add object info
     // decide how many objects we'll have:
     // TODO: continuously varying value here!
-    var richness = anarchy.idist(
+    let richness = anarchy.idist(
       r,
       MIN_OBJECTS_PER_ULTRATILE,
       Math.floor(3 * grid.ULTRATILE_SUPERTILES / 4)
@@ -926,24 +908,24 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // index objects into grid:
-    var objects = [];
-    var shuf_seed = r;
+    let objects = [];
+    let shuf_seed = r;
     r = anarchy.lfsr(r);
     for (let i = 0; i < richness; ++i) {
-      var si = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, shuf_seed);
-      var sgp = [
+      let si = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, shuf_seed);
+      let sgp = [
         si % grid.ULTRAGRID_SIZE,
         Math.floor(si / grid.ULTRAGRID_SIZE)
       ];
       // iterate over canonical sockets in this supertile
       for (let socket = 0; socket < grid.ASSIGNMENT_SOCKETS; ++socket) {
-        var sgap = grid.canonical_sgapos(sgp[0], sgp[1], socket);
-        var loc = (
+        let sgap = grid.canonical_sgapos(sgp[0], sgp[1], socket);
+        let loc = (
           sgp[0]  * grid.ASSIGNMENT_SOCKETS
         + sgp[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
         + socket
         );
-        var mpo = result[loc];
+        let mpo = mp_offsets[loc];
         if (mpo == 0) {
           objects[si] = obj_queue.pop();
         } else {
@@ -955,9 +937,11 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // return our results:
     return {
-      "nat_prior": nat_prior,
-      "offsets": result,
-      "nat_sums": presums,
+      "asg_nat_prior": asg_nat_prior,
+      "ol_nat_prior": ol_nat_prior,
+      "offsets": mp_offsets,
+      "asg_nat_sums": asg_presums,
+      "ol_nat_sums": ol_presums,
       "objects": objects,
     };
   }
@@ -973,10 +957,10 @@ function(anarchy, dict, grid, dimensions, caching) {
 
   function punctuated_assignment_index(ugap, utcontext, seed) {
     // Takes an ultragrid assignment position (ultratile x/y, sub x/y, and
-    // assignment index) and corresponding ultragrid multiplanar offset info
-    // (the result of ultratile_context above) and returns an array containing:
+    // assignment index) and corresponding ultragrid context (the result of
+    // ultratile_context above) and returns an array containing:
     //
-    //   x,y - assignment grid position
+    //   x, y - assignment grid position
     //   n - assignment index
     //   m - multiplanar offset value
     //

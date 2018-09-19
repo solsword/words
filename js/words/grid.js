@@ -104,12 +104,16 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   // Number of assignment sockets in an ultragrid tile:
   var ULTRATILE_SOCKETS = ULTRATILE_SUPERTILES * ASSIGNMENT_SOCKETS;
 
-  // Same, minus the edge supertiles
+  // Same, minus the top and left edge supertiles (which share sockets with
+  // other ultratiles).
   var ULTRATILE_INTERIOR_SOCKETS = (
-    (ULTRAGRID_SIZE - 2)
-  * (ULTRAGRID_SIZE - 2)
+    (ULTRAGRID_SIZE - 1)
+  * (ULTRAGRID_SIZE - 1)
   * ASSIGNMENT_SOCKETS
   );
+
+  // One row of sockets in the interior:
+  var ULTRATILE_INTERIOR_ROW = (ULTRAGRID_SIZE - 1) * ASSIGNMENT_SOCKETS;
 
   // Number of positions before the first non-edge position
   var ULTRATILE_PRE_INTERIOR = (ULTRAGRID_SIZE + 1) * ASSIGNMENT_SOCKETS;
@@ -120,6 +124,9 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   * (ULTRAGRID_SIZE - 4)
   * ASSIGNMENT_SOCKETS
   );
+
+  // One row of sockets in the core:
+  var ULTRATILE_CORE_ROW = (ULTRAGRID_SIZE - 4) * ASSIGNMENT_SOCKETS;
 
   // As ULTRATILE_PRE_INTERIOR but for core tiles (two-away from edges):
   var ULTRATILE_PRE_CORE = ((ULTRAGRID_SIZE * 2) + 2) * ASSIGNMENT_SOCKETS;
@@ -838,6 +845,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "ULTRATILE_INTERIOR_SOCKETS": ULTRATILE_INTERIOR_SOCKETS,
     "ULTRATILE_PRE_INTERIOR": ULTRATILE_PRE_INTERIOR,
     "ULTRATILE_CORE_SOCKETS": ULTRATILE_CORE_SOCKETS,
+    "ULTRATILE_CORE_ROW": ULTRATILE_CORE_ROW,
     "ULTRATILE_PRE_CORE": ULTRATILE_PRE_CORE,
     "ASSIGNMENT_REGION_SIDE": ASSIGNMENT_REGION_SIDE,
     "ASSIGNMENT_REGION_TOTAL_SUPERTILES": ASSIGNMENT_REGION_TOTAL_SUPERTILES,
