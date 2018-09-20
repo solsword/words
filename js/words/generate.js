@@ -20,6 +20,9 @@ function(anarchy, dict, grid, dimensions, caching) {
   // Number of attempts to make before giving up on embedding.
   var EMBEDDING_ATTEMPTS = 500;
 
+  // Number of sockets retained in an overlength-primary ultratile.
+  var OVERLENGTH_ULTRATILE_SOCKETS = grid.ULTRATILE_SUPERTILES - 8;
+
   // Word length to ignore when filling worms.
   var WORM_FILL_SKIP = 2;
 
@@ -457,13 +460,9 @@ function(anarchy, dict, grid, dimensions, caching) {
       // overlength-primary model of word assignment.
       // Each supertile now gets only a single socket (except eight, which get
       // none) and the primary assignment basis for all words is to supertiles
-      // instead of sockets.
-      ol_socket_cost = (
-        grid.ULTRATILE_SOCKETS
-      - grid.ULTRATILE_SUPERTILES
-      + 8
-      );
+      // instead of to sockets.
       ol_tile_count = grid.ULTRATILE_SUPERTILES;
+      ol_socket_cost = grid.ULTRATILE_SOCKETS - OVERLENGTH_ULTRATILE_SOCKETS;
       overlength_primary = true;
     } else {
       // Overlength words can be reasonably accommodated by the normal
@@ -711,8 +710,60 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
-  function alt_assignment_location(domain_name, agp) {
-    // TODO: HERE
+  function alt_assignment_location(domain_name, aagp) {
+    // The other converse of ultratile_punctuation_parameters, for ol_primary
+    // domains this looks up an assignment socket by alternate-assignment-grid-
+    // position, and for non-ol_primary domains it looks up an overlength
+    // supertile. Either way, it returns the ultragrid position that that
+    // assignment socket (or supertile) is in.
+
+    var ag_x = aagp[0];
+    var ag_y = aagp[1];
+    var ag_idx = aagp[2];
+
+    // density of overlength tiles in this assignment grid unit:
+    let ol_allowance = overlength_allowance(domain_name);
+    let ol_primary = ol_allowance[0];
+    let ol_tiles = ol_allowance[1];
+    let ol_socket_cost = ol_allowance[2];
+
+    // density of inclusions in this assignment grid unit:
+    let d_seed = anarchy.lfsr(mix_seeds(ag_x, ag_y, 8190813480));
+    let incl_density = (
+      MIN_INCLUSION_DENSITY
+    + anarchy.udist(d_seed) * (MAX_INCLUSION_DENSITY - MIN_INCLUSION_DENSITY)
+    );
+    d_seed = anarchy.lfsr(d_seed);
+
+    // Total number of segments:
+    let n_segments = grid.ASSIGNMENT_REGION_SIDE * grid.ASSIGNMENT_REGION_SIDE;
+
+    // Defaults:
+    let segment = undefined;
+
+    if (ol_primary) {
+      // Assignments are primarily made to supertiles directly because there
+      // are so many overlength words. So alt-assignments are made to sockets.
+
+      segment = Math.floor(ag_idx / OVERLENGTH_ULTRATILE_SOCKETS);
+    } else {
+      // Assignments are primarily made to assignment sockets.
+      // segment parameters:
+
+      segment = Math.floor(ag_idx / ol_tiles);
+    }
+
+    // back out (global) ultragrid position:
+    return [
+      (
+        (segment % grid.ASSIGNMENT_REGION_SIDE)
+      + (ag_x * grid.ASSIGNMENT_REGION_SIDE)
+      ),
+      (
+        Math.floor(segment / grid.ASSIGNMENT_REGION_SIDE)
+      + (ag_y * grid.ASSIGNMENT_REGION_SIDE)
+      )
+    ];
   }
 
   function ultratile_context(domain_name, ugp, seed) {
