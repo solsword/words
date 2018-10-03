@@ -21,7 +21,7 @@ function(anarchy, dict, grid, dimensions, caching) {
   var EMBEDDING_ATTEMPTS = 500;
 
   // Number of sockets retained in an overlength-primary ultratile.
-  var OVERLENGTH_ULTRATILE_SOCKETS = grid.ULTRATILE_SUPERTILES - 8;
+  var OVERLENGTH_ULTRATILE_SOCKETS = Math.floor(2*grid.ULTRATILE_SUPERTILES/3);
 
   // Word length to ignore when filling worms.
   var WORM_FILL_SKIP = 2;
@@ -795,129 +795,279 @@ function(anarchy, dict, grid, dimensions, caching) {
     //     supertile in this ultratile (ULTRAGRID_SIZE × ULTRAGRID_SIZE).
     //     May have missing entries for supertiles that don't have objects in
     //     them. Note that the objects are assigned to supertiles, not sockets.
-    // TODO: Figure things out HERE
 
     let r = sghash(seed + 489813, ugp);
 
-    let info = ultratile_punctuation_parameters(domain_name, ugp);
-    let asg_nat_prior = info[0];
-    let asg_incl_here = info[1];
-    let ol_nat_prior = info[0];
-    let ol_incl_here = info[1];
+    // check domain setup
+    let ol_allowance = overlength_allowance(domain_name);
+    let ol_primary = ol_allowance[0];
+    let ol_tiles = ol_allowance[1];
+    let ol_socket_cost = ol_allowance[2];
+    let sockets_here = grid.ULTRATILE_SOCKETS - ol_socket_cost;
+    let ol_connections = overlength_supertile_connections(ol_tiles);
 
-    // initialize multiplanar offsets to all-natural:
-    let mp_offsets = [];
-    for (let i = 0; i < grid.ULTRATILE_SOCKETS; ++i) {
-      mp_offsets[i] = 0;
-    }
+    // unpack parameters:
+    let params = ultratile_punctuation_parameters(domain_name, ugp);
+    // params[0] is the same as ol_primary above
+    let asg_nat_prior = params[1];
+    let asg_incl_here = params[2];
+    let ol_nat_prior = params[3];
+    let ol_incl_here = params[4];
 
-    let min_ni = incl_here / INCLUSION_MAX_SIZE;
-    let max_ni = incl_here / INCLUSION_MIN_SIZE;
+    // Multiplanar offsets indicate whether each socket (or supertile) is
+    // filled by a native word (0), filled by an inclusion from a neighboring
+    // dimension (>0), or unfilled because of a nearby overlength supertile or
+    // because a supertile is socketed (undefined).
+    let socket_offsets = [];
+    let supertile_offsets = [];
 
-    let n_inclusions = anarchy.idist(r, min_ni, max_ni + 1);
-    r = anarchy.lfsr(r);
+    if (ol_primary) { // Primarily supertile-based assignment:
+      // Initialize supertile_offsets to all-assigned:
+      for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
+        supertile_offsets[i] = 0;
+      }
 
-    // compute the seed location and index of each inclusion:
-    let iseeds = [];
-    let isizes = [];
-    let impi = [];
-    let queues = [];
-    for (let i = 0; i < n_inclusions; ++i) {
-      // random (non-overlapping) seed from core sockets:
-      let core_index = anarchy.cohort_shuffle(
-        i,
-        grid.ULTRATILE_CORE_SOCKETS,
-        r
-      );
+      // Initialize socket_offsets to all-unsocketed:
+      for (let i = 0; i < grid.ULTRATILE_SOCKETS; ++i) {
+        socket_offsets[i] = undefined;
+      }
+
+      // Figure out which sockets are active:
+      let seen = {};
+      let taken = {};
+      let uo_seed = r;
+      let count = 0;
       r = anarchy.lfsr(r);
-      let core_x = core_index % grid.ULTRATILE_CORE_ROW;
-      let core_y = Math.floor(core_index / grid.ULTRATILE_CORE_ROW);
-      iseeds[i] = (core_x + 2) + (core_y + 2) * grid.ULTRATILE_ROW_SOCKETS;
-
-      // zero size:
-      isizes[i] = 0;
-
-      // TODO: better here
-      // random multiplanar index
-      impi[i] = anarchy.idist(r, 0, dimensions.MULTIPLANAR_CONNECTIONS);
-      r = anarchy.lfsr(r);
-
-      // seed is on the queue:
-      queues[i] = [ iseeds[i] ];
-    }
-
-    // now iteratively expand each inclusion:
-    let left = incl_here;
-    let blocked = [];
-    while (left > 0) {
-      for (let i = 0; i < iseeds.length; ++i) { // each inclusion gets a turn
-        // detect blocked inclusions:
-        if (queues[i].length == 0) {
-          if (isizes[i] >= INCLUSION_MIN_SIZE) {
-            continue; // this inclusion will just be small
-          } else {
-            blocked.push(i); // must keep expanding!
-            continue;
+      for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
+        let ii = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, uo_seed);
+        let sgp = grid.index__utp(ii);
+        seen[ii] = true;
+        let nb_seed = r;
+        r = anarchy.cohort_shuffle(r);
+        // Iterate through neighbors in random order:
+        for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
+          let dd = anarchy.cohort_shuffle(d, grid.N_DIRECTIONS, nb_seed);
+          let nb = grid.sg_neighbor(sgp, dd);
+          if (grid.is_valid_sgindex(nb)) {
+            let ni = grid.sgp__index(nb);
+            if (seen[ni] && !taken[ni]) {
+              // Pair these two
+              taken[ii] = true;
+              taken[ni] = true;
+              let sgap = [sgp[0], sgp[1], dd];
+              let aidx = grid.ut_aidx(sgap);
+              // Let this socket be occupied:
+              socket_offsets[aidx] = 0;
+              count += 1;
+              break; // don't check further neighbors
+            }
           }
         }
-        let loc = queues[i].shift();
-        if (isNaN(loc)) {
-          console.warn("NAN");
-          console.warn(queues);
-          return undefined;
+        if (count >= sockets_here) {
+          break;
         }
+      }
+      if (count < sockets_here) {
+        console.error("Failed to pair enough supertiles for socket quota!");
+      }
 
-        if (blocked.length > 0) {
-          here = blocked.shift(); // steal the expansion point!
-          i -= 1; // redo this iteration next
+      let inclusions = {};
+      let incl_count = 0;
+
+      // Figure out inclusions among supertiles:
+      for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
+        let ii = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, uo_seed);
+        incl_count += 1;
+        if (incl_count > ol_incl_here) {
+          break;
         } else {
-          here = i;
+          // TODO: better here
+          // random multiplanar index
+          let mpi = anarchy.idist(r, 1, dimensions.MULTIPLANAR_CONNECTIONS + 1);
+          r = anarchy.lfsr(r);
+          supertile_offsets[ii] = mpi;
         }
+      }
 
-        // assign to this inclusion & decrement remaining:
-        mp_offsets[loc] = impi[here];
-        left -= 1;
+    } else { // Normal socket-based assignment:
+      // Initialize supertile_offsets to all-socketed:
+      for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
+        supertile_offsets[i] = undefined;
+      }
 
-        // add neighbors to queue if possible:
-        let x = Math.floor(loc / grid.ASSIGNMENT_SOCKETS) % grid.ULTRAGRID_SIZE;
-        let y = Math.floor(
-          loc / (grid.ASSIGNMENT_SOCKETS * grid.ULTRAGRID_SIZE)
-        );
-        let a = loc % grid.ASSIGNMENT_SOCKETS;
-        let neighbors = grid.supergrid_asg_neighbors([x, y, a]);
-        for (let j = 0; j < neighbors.length; ++j) {
-          let nb = neighbors[j];
-          if (
-            nb[0] > 0
-         && nb[0] < grid.ULTRAGRID_SIZE - 1
-         && nb[1] > 0
-         && nb[1] < grid.ULTRAGRID_SIZE - 1
-          ) { // not on the edge (slight asymmetry, but that's alright).
-            let nloc = (
-              nb[0] * grid.ASSIGNMENT_SOCKETS
-            + nb[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
-            + nb[2]
-            );
-            let taken = false;
-            // check for queue overlap
-            for (let k = 0; k < queues.length; ++k) {
-              if (queues[k].indexOf(nloc) >= 0) {
-                taken = true;
+      // Initialize socket_offsets to all-default:
+      for (let i = 0; i < grid.ULTRATILE_SOCKETS; ++i) {
+        socket_offsets[i] = 0;
+      }
+
+      // Figure out which supertiles are reserved for overlength words:
+      let count = 0;
+      let connections = 0;
+      let uo_seed = r;
+      r = anarchy.lfsr(r);
+      for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
+        let ii = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, uo_seed);
+        let sgp = grid.index__utp(ii);
+        let taken_neighbors = 0;
+        // Iterate through neighbors in fixed order:
+        for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
+          let nb = grid.sg_neighbor(sgp, d);
+          if (grid.is_valid_sgindex(nb)) {
+            let ni = grid.sgp__index(nb);
+            if (supertile_offsets[ni] == 0) {
+              taken_neighbors += 1;
+              if (connections + taken_neighbors > ol_connections) {
+                // We can skip rest of neighbors; this tile would create too
+                // man connections.
                 break;
               }
             }
-            if (mp_offsets[nloc] == 0 && !taken) {
-              // add to queue in random position:
-              // max of two rngs biases towards later indices, letting earlier
-              // things mostly stay early.
-              let idx = anarchy.idist(r, 0, queues[here].length);
-              r = anarchy.lfsr(r);
-              let alt_idx = anarchy.idist(r, 0, queues[here].length);
-              r = anarchy.lfsr(r);
-              if (alt_idx > idx) {
-                idx = alt_idx;
+          }
+        }
+        if (connections + taken_neighbors <= ol_connections) {
+          // Claim this supertile as an overlength supertile
+          supertile_offsets[ii] = 0;
+          connections += taken_neighbors;
+          count += 1;
+          // Set relevant socket offsets to undefined:
+          for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
+              let sgap = [sgp[0], sgp[1], d];
+              let aidx = grid.ut_aidx(sgap);
+              socket_offsets[aidx] = undefined;
+          }
+        }
+        if (count >= ol_tiles) {
+          // Done finding overlength supertiles
+          break;
+        }
+      }
+
+      // Figure out inclusions among sockets:
+      let min_ni = incl_here / INCLUSION_MAX_SIZE;
+      let max_ni = incl_here / INCLUSION_MIN_SIZE;
+
+      let n_inclusions = anarchy.idist(r, min_ni, max_ni + 1);
+      r = anarchy.lfsr(r);
+
+      // compute the seed location and index of each inclusion:
+      let used = {};
+      let iseeds = [];
+      let isizes = [];
+      let impi = [];
+      let queues = [];
+      for (let i = 0; i < n_inclusions; ++i) {
+        // random (non-overlapping) seed from core sockets:
+        let sseed = r;
+        r = anarchy.lfsr(r);
+        // iterate scrambled to find valid seed position:
+        for (let j = 0; j < grid.ULTRATILE_CORE_SOCKETS; ++j) {
+          let core_index = anarchy.cohort_shuffle(
+            j,
+            grid.ULTRATILE_CORE_SOCKETS,
+            sseed
+          );
+          let core_x = core_index % grid.ULTRATILE_CORE_ROW;
+          let core_y = Math.floor(core_index / grid.ULTRATILE_CORE_ROW);
+          let full_index = (
+            (core_x + 2)
+          + (core_y + 2) * grid.ULTRATILE_ROW_SOCKETS
+          );
+          if (socket_offsets[full_index] == 0 && !used[full_index]) {
+            // Claim this socket as seed and end search for a seed:
+            used[full_index] = true;
+            iseeds[i] = full_index;
+            break;
+          }
+        }
+
+        // zero size:
+        isizes[i] = 0;
+
+        // TODO: better here
+        // random multiplanar index
+        impi[i] = anarchy.idist(r, 1, dimensions.MULTIPLANAR_CONNECTIONS + 1);
+        r = anarchy.lfsr(r);
+
+        // seed is on the queue:
+        queues[i] = [ iseeds[i] ];
+      }
+
+      // now iteratively expand each inclusion:
+      let left = incl_here;
+      let blocked = [];
+      while (left > 0) {
+        for (let i = 0; i < iseeds.length; ++i) { // each inclusion gets a turn
+          // detect blocked inclusions:
+          if (queues[i].length == 0) {
+            if (isizes[i] >= INCLUSION_MIN_SIZE) {
+              continue; // this inclusion will just be small
+            } else {
+              blocked.push(i); // must keep expanding!
+              continue;
+            }
+          }
+          let loc = queues[i].shift();
+          if (isNaN(loc)) {
+            console.warn("NAN");
+            console.warn(queues);
+            return undefined;
+          }
+
+          if (blocked.length > 0) {
+            here = blocked.shift(); // steal the expansion point!
+            i -= 1; // redo this iteration next
+          } else {
+            here = i;
+          }
+
+          // assign to this inclusion & decrement remaining:
+          socket_offsets[loc] = impi[here];
+          left -= 1;
+
+          // add neighbors to queue if possible:
+          let x = (
+            Math.floor(loc / grid.ASSIGNMENT_SOCKETS)
+          % grid.ULTRAGRID_SIZE
+          );
+          let y = Math.floor(
+            loc / (grid.ASSIGNMENT_SOCKETS * grid.ULTRAGRID_SIZE)
+          );
+          let a = loc % grid.ASSIGNMENT_SOCKETS;
+          let neighbors = grid.supergrid_asg_neighbors([x, y, a]);
+          for (let j = 0; j < neighbors.length; ++j) {
+            let nb = neighbors[j];
+            if (
+              nb[0] > 0
+           && nb[0] < grid.ULTRAGRID_SIZE - 1
+           && nb[1] > 0
+           && nb[1] < grid.ULTRAGRID_SIZE - 1
+            ) { // not on the edge (slight asymmetry, but that's alright).
+              let nloc = (
+                nb[0] * grid.ASSIGNMENT_SOCKETS
+              + nb[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
+              + nb[2]
+              );
+              let taken = false;
+              // check for queue overlap
+              for (let k = 0; k < queues.length; ++k) {
+                if (queues[k].indexOf(nloc) >= 0) {
+                  taken = true;
+                  break;
+                }
               }
-              queues[here].splice(idx, 0, nloc);
+              if (socket_offsets[nloc] == 0 && !taken) {
+                // add to queue in random position:
+                // max of two rngs biases towards later indices, letting earlier
+                // things mostly stay early.
+                let idx = anarchy.idist(r, 0, queues[here].length);
+                r = anarchy.lfsr(r);
+                let alt_idx = anarchy.idist(r, 0, queues[here].length);
+                r = anarchy.lfsr(r);
+                if (alt_idx > idx) {
+                  idx = alt_idx;
+                }
+                queues[here].splice(idx, 0, nloc);
+              }
             }
           }
         }
@@ -931,7 +1081,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       asg_presums.push(sum);
       for (let x = 0; x < grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS; ++x) {
         let loc = x + y * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS;
-        if (mp_offsets[loc] == 0) {
+        if (socket_offsets[loc] == 0) {
           sum += 1;
         }
       }
@@ -939,7 +1089,20 @@ function(anarchy, dict, grid, dimensions, caching) {
     // final row:
     asg_presums.push(sum);
 
-    // TODO: ol_presums!
+    // pre-totals for overlength supertiles
+    let ol_presums = [];
+    sum = 0;
+    for (let y = 0; y < grid.ULTRAGRID_SIZE - 1; ++y) {
+      ol_presums.push(sum);
+      for (let x = 0; x < grid.ULTRAGRID_SIZE; ++x) {
+        let loc = x + y * grid.ULTRAGRID_SIZE;
+        if (supertile_offsets[loc] == 0) {
+          sum += 1;
+        }
+      }
+    }
+    // final row:
+    ol_presums.push(sum);
 
     // now that multiplanar info is computed, add object info
     // decide how many objects we'll have:
@@ -959,6 +1122,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // index objects into grid:
+    // TODO: Reconcile objects w/ overlength supertiles?
     let objects = [];
     let shuf_seed = r;
     r = anarchy.lfsr(r);
@@ -976,7 +1140,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         + sgp[1] * grid.ULTRAGRID_SIZE * grid.ASSIGNMENT_SOCKETS
         + socket
         );
-        let mpo = mp_offsets[loc];
+        let mpo = socket_offsets[loc];
         if (mpo == 0) {
           objects[si] = obj_queue.pop();
         } else {
@@ -990,7 +1154,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     return {
       "asg_nat_prior": asg_nat_prior,
       "ol_nat_prior": ol_nat_prior,
-      "offsets": mp_offsets,
+      "socket_offsets": socket_offsets,
+      "supertile_offsets": supertile_offsets,
       "asg_nat_sums": asg_presums,
       "ol_nat_sums": ol_presums,
       "objects": objects,
@@ -1021,7 +1186,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // unpack:
     var nat_prior = utcontext.nat_prior;
     var mptable = utcontext.offsets;
-    var mpsums = utcontext.nat_sums;
+    var mpsums = utcontext.asg_nat_sums;
 
     var ut_x = ugap[0];
     var ut_y = ugap[1];
@@ -1096,11 +1261,12 @@ function(anarchy, dict, grid, dimensions, caching) {
     if (utcontext == null) {
       return undefined;
     }
+    // TODO: Figure out overlength supertiles HERE
 
     // unpack:
     var nat_prior = utcontext.nat_prior;
     var mptable = utcontext.offsets;
-    var mpsums = utcontext.nat_sums;
+    var mpsums = utcontext.asg_nat_sums;
 
     var internal_idx = asg_idx - nat_prior;
     var prior_row = max_smaller(internal_idx, mpsums);
@@ -1397,6 +1563,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       if (utcontext == null) {
         return undefined;
       }
+      // TODO: Figure out overlength supertiles HERE
 
       var asg = punctuated_assignment_index(
         [ ugp[0], ugp[1], ugp[2], ugp[3], sgap[2] ],

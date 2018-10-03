@@ -80,6 +80,30 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     return [x, y];
   }
 
+  function sgp__index(sgp) {
+    // Converts a supergrid position into an ultratile index. Does not check
+    // whether the given position is valid (see is_valid_sgindex below).
+    return sgp[0] + sgp[1] * ULTRAGRID_SIZE;
+  }
+
+  function index__sgp(idx) {
+    // Inverse of above.
+    let y = Math.floor(idx / ULTRAGRID_SIZE);
+    let x = idx % ULTRAGRID_SIZE;
+    return [x, y];
+  }
+
+  function is_valid_sgindex(sgp) {
+    // Checks whether the given supergrid position is a valid position within
+    // the default ultratile.
+    return (
+      sgp[0] >= 0
+   && sgp[0] < ULTRAGRID_SIZE
+   && sgp[1] >= 0
+   && sgp[1] < ULTRAGRID_SIZE
+    );
+  }
+
   // Hex index & linear index of the center of a supergrid tile:
   var SG_CENTER = [3, 3]; 
   var SG_CENTER_IDX = gp__index(SG_CENTER);
@@ -609,7 +633,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   }
 
   function neighbor(gp, dir) {
-    // Takes a global position and a direction (0--6; can use constants like N
+    // Takes a global position and a direction (0--5; can use constants like N
     // or SE) and returns a global position for the neighbor in that direction.
     // The directions are:
     //
@@ -619,8 +643,23 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     //     4     2
     //        3
 
-    var n = NEIGHBORS[dir];
+    let n = NEIGHBORS[dir];
     return [gp[0] + n[0], gp[1] + n[1]];
+  }
+
+  function sg_neighbor(sgp, dir) {
+    // Takes a supergrid position and a direction (0--5) and returns the
+    // supergrid coordinates for the neighbor in that direction.
+    // The directions are:
+    //
+    //      1   2
+    //
+    //     0  *  3
+    //
+    //      5   4
+
+    let n = SG_NEIGHBORS[dir];
+    return [sgp[0] + n[0], sgp[1] + n[1]];
   }
 
 
@@ -763,7 +802,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
         "Warning: Assignment position is NaN in supergrid_asg_neighbors."
       );
     }
-    var alt = supergrid_alternate(sgap);
+    let alt = supergrid_alternate(sgap);
     return [
       // adjacent edges on original supergrid tile:
       canonical_sgapos([ sgap[0], sgap[1], prev_edge(sgap[2]) ]),
@@ -781,11 +820,11 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // to two supergrid tiles. For example, the position-3 grid number for the
     // tile at (0, 0) is also the position-0 grid number for the tile at (1, 0)
     // because those tiles share that edge.
-    var cp = canonical_sgapos(sgap);
-    var asg_x = cp[0] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var x = cp[0] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var y = cp[1] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
+    let cp = canonical_sgapos(sgap);
+    let asg_x = cp[0] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
+    let asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
+    let x = cp[0] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
+    let y = cp[1] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
     asg_pos = cp[2];
     return [
       asg_x,
@@ -801,20 +840,59 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // the assignment position within that supergrid tile. The tile returned
     // will be the leftmost/bottommost of the two tiles which are assigned
     // given assignment number.
-    var asg_x = agp[0];
-    var asg_y = agp[1];
-    var asg_number = agp[2];
+    let asg_x = agp[0];
+    let asg_y = agp[1];
+    let asg_number = agp[2];
 
-    var asg_pos = asg_number % ASSIGNMENT_SOCKETS;
-    var apg_xy = Math.floor(asg_number / ASSIGNMENT_SOCKETS);
-    var y = asg_xy % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    var x = Math.floor(asg_xy / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE));
+    let asg_pos = asg_number % ASSIGNMENT_SOCKETS;
+    let apg_xy = Math.floor(asg_number / ASSIGNMENT_SOCKETS);
+    let y = asg_xy % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
+    let x = Math.floor(asg_xy / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE));
 
     return [
       asg_x * (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE) + x,
       asg_y * (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE) + y,
       asg_pos
     ];
+  }
+
+  function ut_aidx(sgap) {
+    // Takes an ultratile-local supergrid assignment position (supergrid x/y
+    // and socket index) and returns an assignment index within that ultratile.
+    // The given assignment position must be within the default ultratile,
+    // otherwise this function will issue a warning and return undefined.
+
+    // Ensure our position is canonical:
+    let socket = sgap[2];
+    if (!is_canonical(socket)) {
+      let sgap = canonical_sgapos(sgap);
+    }
+    let sg_x = sgap[0];
+    let sg_y = sgap[1];
+    socket = sgap[2];
+
+    // Check positioning:
+    if (!is_valid_sgindex(sgap)) {
+      console.warn(
+        "Request for ultratile assignment index of socket outside ultratile."
+      );
+      return undefined;
+    }
+
+    return ULTRATILE_ROW_SOCKETS * sg_y + sg_x * ASSIGNMENT_SOCKETS + socket;
+  }
+
+  function ut_sgap(aidx) {
+    // Takes a within-ultratile assignment index and returns the
+    // ultratile-relative supergrid coordinates for that socket, along with the
+    // socket index in that supertile.
+
+    let row = Math.floor(aidx / ULTRATILE_ROW_SOCKETS);
+    let col = aidx % ULTRATILE_ROW_SOCKETS;
+    let x = Math.floor(col / ASSIGNMENT_SOCKETS);
+    let socket = col % ASSIGNMENT_SOCKETS;
+
+    return [x, row, socket];
   }
 
   return {
@@ -835,6 +913,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "SUPERTILE_TILES": SUPERTILE_TILES,
     "gp__index": gp__index,
     "index__gp": index__gp,
+    "sgp__index": sgp__index,
+    "index__sgp": index__sgp,
     "ASSIGNMENT_SOCKETS": ASSIGNMENT_SOCKETS,
     "COMBINED_SOCKETS": COMBINED_SOCKETS,
     "SOCKET_SIZE": SOCKET_SIZE,
@@ -874,6 +954,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "spiral_grid_pos": spiral_grid_pos,
     "neighbor": neighbor,
     "is_canonical": is_canonical,
+    "is_valid_sgindex": is_valid_sgindex,
     "is_valid_subindex": is_valid_subindex,
     "ALL_SUPERTILE_POSITIONS": ALL_SUPERTILE_POSITIONS,
     "canonical_sgapos": canonical_sgapos,
@@ -883,5 +964,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "supergrid_asg_neighbors": supergrid_asg_neighbors,
     "agpos": agpos,
     "supergrid_home": supergrid_home,
+    "ut_aidx": ut_aidx,
+    "ut_sgap": ut_sgap,
   };
 });
