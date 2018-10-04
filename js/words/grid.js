@@ -160,10 +160,15 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   // The units are ultragrid tiles.
   var ASSIGNMENT_REGION_SIDE = 1024;
 
-  // Total number of supertiles in an assignment region.
-  var ASSIGNMENT_REGION_TOTAL_SUPERTILES = (
+  // Number of ultratiles in an assignment region.
+  var ASSIGNMENT_REGION_ULTRATILES = (
     ASSIGNMENT_REGION_SIDE
   * ASSIGNMENT_REGION_SIDE
+  );
+
+  // Total number of supertiles in an assignment region.
+  var ASSIGNMENT_REGION_TOTAL_SUPERTILES = (
+    ASSIGNMENT_REGION_ULTRATILES
   * ULTRATILE_SUPERTILES
   );
 
@@ -928,6 +933,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "ULTRATILE_CORE_ROW": ULTRATILE_CORE_ROW,
     "ULTRATILE_PRE_CORE": ULTRATILE_PRE_CORE,
     "ASSIGNMENT_REGION_SIDE": ASSIGNMENT_REGION_SIDE,
+    "ASSIGNMENT_REGION_ULTRATILES": ASSIGNMENT_REGION_ULTRATILES,
     "ASSIGNMENT_REGION_TOTAL_SUPERTILES": ASSIGNMENT_REGION_TOTAL_SUPERTILES,
     "ASSIGNMENT_REGION_TOTAL_SOCKETS": ASSIGNMENT_REGION_TOTAL_SOCKETS,
     "rotate": rotate,

@@ -450,7 +450,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // density of overlength tiles in this assignment grid unit:
     let ol_tile_count = Math.ceil(
       overlength_per_assignment_region(domain_name)
-    / ASSIGNMENT_REGION_TOTAL_SUPERTILES
+    / grid.ASSIGNMENT_REGION_TOTAL_SUPERTILES
     );
     let ol_capacity = (grid.ULTRAGRID_SIZE - 2) * (grid.ULTRAGRID_SIZE - 2);
     let ol_socket_cost;
@@ -619,7 +619,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     // The converse of ultratile_punctuation_parameters, this looks up the
     // ultratile where a given assignment position (assignment grid coordinates
     // plus linear assignment number in that tile) will end up. Returns the
-    // discovered ultratile grid coordinates.
+    // discovered ultratile grid coordinates. For ol_primary domains, use
+    // overlength_assignment_location for primary assignments instead.
 
     var ag_x = agp[0];
     var ag_y = agp[1];
@@ -647,29 +648,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     if (ol_primary) {
       // Assignments are primarily made to supertiles directly because there
-      // are so many overlength words.
-      let segment_capacity = Math.floor(
-        MAX_LOCAL_INCLUSION_DENSITY
-      * ol_tiles
-      );
-
-      // total number of supertiles reserved for inclusions:
-      let incl_mass = Math.floor(
-        incl_density
-      * grid.ASSIGNMENT_REGION_SIDE
-      * grid.ASSIGNMENT_REGION_SIDE
-      * ol_tiles
-      );
-
-      // compute segment:
-      segment = anarchy.distribution_gap_segment(
-        ag_idx,
-        incl_mass,
-        n_segments,
-        segment_capacity,
-        INCLUSION_ROUGHNESS,
-        d_seed
-      );
+      // are so many overlength words. The assignment sockets are only used
+      // peripherally.
+      segment = Math.floor(ag_idx / OVERLENGTH_ULTRATILE_SOCKETS);
     } else {
       // Assignments are primarily made to assignment sockets.
       // segment parameters:
@@ -697,6 +678,11 @@ function(anarchy, dict, grid, dimensions, caching) {
       );
     }
 
+    // Check for overflow:
+    if (segment >= grid.ASSIGNMENT_REGION_ULTRATILES) {
+      return undefined;
+    }
+
     // back out (global) ultragrid position:
     return [
       (
@@ -710,12 +696,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
-  function alt_assignment_location(domain_name, aagp) {
-    // The other converse of ultratile_punctuation_parameters, for ol_primary
-    // domains this looks up an assignment socket by alternate-assignment-grid-
-    // position, and for non-ol_primary domains it looks up an overlength
-    // supertile. Either way, it returns the ultragrid position that that
-    // assignment socket (or supertile) is in.
+  function overlength_assignment_location(domain_name, aagp) {
+    // The other converse of ultratile_punctuation_parameters, this looks up an
+    // overlength supertile by alternate-assignment-grid-position. It returns
+    // the ultragrid position that the corresponding supertile is in.
 
     var ag_x = aagp[0];
     var ag_y = aagp[1];
@@ -743,14 +727,40 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     if (ol_primary) {
       // Assignments are primarily made to supertiles directly because there
-      // are so many overlength words. So alt-assignments are made to sockets.
+      // are so many overlength words.
 
-      segment = Math.floor(ag_idx / OVERLENGTH_ULTRATILE_SOCKETS);
+      let segment_capacity = Math.floor(
+        MAX_LOCAL_INCLUSION_DENSITY
+      * ol_tiles
+      );
+
+      // total number of supertiles reserved for inclusions:
+      let incl_mass = Math.floor(
+        incl_density
+      * grid.ASSIGNMENT_REGION_SIDE
+      * grid.ASSIGNMENT_REGION_SIDE
+      * ol_tiles
+      );
+
+      // compute segment:
+      segment = anarchy.distribution_gap_segment(
+        ag_idx,
+        incl_mass,
+        n_segments,
+        segment_capacity,
+        INCLUSION_ROUGHNESS,
+        d_seed
+      );
     } else {
-      // Assignments are primarily made to assignment sockets.
-      // segment parameters:
+      // Assignments are primarily made to assignment sockets, so we just care
+      // about the fixed ol_tiles value here.
 
       segment = Math.floor(ag_idx / ol_tiles);
+    }
+
+    // Check for overflow:
+    if (segment >= grid.ASSIGNMENT_REGION_ULTRATILES) {
+      return undefined;
     }
 
     // back out (global) ultragrid position:
@@ -773,6 +783,9 @@ function(anarchy, dict, grid, dimensions, caching) {
     //
     // Returns an object with the following keys:
     //
+    //   ol_primary:
+    //     Whether this ultratile is primarily defined by overlength supertiles
+    //     (true) or asignment sockets (false).
     //   asg_nat_prior:
     //     The number of prior non-inclusion assignment positions in this
     //     assignment tile, as returned by ultratile_punctuation_parameters
@@ -1152,6 +1165,7 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // return our results:
     return {
+      "ol_primary": ol_primary,
       "asg_nat_prior": asg_nat_prior,
       "ol_nat_prior": ol_nat_prior,
       "socket_offsets": socket_offsets,
@@ -1182,10 +1196,12 @@ function(anarchy, dict, grid, dimensions, caching) {
     //
     //   Note that the given ultragrid assignment position must be in canonical
     //   form, so that the correspondence with given utcontext won't be broken.
+    //
+    //   If the given socket is unassigned, this will return undefined.
 
     // unpack:
-    var nat_prior = utcontext.nat_prior;
-    var mptable = utcontext.offsets;
+    var nat_prior = utcontext.asg_nat_prior;
+    var mptable = utcontext.socket_offsets;
     var mpsums = utcontext.asg_nat_sums;
 
     var ut_x = ugap[0];
@@ -1209,6 +1225,10 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // get mutiplanar offset
     var mp_offset = mptable[lin];
+    if (mp_offset == undefined) {
+      // This socket is unassigned.
+      return undefined;
+    }
     var asg_index = 0;
     var r = sghash(seed + 379238109821, [ut_x, ut_y])
     if (mp_offset == 0) { // natural: index determined by prior stuff
@@ -1246,12 +1266,18 @@ function(anarchy, dict, grid, dimensions, caching) {
     // cached multiplanar offset info isn't yet available, this will return
     // null. Use caching.with_cached_value to execute code as soon as the info
     // becomes available.
+    //
+    // If the linear assignment number is larger than the last assigned socket,
+    // this will return undefined.
 
     var asg_x = agp[0];
     var asg_y = agp[1];
     var asg_idx = agp[2];
 
     var ugp = assignment_location(domain_name, agp);
+    if (ugp == undefined) {
+      return undefined;
+    }
 
     // fetch utcontext or fail:
     var utcontext = caching.cached_value(
@@ -1259,13 +1285,12 @@ function(anarchy, dict, grid, dimensions, caching) {
       [ domain_name, ugp, seed ]
     );
     if (utcontext == null) {
-      return undefined;
+      return null;
     }
-    // TODO: Figure out overlength supertiles HERE
 
     // unpack:
-    var nat_prior = utcontext.nat_prior;
-    var mptable = utcontext.offsets;
+    var nat_prior = utcontext.asg_nat_prior;
+    var mptable = utcontext.socket_offsets;
     var mpsums = utcontext.asg_nat_sums;
 
     var internal_idx = asg_idx - nat_prior;
@@ -1281,13 +1306,13 @@ function(anarchy, dict, grid, dimensions, caching) {
       mp_idx < grid.ULTRATILE_ROW_SOCKETS * (prior_row + 1);
       mp_idx += 1
     ) {
-      if (in_row_idx == 0) {
-        break;
-      }
       if (mptable[mp_idx] == 0) {
+        if (in_row_idx == 0) {
+          break;
+        }
         in_row_idx -= 1;
-        col_idx += 1;
       }
+      col_idx += 1;
     }
 
     // Escape the assignment grid tile and our ultragrid tile within that
@@ -1303,6 +1328,142 @@ function(anarchy, dict, grid, dimensions, caching) {
       + prior_row + 1
       ),
       col_idx % grid.ASSIGNMENT_SOCKETS
+    ];
+  }
+
+  function punctuated_overlength_index(ugp, utcontext, seed) {
+    // Takes an ultragrid supertile position (ultratile x/y and sub x/y) and
+    // corresponding ultragrid context (the result of ultratile_context above)
+    // and returns an array containing:
+    //
+    //   x, y - assignment grid position
+    //   n - alternate assignment index
+    //   m - multiplanar offset value
+    //
+    //   If the given supertile is not an overlength supertile, this will
+    //   return undefined.
+
+    // unpack:
+    var nat_prior = utcontext.ol_nat_prior;
+    var mptable = utcontext.supertile_offsets;
+    var mpsums = utcontext.ol_nat_sums;
+
+    var ut_x = ugp[0];
+    var ut_y = ugp[1];
+    var sub_x = ugp[2];
+    var sub_y = ugp[3];
+
+    // compute assignment tile:
+    var asg_x = Math.floor(ut_x / grid.ASSIGNMENT_REGION_SIDE);
+    var asg_y = Math.floor(ut_y / grid.ASSIGNMENT_REGION_SIDE);
+
+    // linear index within ultratile:
+    var lin = sub_x + sub_y * grid.ULTRAGRID_SIZE;
+
+    // get mutiplanar offset
+    var mp_offset = mptable[lin];
+    if (mp_offset == undefined) {
+      // This supertile is socketed.
+      return undefined;
+    }
+    var asg_index = 0;
+    var r = sghash(seed + 379238109821, [ut_x, ut_y])
+    if (mp_offset == 0) { // natural: index determined by prior stuff
+      var row = sub_y;
+      asg_index = nat_prior + mpsums[row];
+      // iterate from beginning of row to count local priors
+      for (var here = sub_y * grid.ULTRAGRID_SIZE; here < lin; ++here) {
+        if (mptable[here] == 0) {
+          asg_index += 1;
+        }
+      }
+    } else { // inclusion: index determined by RNG
+      // TODO: Pull these together near a destination?
+      // compute a suitable seed value for this inclusion:
+      var ir = r + mp_offset;
+      for (let i = 0; i < (mp_offset % 7) + 2; ++i) {
+        ir = anarchy.lfsr(r);
+      }
+      asg_index = anarchy.cohort_shuffle(
+        lin,
+        grid.ASSIGNMENT_REGION_TOTAL_SUPERTILES,
+        ir
+      );
+    }
+
+    // Return values:
+    return [ asg_x, asg_y, asg_index, mp_offset ];
+  }
+
+  function punctuated_overlength_lookup(domain_name, agp, mp_offset, seed) {
+    // The inverse of punctuated_overlength_index (see above); this takes an
+    // assignment position (assignment grid x/y and linear number) and a
+    // multiplanar offset, and returns the supergrid coordinates of an
+    // overlength supertile that contains the indicated assignment index. If
+    // suitable cached multiplanar offset info isn't yet available, this will
+    // return null. Use caching.with_cached_value to execute code as soon as
+    // the info becomes available.
+    //
+    // If the linear assignment number is larger than the last assigned
+    // supertile, this will return undefined.
+
+    var asg_x = agp[0];
+    var asg_y = agp[1];
+    var asg_idx = agp[2];
+
+    var ugp = overlength_assignment_location(domain_name, agp);
+    if (ugp == undefined) {
+      return undefined;
+    }
+
+    // fetch utcontext or fail:
+    var utcontext = caching.cached_value(
+      "ultratile_context", 
+      [ domain_name, ugp, seed ]
+    );
+    if (utcontext == null) {
+      return null;
+    }
+
+    // unpack:
+    var nat_prior = utcontext.ol_nat_prior;
+    var mptable = utcontext.supertile_offsets;
+    var mpsums = utcontext.ol_nat_sums;
+
+    var internal_idx = asg_idx - nat_prior;
+    var prior_row = max_smaller(internal_idx, mpsums);
+    var before = 0;
+    if (prior_row > -1) {
+      before = mpsums[prior_row];
+    }
+    var in_row_idx = asg_idx - nat_prior - before;
+    var col_idx = 0;
+    for (
+      var mp_idx = grid.ULTRAGRID_SIZE * prior_row;
+      mp_idx < grid.ULTRAGRID_SIZE * (prior_row + 1);
+      mp_idx += 1
+    ) {
+      if (mptable[mp_idx] == 0) {
+        if (in_row_idx == 0) {
+          break;
+        }
+        in_row_idx -= 1;
+      }
+      col_idx += 1;
+    }
+
+    // Escape the assignment grid tile and our ultragrid tile within that
+    // assignment grid tile to get a global supergrid position along with an
+    // assignment socket index.
+    return [
+      (
+        (asg_x * grid.ASSIGNMENT_REGION_SIDE + ugp[0]) * grid.ULTRAGRID_SIZE
+      + col_idx
+      ),
+      (
+        (asg_y * grid.ASSIGNMENT_REGION_SIDE + ugp[1]) * grid.ULTRAGRID_SIZE
+      + prior_row + 1
+      )
     ];
   }
 
@@ -1353,6 +1514,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     var lesser_total = 0;
     var greater_counttable = [];
     var lesser_counttable = [];
+    // TODO: Filter for only shortwords here!
     domains.forEach(function (d) {
       greater_counttable.push(d.total_count);
       grand_total += d.total_count;
