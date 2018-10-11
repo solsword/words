@@ -882,7 +882,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       r = anarchy.lfsr(r);
       for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
         let ii = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, uo_seed);
-        let sgp = grid.index__utp(ii);
+        let sgp = grid.index__sgp(ii);
         seen[ii] = true;
         let nb_seed = r;
         r = anarchy.cohort_shuffle(r);
@@ -892,12 +892,12 @@ function(anarchy, dict, grid, dimensions, caching) {
           let nb = grid.sg_neighbor(sgp, dd);
           if (grid.is_valid_sgindex(nb)) {
             let ni = grid.sgp__index(nb);
-            if (seen[ni] && !taken[ni]) {
+            let sgap = [sgp[0], sgp[1], dd];
+            let aidx = grid.ut_aidx(sgap);
+            if (seen[ni] && !taken[ni] && aidx != undefined) {
               // Pair these two
               taken[ii] = true;
               taken[ni] = true;
-              let sgap = [sgp[0], sgp[1], dd];
-              let aidx = grid.ut_aidx(sgap);
               // Let this socket be occupied:
               socket_offsets[aidx] = 0;
               count += 1;
@@ -949,7 +949,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       r = anarchy.lfsr(r);
       for (let i = 0; i < grid.ULTRATILE_SUPERTILES; ++i) {
         let ii = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, uo_seed);
-        let sgp = grid.index__utp(ii);
+        let sgp = grid.index__sgp(ii);
         let taken_neighbors = 0;
         // Iterate through neighbors in fixed order:
         for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
@@ -975,7 +975,9 @@ function(anarchy, dict, grid, dimensions, caching) {
           for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
               let sgap = [sgp[0], sgp[1], d];
               let aidx = grid.ut_aidx(sgap);
-              socket_offsets[aidx] = undefined;
+              if (aidx != undefined) {
+                socket_offsets[aidx] = undefined;
+              } // else skip it
           }
         }
         if (count >= ol_tiles) {
@@ -985,8 +987,8 @@ function(anarchy, dict, grid, dimensions, caching) {
       }
 
       // Figure out inclusions among sockets:
-      let min_ni = incl_here / INCLUSION_MAX_SIZE;
-      let max_ni = incl_here / INCLUSION_MIN_SIZE;
+      let min_ni = asg_incl_here / INCLUSION_MAX_SIZE;
+      let max_ni = asg_incl_here / INCLUSION_MIN_SIZE;
 
       let n_inclusions = anarchy.idist(r, min_ni, max_ni + 1);
       r = anarchy.lfsr(r);
@@ -1035,7 +1037,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       }
 
       // now iteratively expand each inclusion:
-      let left = incl_here;
+      let left = asg_incl_here;
       let blocked = [];
       while (left > 0) {
         for (let i = 0; i < iseeds.length; ++i) { // each inclusion gets a turn
@@ -1753,6 +1755,7 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     let result = {
       "pos": sgp.slice(),
+      "seed": seed,
       "dimension": dimension,
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
@@ -1794,16 +1797,19 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // First, embed any socketed words
-    let success = embed_socketed_words(result, sgp, seed);
-    if (succeess == undefined) {
+    let success = embed_socketed_words(result);
+    if (success == undefined) {
       return undefined;
     }
 
     // Next, for overlength supertiles, embed the assigned overlength word
+    // TODO: DEBUG: How can we attempt to embed an overlength word in a
+    // supertile where multiple sockets are already taken?!?
+    // TODO: DEBUG: What is causing empty supertiles?!?
     let asg = punctuated_overlength_index(ugp, utcontext, seed);
     if (asg != undefined) {
-      let success = embed_overlength_word(result, asg, seed);
-      if (succeess == undefined) {
+      let success = embed_overlength_word(result, asg);
+      if (success == undefined) {
         return undefined;
       }
     }
@@ -1830,10 +1836,14 @@ function(anarchy, dict, grid, dimensions, caching) {
     return result;
   }
 
-  function embed_socketed_words(supertile, sgp, seed) {
+  function embed_socketed_words(supertile) {
     // Picks a word for each socket in a supertile and embeds it (or the
     // relevant part of it). Returns undefined if required ultratile context is
     // still unavailable, or true if it succeeds.
+    let sgp = supertile.pos;
+    let seed = supertile.seed;
+    let dimension = supertile.dimension;
+    let default_domain = dimensions.natural_domain(dimension);
     for (let socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       let sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       let ugp = grid.ugpos(sgap); // socket index is ignored
@@ -1898,7 +1908,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
         glyphs = entry[0].slice();
       }
-      result.words.push(glyphs);
+      supertile.words.push(glyphs);
 
       // pick embedding direction & portion to embed
       let flip = (r % 2) == 0;
@@ -1925,14 +1935,14 @@ function(anarchy, dict, grid, dimensions, caching) {
       } else {
         glyphs = glyphs.slice(cut);
       }
-      let touched = inlay_word(result, glyphs, socket, r);
+      let touched = inlay_word(supertile, glyphs, socket, r);
       for (let i = 0; i < touched.length; ++i) {
         let idx = grid.gp__index(touched[i]);
-        result.domains[idx] = domain;
+        supertile.domains[idx] = domain;
         // TODO: Get rid of this?
-        //result.colors[idx] = colors_for_domains(dl);
+        //supertile.colors[idx] = colors_for_domains(dl);
         if (DEBUG_SHOW_SOCKETS) {
-          result.colors[idx].push(
+          supertile.colors[idx].push(
             ["bl", "yl", "gn"][socket % 3]
           );
         }
@@ -1941,10 +1951,13 @@ function(anarchy, dict, grid, dimensions, caching) {
     return true;
   }
 
-  function embed_overlength_word(supertile, asg, seed) {
+  function embed_overlength_word(supertile, asg) {
     // Picks a word for this overlength supertile and embeds it. Returns
     // undefined if required ultratile context is still unavailable, or true if
     // it succeeds.
+    let seed = supertile.seed;
+    let dimension = supertile.dimension;
+
     let asg_x = asg[0];
     let asg_y = asg[1];
     let asg_idx = asg[2];
@@ -1978,6 +1991,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     let attempts = OVERLENGTH_WORM_ATTEMPTS;
     while (fit == undefined && attempts > 0) {
       let worms = find_worms(supertile, r);
+      attempts -= 1;
       r = anarchy.lfsr(r);
       for (let worm of worms) {
         if (worm.length >= glyphs.length) {
@@ -2044,8 +2058,6 @@ function(anarchy, dict, grid, dimensions, caching) {
     // at a time until each worm gets stuck.
     let sseed = sghash(seed + 128301982, supertile.pos); // worm origins
     let dseed = sghash(seed + 9849283, supertile.pos); // worm growth directions
-    let wseed = sghash(seed + 619287712, supertile.pos); // word sampling
-    let open_spaces = 0;
     let worms = [];
     let claimed = {};
     // First, find all worms of open space in the supertile
@@ -2060,7 +2072,6 @@ function(anarchy, dict, grid, dimensions, caching) {
     function claim_space(i) {
       let xy = grid.index__gp(i);
       claimed[grid.coords__key(xy)] = true;
-      open_spaces += 1;
     }
     for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
       let ii = anarchy.cohort_shuffle(
@@ -2132,10 +2143,15 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     let worms = find_worms(supertile, seed);
+    let open_spaces = worms
+      .map(w => w.length)
+      .reduce((a, b) => a + b, 0);
 
     // limit for skipping small worms
     let wfs = worm_fill_skip(domain);
     // Now fill up worms with glyphs:
+    let sseed = anarchy.lfsr(seed + 19211371);
+    let wseed = sghash(seed + 619287712, supertile.pos); // word sampling
     // TODO: Fill worms using inclusion domains when nearby?
     for (let i = 0; i < worms.length; ++i) {
       let ii = anarchy.cohort_shuffle(i, worms.length, sseed);

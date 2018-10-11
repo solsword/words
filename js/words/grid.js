@@ -826,10 +826,10 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // tile at (0, 0) is also the position-0 grid number for the tile at (1, 0)
     // because those tiles share that edge.
     let cp = canonical_sgapos(sgap);
-    let asg_x = cp[0] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    let asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    let x = cp[0] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    let y = cp[1] % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
+    let asg_x = cp[0] / (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
+    let asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
+    let x = cp[0] % (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
+    let y = cp[1] % (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
     asg_pos = cp[2];
     return [
       asg_x,
@@ -865,12 +865,12 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // Takes an ultratile-local supergrid assignment position (supergrid x/y
     // and socket index) and returns an assignment index within that ultratile.
     // The given assignment position must be within the default ultratile,
-    // otherwise this function will issue a warning and return undefined.
+    // otherwise this function will return undefined.
 
     // Ensure our position is canonical:
     let socket = sgap[2];
     if (!is_canonical(socket)) {
-      let sgap = canonical_sgapos(sgap);
+      sgap = canonical_sgapos(sgap);
     }
     let sg_x = sgap[0];
     let sg_y = sgap[1];
@@ -878,9 +878,6 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
 
     // Check positioning:
     if (!is_valid_sgindex(sgap)) {
-      console.warn(
-        "Request for ultratile assignment index of socket outside ultratile."
-      );
       return undefined;
     }
 
@@ -959,6 +956,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "sc__rpos": sc__rpos,
     "spiral_grid_pos": spiral_grid_pos,
     "neighbor": neighbor,
+    "sg_neighbor": sg_neighbor,
     "is_canonical": is_canonical,
     "is_valid_sgindex": is_valid_sgindex,
     "is_valid_subindex": is_valid_subindex,
