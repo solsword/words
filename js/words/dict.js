@@ -300,60 +300,88 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
       return entries[a][0].length - entries[b][0].length;
       // indices of longest words first
     });
-    // Create a sumtable for frequency and length counts, ending with grouped
-    // bins for frequencies/lengths over the cutoffs:
+    // Create sumtables for frequency and length counts, as well as length
+    // cumulative frequencies, ending with grouped bins for frequencies/lengths
+    // over the cutoffs:
     var fq_counttable = [];
+    var short_fq_counttable = [];
     var lt_counttable = [];
     for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
       fq_counttable[i] = 0;
+      short_fq_counttable[i] = 0;
     }
     for (var i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
       lt_counttable[i] = 0;
     }
     var hf_entries = 0;
-    var long_entries = 0;
+    var short_hf_entries = 0;
     var freq = undefined;
     var len = undefined;
+    var normlength = [];
     var overlength = [];
     var superlong = [];
     for (var i = 0; i < entries.length; ++i) {
       // count words by frequency and length
       freq = entries[i][2];
+      len = entries[i][0].length;
+
+      // populate our counttables for frequency
       if (freq >= DOMAIN_FREQUENCY_BINS) {
+        if (len <= grid.SOCKET_SIZE) {
+          short_fq_counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
+          short_hf_entries += 1;
+        }
         fq_counttable[DOMAIN_FREQUENCY_BINS-1] += freq;
         hf_entries += 1;
       } else {
+        if (len <= grid.SOCKET_SIZE) {
+          short_fq_counttable[freq - 1] += freq;
+        }
         fq_counttable[freq - 1] += freq;
       }
 
-      len = entries[i][0].length;
-      if (len > grid.SUPERTILE_TILES-1) {
+      // Categorize word as superlong, overlength, or normlength. Because this
+      // loop is iterating over entries sorted by frequency, each of these
+      // lists will also be sorted by frequency.
+      if (len > grid.SUPERTILE_TILES - grid.SOCKET_SIZE/2 - 1) {
         superlong.push(i);
       } else if (len > grid.SOCKET_SIZE) {
         overlength.push(i);
+      } else {
+        normlength.push(i);
       }
+
+      // Add an entry to our length counttable for this word
       if (len >= DOMAIN_LENGTH_BINS) {
         lt_counttable[DOMAIN_LENGTH_BINS-1] += 1;
-        long_entries += 1;
       } else {
         lt_counttable[len - 1] += 1;
       }
     }
 
-    // Create sumtables:
+    // Create frequency sumtables:
     var fq_sumtable = [];
+    var short_fq_sumtable = [];
     var sum = 0;
+    var short_sum = 0;
     for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
-      // frequency sumtable is reversed (things at-least-this-frequent)
+      // frequency sumtables are reversed (things at-least-this-frequent
+      // starting with the most-frequent group and proceeding to less-frequent
+      // groups)
       var j = DOMAIN_FREQUENCY_BINS - i - 1;
+      // all-length words
       sum += fq_counttable[j];
       fq_sumtable[i] = sum;
+      // short words
+      short_sum += short_fq_counttable[j];
+      short_fq_sumtable[i] = short_sum;
     }
 
+    // Create length sumtable:
     var lt_sumtable = [];
     sum = 0;
-    for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
-      // length counttable is normal (things no-longer-than-this (minus 1))
+    for (var i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
+      // length sumtable is normal (entries no-longer-than-this-plus-1)
       sum += lt_counttable[i];
       lt_sumtable[i] = sum;
     }
@@ -364,12 +392,14 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
       "cased": false,
       "colors": [],
       "entries": entries,
+      "length_ordering": by_length,
       "total_count": total_count,
       "high_frequency_entries": hf_entries,
-      "length_ordering": by_length,
-      "long_entries": long_entries,
       "count_sums": fq_sumtable,
+      "short_high_frequency_entries": short_hf_entries,
+      "short_count_sums": short_fq_sumtable,
       "length_sums": lt_sumtable,
+      "normlength": normlength,
       "overlength": overlength,
       "superlong": superlong,
     }
@@ -551,23 +581,30 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
     // Returns a [glyphs, word, frequency] triple.
     n %= domain.total_count;
     if (n < domain.count_sums[0]) {
-      for (var i = 0; i < domain.high_frequency_entries; ++i) {
-        var e = domain.entries[i];
+      // We're within the high-frequency realm, and must iterate over entries
+      // to find our index:
+      for (let i = 0; i < domain.high_frequency_entries; ++i) {
+        let e = domain.entries[i];
         n -= e[2];
         if (n < 0) {
           return e;
         }
       }
     } else {
-      var index = domain.high_frequency_entries;
+      // We're in an indexed realm, and must iterate over bins to find our
+      // index:
+      let offset = domain.high_frequency_entries;
       for (var i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
-        var count = DOMAIN_FREQUENCY_BINS - i;
+        // The i-th bin represents words that appear DOMAIN_FREQUENCY_BINS - i
+        // times in our domain:
+        let count = DOMAIN_FREQUENCY_BINS - i;
         if (n < domain.count_sums[i]) { // it's in this bin
-          var inside = n - domain.count_sums[i-1];
-          var idx = index + Math.floor(inside / count);
-          return domain.entries[index + Math.floor(inside / count)];
+          let inside = n - domain.count_sums[i-1];
+          let idx = offset + Math.floor(inside / count);
+          return domain.entries[idx];
         } else {
-          index += Math.floor(
+          // it's not in this bin, so adjust our offset
+          offset += Math.floor(
             (domain.count_sums[i] - domain.count_sums[i-1])
           / count
           );
@@ -583,6 +620,62 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
     // default to the most-frequent entry in this should-be-impossible case:
     return domain.entries[0];
   }
+
+  function unrolled_short_word(n, domain) {
+    // Finds the nth short word in the given domain, where each word is
+    // repeated according to its frequency. The words are sorted by frequency,
+    // so lower values of n will tend to return more-common words. Time taken
+    // is at worst proportional to the number of high-frequency words in the
+    // domain, or the number of explicit bins (DOMAIN_FREQUENCY_BINS, which is
+    // fixed).
+    //
+    // Note that n will be wrapped to fit into the total word count of the
+    // domain.
+    //
+    // Returns a [glyphs, word, frequency] triple.
+    n %= domain.short_count_sums[DOMAIN_FREQUENCY_BINS - 1];
+    if (n < domain.short_count_sums[0]) {
+      // In this case, we're within the realm of the most-frequent words, which
+      // are each appear more than DOMAIN_FREQUENCY_BINS times. We need to
+      // iterate to find our target.
+      for (var i = 0; i < domain.short_high_frequency_entries; ++i) {
+        var e = domain.entries[domain.normlength[i]];
+        n -= e[2];
+        if (n < 0) {
+          return e;
+        }
+      }
+    } else {
+      // In this case, we're within some other part of the
+      // short-words-binned-by-frequency realm.
+      var offset = domain.short_high_frequency_entries;
+      for (var i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
+        // The i-th bin represents words that appear DOMAIN_FREQUENCY_BINS - i
+        // times in our domain:
+        var count = DOMAIN_FREQUENCY_BINS - i;
+        if (n < domain.short_count_sums[i]) { // it's in this bin
+          var inside = n - domain.short_count_sums[i-1];
+          var idx = offset + Math.floor(inside / count);
+          return domain.entries[domain.normlength[idx]];
+        } else {
+          // it's not in this bin, so adjust our offset
+          offset += Math.floor(
+            (domain.short_count_sums[i] - domain.short_count_sums[i-1])
+          / count
+          );
+        }
+      }
+    }
+    if (WARNINGS) {
+      console.warn(
+        "WARNING: unexpectedly dodged both cases in unrolled_short_word!\n"
+      + "  (n is " + n + " and the domain is '" + domain.name + "')"
+      )
+    }
+    // default to the most-frequent entry in this should-be-impossible case:
+    return domain.entries[0];
+  }
+
 
   function words_no_longer_than(domain, L) {
     // Returns the number of words in the given domain that are no longer than
@@ -631,6 +724,7 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
     "check_word": check_word,
     "find_word_in_domain": find_word_in_domain,
     "unrolled_word": unrolled_word,
+    "unrolled_short_word": unrolled_short_word,
     "load_json_or_list_from_data": load_json_or_list_from_data,
     "stringify_and_callback": stringify_and_callback,
     "words_no_longer_than": words_no_longer_than,

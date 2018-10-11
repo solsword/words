@@ -20,6 +20,10 @@ function(anarchy, dict, grid, dimensions, caching) {
   // Number of attempts to make before giving up on embedding.
   var EMBEDDING_ATTEMPTS = 500;
 
+  // Number of worm-based embedding attempts to make for an overlength
+  // supertile before falling back to a pattern-based embedding.
+  var OVERLENGTH_WORM_ATTEMPTS = 5;
+
   // Number of sockets retained in an overlength-primary ultratile.
   var OVERLENGTH_ULTRATILE_SOCKETS = Math.floor(2*grid.ULTRATILE_SUPERTILES/3);
 
@@ -429,7 +433,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // Computes the cost in sockets of a given number of overlength supertiles
     // within an ultragrid cell.
     return (
-      ol_tiles * 2 * ASSIGNMENT_SOCKETS
+      ol_tiles * 2 * grid.ASSIGNMENT_SOCKETS
     - overlength_supertile_connections(ol_tiles)
     );
   }
@@ -448,8 +452,12 @@ function(anarchy, dict, grid, dimensions, caching) {
     // 3. The number of sockets used up by the overlength supertiles.
 
     // density of overlength tiles in this assignment grid unit:
+    let olpar = overlength_per_assignment_region(domain_name);
+    if (olpar == undefined) {
+      return undefined;
+    }
     let ol_tile_count = Math.ceil(
-      overlength_per_assignment_region(domain_name)
+      olpar
     / grid.ASSIGNMENT_REGION_TOTAL_SUPERTILES
     );
     let ol_capacity = (grid.ULTRAGRID_SIZE - 2) * (grid.ULTRAGRID_SIZE - 2);
@@ -487,6 +495,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     // 4. The number of non-inclusion supertiles within this assignment grid
     //    tile prior to this ultratile.
     // 5. The number of inclusion supertiles within this ultratile.
+    //
+    // Returns undefined if domain content isn't loaded yet.
 
     // assignment grid position:
     var ag_x = ugp[0] / grid.ASSIGNMENT_REGION_SIDE;
@@ -500,6 +510,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // density of overlength tiles in this assignment grid unit:
     let ol_allowance = overlength_allowance(domain_name);
+    if (ol_allowance == undefined) {
+      return undefined;
+    }
     let ol_primary = ol_allowance[0];
     let ol_tiles = ol_allowance[1];
     let ol_socket_cost = ol_allowance[2];
@@ -621,6 +634,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // plus linear assignment number in that tile) will end up. Returns the
     // discovered ultratile grid coordinates. For ol_primary domains, use
     // overlength_assignment_location for primary assignments instead.
+    // Returns undefined if domain content isn't loaded yet.
 
     var ag_x = agp[0];
     var ag_y = agp[1];
@@ -628,6 +642,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // density of overlength tiles in this assignment grid unit:
     let ol_allowance = overlength_allowance(domain_name);
+    if (ol_allowance == undefined) {
+      return undefined;
+    }
     let ol_primary = ol_allowance[0];
     let ol_tiles = ol_allowance[1];
     let ol_socket_cost = ol_allowance[2];
@@ -700,6 +717,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // The other converse of ultratile_punctuation_parameters, this looks up an
     // overlength supertile by alternate-assignment-grid-position. It returns
     // the ultragrid position that the corresponding supertile is in.
+    // Returns undefined if domain content isn't loaded yet.
 
     var ag_x = aagp[0];
     var ag_y = aagp[1];
@@ -707,6 +725,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // density of overlength tiles in this assignment grid unit:
     let ol_allowance = overlength_allowance(domain_name);
+    if (ol_allowance == undefined) {
+      return undefined;
+    }
     let ol_primary = ol_allowance[0];
     let ol_tiles = ol_allowance[1];
     let ol_socket_cost = ol_allowance[2];
@@ -808,11 +829,16 @@ function(anarchy, dict, grid, dimensions, caching) {
     //     supertile in this ultratile (ULTRAGRID_SIZE × ULTRAGRID_SIZE).
     //     May have missing entries for supertiles that don't have objects in
     //     them. Note that the objects are assigned to supertiles, not sockets.
+    //
+    // Returns undefined if domain content isn't loaded yet.
 
     let r = sghash(seed + 489813, ugp);
 
     // check domain setup
     let ol_allowance = overlength_allowance(domain_name);
+    if (ol_allowance == undefined) {
+      return undefined;
+    }
     let ol_primary = ol_allowance[0];
     let ol_tiles = ol_allowance[1];
     let ol_socket_cost = ol_allowance[2];
@@ -821,6 +847,9 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // unpack parameters:
     let params = ultratile_punctuation_parameters(domain_name, ugp);
+    if (params == undefined) {
+      return undefined;
+    }
     // params[0] is the same as ol_primary above
     let asg_nat_prior = params[1];
     let asg_incl_here = params[2];
@@ -1337,7 +1366,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // and returns an array containing:
     //
     //   x, y - assignment grid position
-    //   n - alternate assignment index
+    //   n - overlength assignment index
     //   m - multiplanar offset value
     //
     //   If the given supertile is not an overlength supertile, this will
@@ -1500,26 +1529,37 @@ function(anarchy, dict, grid, dimensions, caching) {
     return undefined;
   }
 
-  function pick_word(domains, asg, seed) {
+  function pick_word(domains, asg, seed, only_socketable) {
     // Given an assignment position (assignment grid x/y and assignment index)
     // and a seed, returns the corresponding word from the given domain object
-    // (not name) list.
+    // (not name) list. If only_socketable is given as true, only socketable
+    // words will be used.
     //
     // Returns a domain entry, which is a [glyphs, word, frequency] triple.
-    //
-    // TODO: Handle words that are too big for their sockets!
 
-    var any_missing = false;
-    var grand_total = 0;
-    var lesser_total = 0;
-    var greater_counttable = [];
-    var lesser_counttable = [];
-    // TODO: Filter for only shortwords here!
+    let any_missing = false;
+    let grand_total = 0;
+    let lesser_total = 0;
+    let greater_counttable = [];
+    let lesser_counttable = [];
     domains.forEach(function (d) {
-      greater_counttable.push(d.total_count);
-      grand_total += d.total_count;
-      lesser_counttable.push(d.entries.length);
-      lesser_total += d.entries.length;
+      if (only_socketable) {
+        let socketable_count = d.short_count_sums[
+          d.short_count_sums.length - 1
+        ];
+        greater_counttable.push(socketable_count);
+        grand_total += socketable_count;
+        let socketable_entries = d.normlength.length;
+        lesser_counttable.push(socketable_entries);
+        lesser_total += socketable_entries;
+      } else {
+        let total_count = d.total_count;
+        greater_counttable.push(total_count);
+        grand_total += total_count;
+        let total_entries = d.entries.length;
+        lesser_counttable.push(total_entries);
+        lesser_total += total_entries;
+      }
     });
     if (WARNINGS && lesser_total > grid.ASSIGNMENT_REGION_TOTAL_SOCKETS) {
       console.warn(
@@ -1528,50 +1568,80 @@ function(anarchy, dict, grid, dimensions, caching) {
       )
     }
 
-    var r = sghash(seed, asg);
+    let r = sghash(seed, asg);
 
-    var idx = anarchy.cohort_shuffle(
+    let idx = anarchy.cohort_shuffle(
       asg[2],
       grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
       r
     );
     r = anarchy.lfsr(r);
 
-    if (idx < lesser_total) { // one of the per-index assignments
-      var ct_idx = 0;
+    if (idx < lesser_total) { // one of the per-entry assignments
+      let ct_idx = 0;
+      // Figure out which domain we're in using our counttable:
       for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
-        var here = lesser_counttable[ct_idx];
+        let here = lesser_counttable[ct_idx];
         if (idx < here) {
           break;
         }
         idx -= here;
       }
-      var dom = domains[ct_idx];
-      if (WARNINGS && ct_idx == lesser_counttable.length) {
-        console.warn("Warning: lesser counttable loop failed to break!");
+      let dom;
+      if (ct_idx == lesser_counttable.length) {
+        if (WARNINGS) {
+          console.warn("Warning: lesser counttable loop failed to break!");
+        }
         ct_idx = lesser_counttable.length - 1;
-        idx %= dom.entries.length;
+        dom = domains[ct_idx];
+        if (only_socketable) {
+          idx %= dom.normlength.length;
+        } else {
+          idx %= dom.entries.length;
+        }
+      } else {
+        dom = domains[ct_idx];
       }
-      return dom.entries[idx]; // all words get equal representation
-    } else {
+      // all words get equal representation
+      if (only_socketable) {
+        return dom.entries[dom.normlength[idx]];
+      } else {
+        return dom.entries[idx];
+      }
+    } else { // one of the per-count assignments
       idx -= lesser_total;
       idx %= grand_total;
-      var ct_idx = 0;
+      // Figure out which domain we're in using our counttable:
+      let ct_idx = 0;
       for (ct_idx = 0; ct_idx < greater_counttable.length; ++ct_idx) {
-        var here = greater_counttable[ct_idx];
+        let here = greater_counttable[ct_idx];
         if (idx < here) {
           break;
         }
         idx -= here;
       }
-      if (WARNINGS && ct_idx == greater_counttable.length) {
-        console.warn("Warning: greater counttable loop failed to break!");
+      let dom;
+      if (ct_idx == greater_counttable.length) {
+        if (WARNINGS) {
+          console.warn("Warning: greater counttable loop failed to break!");
+        }
         ct_idx = greater_counttable.length - 1;
-        idx %= dict.total_count;
+        dom = domains[ct_idx];
+      } else {
+        dom = domains[ct_idx];
       }
-      var dom = domains[ct_idx];
-      return dict.unrolled_word(idx, dom); // representation according to freq
+      // representation according to frequency
+      if (only_socketable) {
+        return dict.unrolled_short_word(idx, dom);
+      } else {
+        return dict.unrolled_word(idx, dom);
+      }
     }
+  }
+
+  function pick_short_word(domains, asg, seed) {
+    // Alias for pick_word with only_socketable set to true.
+    return pick_word(domains, asg, seed, true);
   }
 
   function filter_permutations(permutations, site, min_length) {
@@ -1584,8 +1654,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     //
     // TODO: Merge cut-equal paths to avoid biasing shape distribution of
     // shorter words?
-    var result = [];
-    for (var i = 0; i < permutations.length; ++i) {
+    let result = [];
+    for (let i = 0; i < permutations.length; ++i) {
       if (
         permutations[i][2].length >= min_length
      && (site < 0 || permutations[i][0] == site)
@@ -1606,34 +1676,34 @@ function(anarchy, dict, grid, dimensions, caching) {
     // Fits a word (or part of it, for edge-adjacent sockets) into the given
     // socket of the given supertile, updating the glyphs array. Returns a list
     // of tile positions updated.
-    var result = [];
-    var r = anarchy.lfsr(seed + 1892831081);
-    var chosen;
+    let result = [];
+    let r = anarchy.lfsr(seed + 1892831081);
+    let chosen;
 
     // Choose a permutation:
 
     // First pick the crossover point:
-    var xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
+    let xo = CROSSOVER_POINTS[anarchy.idist(r, 0, CROSSOVER_POINTS.length)];
     r = anarchy.lfsr(r);
-    var site = 2;
+    let site = 2;
     if (grid.is_canonical(socket)) {
       site = xo[0];
     } else {
       site = xo[1];
     }
 
-    var filtered = filter_permutations(
+    let filtered = filter_permutations(
       SOCKET_PERMUTATIONS[socket],
       site,
       glyphs.length - 1 // path connects glyphs
     );
-    var cidx = anarchy.idist(r, 0, filtered.length);
+    let cidx = anarchy.idist(r, 0, filtered.length);
     chosen = filtered[cidx]
 
     // Finally, punch in the glyphs:
-    var pos = chosen[1];
-    var path = chosen[2];
-    for (var i = 0; i < glyphs.length; ++i) {
+    let pos = chosen[1];
+    let path = chosen[2];
+    for (let i = 0; i < glyphs.length; ++i) {
       supertile.glyphs[grid.gp__index(pos)] = glyphs[i];
       result.push(pos);
       if (i < glyphs.length - 1) {
@@ -1681,7 +1751,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // position in a full dimension. Returns undefined if there's missing
     // information.
 
-    var result = {
+    let result = {
       "pos": sgp.slice(),
       "dimension": dimension,
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
@@ -1690,16 +1760,16 @@ function(anarchy, dict, grid, dimensions, caching) {
       "words": [],
     };
 
-    var default_domain = dimensions.natural_domain(dimension);
+    let default_domain = dimensions.natural_domain(dimension);
 
     let s = dimensions.seed(dimension)
     seed ^= s;
-    for (var i = 0; i < (s % 5) + 3; ++i) {
+    for (let i = 0; i < (s % 5) + 3; ++i) {
       seed = anarchy.prng(seed);
     }
 
     // set glyphs, colors, and domains to undefined:
-    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
       result.glyphs[i] = undefined;
       result.colors[i] = [];
       result.domains[i] = undefined;
@@ -1712,105 +1782,36 @@ function(anarchy, dict, grid, dimensions, caching) {
     // TODO: Scatter objects
     // TODO: Interesting objects
 
-    // Pick a word for each socket and embed it (or the relevant part of it).
-    for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
-      var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
-      var ugp = grid.ugpos(sgap); // socket index is ignored
+    // Is this supertile actually an overlength supertile?
+    let ugp = grid.ugpos(sgp);
+    // Ultratile context:
+    let utcontext = caching.cached_value(
+      "ultratile_context",
+      [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], seed ]
+    );
+    if (utcontext == null) {
+      return undefined;
+    }
 
-      // Compute ultratile multiplanar info:
-      var utcontext = caching.cached_value(
-        "ultratile_context",
-        [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], seed ]
-      );
-      if (utcontext == null) {
+    // First, embed any socketed words
+    let success = embed_socketed_words(result, sgp, seed);
+    if (succeess == undefined) {
+      return undefined;
+    }
+
+    // Next, for overlength supertiles, embed the assigned overlength word
+    let asg = punctuated_overlength_index(ugp, utcontext, seed);
+    if (asg != undefined) {
+      let success = embed_overlength_word(result, asg, seed);
+      if (succeess == undefined) {
         return undefined;
-      }
-      // TODO: Figure out overlength supertiles HERE
-
-      var asg = punctuated_assignment_index(
-        [ ugp[0], ugp[1], ugp[2], ugp[3], sgap[2] ],
-        utcontext,
-        seed
-      );
-      var asg_x = asg[0];
-      var asg_y = asg[1];
-      var asg_idx = asg[2];
-      var mpo = asg[3];
-      var l_seed = sghash(seed, asg);
-      var r = anarchy.lfsr(l_seed);
-
-      var mdim = dimensions.neighboring_dimension(dimension, mpo)
-      var domain = dimensions.natural_domain(mdim);
-
-      // Ensure domain(s) are loaded:
-      var dl = domains_list(domain);
-      var doms = dict.lookup_domains(dl);
-      if (doms == undefined) {
-        return undefined;
-      }
-
-      // Pick a word for this socket:
-      var entry = pick_word(doms, asg, l_seed);
-      if (entry == undefined) {
-        return undefined;
-      }
-
-      // TODO: Handle longer words gracefully
-      var glyphs = entry[0].slice();
-      var maxlen = grid.SOCKET_SIZE;
-      if (glyphs.length > maxlen) {
-        // TODO: Distribute these words elsehow
-        // This word will be assigned to a long-word supertile; we can skip it
-        // here in favor of a shorter word:
-        entry = sample_word(domain, r, maxlen);
-        if (entry == undefined) {
-          // No words short enough? Skip all sockets (more food for worms)!
-          // Note: This should only happen in very odd domains!
-          break;
-        }
-        glyphs = entry[0].slice();
-      }
-      result.words.push(glyphs);
-
-      // pick embedding direction & portion to embed
-      var flip = (r % 2) == 0;
-      r = anarchy.lfsr(r);
-      var half_max = Math.floor(maxlen / 2);
-      var min_cut = glyphs.length - half_max;
-      var max_cut = half_max;
-      var cut;
-      if (min_cut == max_cut) {
-        cut = min_cut;
-      } else if (min_cut > max_cut) {
-        // This shouldn't be possible any more...
-        console.error("Slicing glyphs for overlength word: '" + glyphs + "'");
-        glyphs = glyphs.slice(0, maxlen);
-        cut = half_max;
-      } else {
-        cut = anarchy.idist(r, min_cut, max_cut + 1);
-      }
-      r = anarchy.lfsr(r);
-      if (flip ^ grid.is_canonical(socket)) { // take first half
-        glyphs = glyphs.slice(0, cut);
-        // and reverse ordering
-        glyphs = glyphs.split("").reverse().join("");
-      } else {
-        glyphs = glyphs.slice(cut);
-      }
-      var touched = inlay_word(result, glyphs, socket, r);
-      for (var i = 0; i < touched.length; ++i) {
-        var idx = grid.gp__index(touched[i]);
-        result.domains[idx] = domain;
-        // TODO: Get rid of this?
-        //result.colors[idx] = colors_for_domains(dl);
-        if (DEBUG_SHOW_SOCKETS) {
-          result.colors[idx].push(
-            ["bl", "yl", "gn"][socket % 3]
-          );
-        }
       }
     }
-    r = anarchy.lfsr(r);
+
+    // Assignment grid position of the canonical socket in this supertile:
+    let agp = grid.agpos([sgp[0], sgp[1], 0]);
+    // Use that to  seed our random values:
+    let r = anarchy.lfsr(sghash(seed, agp));
 
     // First try to add more words, then fill any remaining voids:
     // TODO: Call augment multiple times with different domains when inclusions
@@ -1829,6 +1830,181 @@ function(anarchy, dict, grid, dimensions, caching) {
     return result;
   }
 
+  function embed_socketed_words(supertile, sgp, seed) {
+    // Picks a word for each socket in a supertile and embeds it (or the
+    // relevant part of it). Returns undefined if required ultratile context is
+    // still unavailable, or true if it succeeds.
+    for (let socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
+      let sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
+      let ugp = grid.ugpos(sgap); // socket index is ignored
+
+      // Compute ultratile context (might come from neighbor):
+      let utcontext = caching.cached_value(
+        "ultratile_context",
+        [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], seed ]
+      );
+      if (utcontext == null) {
+        return undefined;
+      }
+
+      let asg = punctuated_assignment_index(
+        [ ugp[0], ugp[1], ugp[2], ugp[3], sgap[2] ],
+        utcontext,
+        seed
+      );
+      // If this socket is unassigned (perhaps because of a neighboring
+      // overlength supertile, for example), then we skip it and continue to
+      // the next socket.
+      if (asg == undefined) {
+        continue;
+      }
+      let asg_x = asg[0];
+      let asg_y = asg[1];
+      let asg_idx = asg[2];
+      let mpo = asg[3];
+      let l_seed = sghash(seed, asg);
+      let r = anarchy.lfsr(l_seed);
+
+      let mdim = dimensions.neighboring_dimension(dimension, mpo)
+      let domain = dimensions.natural_domain(mdim);
+
+      // Ensure domain(s) are loaded:
+      let dl = domains_list(domain);
+      let doms = dict.lookup_domains(dl);
+      if (doms == undefined) {
+        return undefined;
+      }
+
+      // Pick a socketable word for this socket:
+      let entry = pick_short_word(doms, asg, l_seed);
+      if (entry == undefined) {
+        return undefined;
+      }
+
+      // Embed that word in this socket:
+      let glyphs = entry[0].slice();
+      let maxlen = grid.SOCKET_SIZE;
+      if (glyphs.length > maxlen) {
+        if (WARNINGS) {
+          console.warn("Overlength word in socket despite pick_short_word!");
+        }
+        // This word will be assigned to a long-word supertile; we can skip it
+        // here in favor of a shorter word:
+        entry = sample_word(domain, r, maxlen);
+        if (entry == undefined) {
+          // No words short enough? Skip all sockets (more food for worms)!
+          // Note: This should only happen in very odd domains!
+          break;
+        }
+        glyphs = entry[0].slice();
+      }
+      result.words.push(glyphs);
+
+      // pick embedding direction & portion to embed
+      let flip = (r % 2) == 0;
+      r = anarchy.lfsr(r);
+      let half_max = Math.floor(maxlen / 2);
+      let min_cut = glyphs.length - half_max;
+      let max_cut = half_max;
+      let cut;
+      if (min_cut == max_cut) {
+        cut = min_cut;
+      } else if (min_cut > max_cut) {
+        // This shouldn't be possible any more...
+        console.error("Slicing glyphs for overlength word: '" + glyphs + "'");
+        glyphs = glyphs.slice(0, maxlen);
+        cut = half_max;
+      } else {
+        cut = anarchy.idist(r, min_cut, max_cut + 1);
+      }
+      r = anarchy.lfsr(r);
+      if (flip ^ grid.is_canonical(socket)) { // take first half
+        glyphs = glyphs.slice(0, cut);
+        // and reverse ordering
+        glyphs = glyphs.split("").reverse().join("");
+      } else {
+        glyphs = glyphs.slice(cut);
+      }
+      let touched = inlay_word(result, glyphs, socket, r);
+      for (let i = 0; i < touched.length; ++i) {
+        let idx = grid.gp__index(touched[i]);
+        result.domains[idx] = domain;
+        // TODO: Get rid of this?
+        //result.colors[idx] = colors_for_domains(dl);
+        if (DEBUG_SHOW_SOCKETS) {
+          result.colors[idx].push(
+            ["bl", "yl", "gn"][socket % 3]
+          );
+        }
+      }
+    }
+    return true;
+  }
+
+  function embed_overlength_word(supertile, asg, seed) {
+    // Picks a word for this overlength supertile and embeds it. Returns
+    // undefined if required ultratile context is still unavailable, or true if
+    // it succeeds.
+    let asg_x = asg[0];
+    let asg_y = asg[1];
+    let asg_idx = asg[2];
+    let mpo = asg[3];
+    let l_seed = sghash(seed, asg);
+    let r = anarchy.lfsr(l_seed);
+
+    let mdim = dimensions.neighboring_dimension(dimension, mpo)
+    let domain = dimensions.natural_domain(mdim);
+
+    // Ensure domain(s) are loaded:
+    let dl = domains_list(domain);
+    let doms = dict.lookup_domains(dl);
+    if (doms == undefined) {
+      return undefined;
+    }
+
+    // Pick a word
+    // TODO: Long words only for normal domains, but all words for
+    // overlength-primary domains.
+    let entry = pick_word(doms, asg, l_seed);
+    if (entry == undefined) {
+      return undefined;
+    }
+    let glyphs = entry[0].slice();
+
+    // Embed that word in this supertile:
+    // First attempt: see if we can do it randomly by finding a worm that's
+    // long enough.
+    let fit = undefined;
+    let attempts = OVERLENGTH_WORM_ATTEMPTS;
+    while (fit == undefined && attempts > 0) {
+      let worms = find_worms(supertile, r);
+      r = anarchy.lfsr(r);
+      for (let worm of worms) {
+        if (worm.length >= glyphs.length) {
+          fit = worm;
+          break;
+        }
+      }
+    }
+    if (fit == undefined) {
+      // We didn't find a fit using worms, so we'll use a pattern-based
+      // embedding instead.
+      // TODO: pattern-based embedding here
+    } else {
+      // We found a worm that fits our word, so embed it:
+      supertile.words.push(glyphs);
+      for (let i = 0; i < glyphs.length; ++i) {
+        let idx = fit.pop();
+        supertile.glyphs[idx] = glyphs[i];
+        supertile.domains[idx] = domain;
+        if (DEBUG_SHOW_SOCKETS) {
+          let color = ["lb", "rd", "lg"][anarchy.posmod(r, 3)];
+          supertile.colors[idx].push(color);
+        }
+      }
+    }
+  }
+
   function supertile_known_words(dimension, sgp, seed) {
     // Returns a list of words known to be on the given supertile without
     // generating the supertile. Not all words on the supertile (e.g.,
@@ -1840,7 +2016,7 @@ function(anarchy, dict, grid, dimensions, caching) {
   function worm_fill_skip(domain) {
     // Computes and returns the size of small worms to skip over when
     // augmenting supertiles using the given domain.
-    var domain_objs = domain_objects(domain);
+    let domain_objs = domain_objects(domain);
     let wfs = WORM_FILL_SKIP;
     while (wfs > 0) {
       let short_total = domain_objs
@@ -1859,20 +2035,13 @@ function(anarchy, dict, grid, dimensions, caching) {
     return wfs;
   }
 
-  function augment_words(supertile, domain, seed, leave_empty) {
-    // Finds all open spaces in the supertile and organizes them into linear
-    // paths, and then fills some or all of those paths with words from the
-    // given domain, leaving at least the given number of spaces empty (or none
-    // if leave_empty is not given). More spaces may be left empty if the
-    // available space (or its partition into linear paths) doesn't leave
-    // enough space in some places to fit a whole word from the domain. Fewer
-    // empty spaces may remain if there weren't that many spaces open to begin
-    // with.
-    // TODO: Use standby words in order to create more reverse-searchability.
-    if (leave_empty == undefined) {
-      leave_empty = 0;
-    }
-    let attempts = 0;
+  function find_worms(supertile, seed) {
+    // Using the given seed, finds a set of random paths that together fill up
+    // all empty space in the given supertile. Because worms can kill
+    // themselves through collisions with themselves, edges, or other worms,
+    // even on a completely empty supertile there are no guarantees about the
+    // number of worms or their length, but the algorithm does grow worms one
+    // at a time until each worm gets stuck.
     let sseed = sghash(seed + 128301982, supertile.pos); // worm origins
     let dseed = sghash(seed + 9849283, supertile.pos); // worm growth directions
     let wseed = sghash(seed + 619287712, supertile.pos); // word sampling
@@ -1944,6 +2113,25 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
       } // done growing this worm; loop again to grow the next one
     } // done growing all possible worms
+
+    return worms;
+  }
+
+  function augment_words(supertile, domain, seed, leave_empty) {
+    // Finds all open spaces in the supertile and organizes them into linear
+    // paths, and then fills some or all of those paths with words from the
+    // given domain, leaving at least the given number of spaces empty (or none
+    // if leave_empty is not given). More spaces may be left empty if the
+    // available space (or its partition into linear paths) doesn't leave
+    // enough space in some places to fit a whole word from the domain. Fewer
+    // empty spaces may remain if there weren't that many spaces open to begin
+    // with.
+    // TODO: Use standby words in order to create more reverse-searchability.
+    if (leave_empty == undefined) {
+      leave_empty = 0;
+    }
+
+    let worms = find_worms(supertile, seed);
 
     // limit for skipping small worms
     let wfs = worm_fill_skip(domain);
@@ -2862,12 +3050,16 @@ function(anarchy, dict, grid, dimensions, caching) {
     // to comfortably support all overlength words in a domain. Assumes as a
     // baseline that overlength words should be 1/2 as common as their overall
     // prevalence per entry (frequency gets ignored).
-    // TODO: Account for the frequency of overlength words?
+    // Returns undefined if a required domain is not yet loaded.
+    // TODO: Account for the frequency of overlength words!
     let domains;
     if ("" + dom_or_combo === dom_or_combo) {
-      domains = dict.lookup_domains(domains_list(dom_or_string));
+      domains = dict.lookup_domains(domains_list(dom_or_combo));
     } else {
-      domains = [ dom_or_string ];
+      domains = [ dom_or_combo ];
+    }
+    if (domains == undefined) {
+      return undefined;
     }
     let total_overlength = 0;
     let total_entries = 0;
