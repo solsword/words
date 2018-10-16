@@ -104,6 +104,25 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     );
   }
 
+  function sidx__sgap(sidx) {
+    // Converts a socket index within an ultratile into a (canonical) local
+    // supergrid assignment position (supergrid x, supergrid y, and socket).
+    let y = Math.floor(sidx / ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS);
+    let col = sidx % (ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS);
+    let x = Math.floor(col / ASSIGNMENT_SOCKETS);
+    let socket = col % ASSIGNMENT_SOCKETS;
+    return [x, y, socket];
+  }
+
+  function sgap__sidx(sgap) {
+    // Inverse of the above.
+    return (
+      sgap[0]  * ASSIGNMENT_SOCKETS
+    + sgap[1] * ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS
+    + sgap[2]
+    );
+  }
+
   // Hex index & linear index of the center of a supergrid tile:
   var SG_CENTER = [3, 3]; 
   var SG_CENTER_IDX = gp__index(SG_CENTER);
@@ -125,11 +144,23 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   // Number of supertiles in an ultragrid tile:
   var ULTRATILE_SUPERTILES = ULTRAGRID_SIZE * ULTRAGRID_SIZE;
 
+  // Number of those that are in the interior:
+  var ULTRATILE_INTERIOR_SUPERTILES = (
+    (ULTRAGRID_SIZE - 2)
+  * (ULTRAGRID_SIZE - 2)
+  );
+
+  // One row of those:
+  var ULTRATILE_INTERIOR_SUPERTILES_ROW = ULTRAGRID_SIZE - 2;
+
+  // Number of supertiles before the firs interior supertile:
+  var ULTRATILE_SUPERTILES_PRE_INTERIOR = ULTRAGRID_SIZE + 2;
+
   // Number of assignment sockets in an ultragrid tile:
   var ULTRATILE_SOCKETS = ULTRATILE_SUPERTILES * ASSIGNMENT_SOCKETS;
 
-  // Same, minus the top and left edge supertiles (which share sockets with
-  // other ultratiles).
+  // Same, minus the top and left edge supertiles (which share canonical
+  // sockets with other ultratiles).
   var ULTRATILE_INTERIOR_SOCKETS = (
     (ULTRAGRID_SIZE - 1)
   * (ULTRAGRID_SIZE - 1)
@@ -137,10 +168,10 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   );
 
   // One row of sockets in the interior:
-  var ULTRATILE_INTERIOR_ROW = (ULTRAGRID_SIZE - 1) * ASSIGNMENT_SOCKETS;
+  var ULTRATILE_INTERIOR_SOCKETS_ROW = (ULTRAGRID_SIZE - 1) *ASSIGNMENT_SOCKETS;
 
   // Number of positions before the first non-edge position
-  var ULTRATILE_PRE_INTERIOR = (ULTRAGRID_SIZE + 1) * ASSIGNMENT_SOCKETS;
+  var ULTRATILE_SOCKETS_PRE_INTERIOR = (ULTRAGRID_SIZE + 1) *ASSIGNMENT_SOCKETS;
 
   // Same as above but excluding a two-supertile border:
   var ULTRATILE_CORE_SOCKETS = (
@@ -150,10 +181,13 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   );
 
   // One row of sockets in the core:
-  var ULTRATILE_CORE_ROW = (ULTRAGRID_SIZE - 4) * ASSIGNMENT_SOCKETS;
+  var ULTRATILE_CORE_SOCKETS_ROW = (ULTRAGRID_SIZE - 4) * ASSIGNMENT_SOCKETS;
 
-  // As ULTRATILE_PRE_INTERIOR but for core tiles (two-away from edges):
-  var ULTRATILE_PRE_CORE = ((ULTRAGRID_SIZE * 2) + 2) * ASSIGNMENT_SOCKETS;
+  // As ULTRATILE_SOCKETS_PRE_INTERIOR but for core tiles (two-away from edges):
+  var ULTRATILE_SOCKETS_PRE_CORE = (
+    ((ULTRAGRID_SIZE * 2) + 2)
+  * ASSIGNMENT_SOCKETS
+  );
 
   // Size of assignment region is this squared; should be large enough to
   // accommodate even a relatively large corpus (vocabulary, not count).
@@ -865,7 +899,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     // Takes an ultratile-local supergrid assignment position (supergrid x/y
     // and socket index) and returns an assignment index within that ultratile.
     // The given assignment position must be within the default ultratile,
-    // otherwise this function will return undefined.
+    // otherwise this function will return undefined. Non-canonical assignment
+    // positions will be converted automatically before the index is computed.
 
     // Ensure our position is canonical:
     let socket = sgap[2];
@@ -924,11 +959,15 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "ULTRATILE_SOCKETS": ULTRATILE_SOCKETS,
     "ULTRATILE_ROW_SOCKETS": ULTRATILE_ROW_SOCKETS,
     "ULTRATILE_SUPERTILES": ULTRATILE_SUPERTILES,
+    "ULTRATILE_INTERIOR_SUPERTILES": ULTRATILE_INTERIOR_SUPERTILES,
+    "ULTRATILE_INTERIOR_SUPERTILES_ROW": ULTRATILE_INTERIOR_SUPERTILES_ROW,
+    "ULTRATILE_SUPERTILES_PRE_INTERIOR": ULTRATILE_SUPERTILES_PRE_INTERIOR,
     "ULTRATILE_INTERIOR_SOCKETS": ULTRATILE_INTERIOR_SOCKETS,
-    "ULTRATILE_PRE_INTERIOR": ULTRATILE_PRE_INTERIOR,
+    "ULTRATILE_INTERIOR_SOCKETS_ROW": ULTRATILE_INTERIOR_SOCKETS_ROW,
+    "ULTRATILE_SOCKETS_PRE_INTERIOR": ULTRATILE_SOCKETS_PRE_INTERIOR,
     "ULTRATILE_CORE_SOCKETS": ULTRATILE_CORE_SOCKETS,
-    "ULTRATILE_CORE_ROW": ULTRATILE_CORE_ROW,
-    "ULTRATILE_PRE_CORE": ULTRATILE_PRE_CORE,
+    "ULTRATILE_CORE_SOCKETS_ROW": ULTRATILE_CORE_SOCKETS_ROW,
+    "ULTRATILE_SOCKETS_PRE_CORE": ULTRATILE_SOCKETS_PRE_CORE,
     "ASSIGNMENT_REGION_SIDE": ASSIGNMENT_REGION_SIDE,
     "ASSIGNMENT_REGION_ULTRATILES": ASSIGNMENT_REGION_ULTRATILES,
     "ASSIGNMENT_REGION_TOTAL_SUPERTILES": ASSIGNMENT_REGION_TOTAL_SUPERTILES,
@@ -958,6 +997,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     "neighbor": neighbor,
     "sg_neighbor": sg_neighbor,
     "is_canonical": is_canonical,
+    "sgap__sidx": sgap__sidx,
+    "sidx__sgap": sidx__sgap,
     "is_valid_sgindex": is_valid_sgindex,
     "is_valid_subindex": is_valid_subindex,
     "ALL_SUPERTILE_POSITIONS": ALL_SUPERTILE_POSITIONS,
