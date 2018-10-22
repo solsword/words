@@ -240,6 +240,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     return r;
   }
 
+  function ultratile_seed(ugp, dimension, world_seed) {
+    return sghash(world_seed ^ dimensions.seed(dimension), ugp);
+  }
+
   function sample_table(table, seed) {
     // Samples a table of weights.
     var total_weight = 0;
@@ -808,6 +812,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     //
     // Returns an object with the following keys:
     //
+    //   seed:
+    //     The seed used to generate this ultratile information.
+    //   pos:
+    //     The ultragrid position used to generate this ultratile.
     //   ol_primary:
     //     Whether this ultratile is primarily defined by overlength supertiles
     //     (true) or asignment sockets (false).
@@ -1297,6 +1305,8 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // return our results:
     return {
+      "seed": seed,
+      "pos": ugp,
       "ol_primary": ol_primary,
       "asg_nat_prior": asg_nat_prior,
       "ol_nat_prior": ol_nat_prior,
@@ -1317,7 +1327,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     MULTIPLANAR_INFO_CACHE_SIZE
   );
 
-  function punctuated_assignment_index(ugap, utcontext, seed) {
+  function punctuated_assignment_index(ugap, utcontext, world_seed) {
     // Takes an ultragrid assignment position (ultratile x/y, sub x/y, and
     // assignment index) and corresponding ultragrid context (the result of
     // ultratile_context above) and returns an array containing:
@@ -1347,13 +1357,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     var asg_y = Math.floor(ut_y / grid.ASSIGNMENT_REGION_SIDE);
 
     // linear index within ultratile:
-    var lin = (
-      (
-        sub_x
-      + sub_y * grid.ULTRAGRID_SIZE
-      ) * grid.ASSIGNMENT_SOCKETS
-    + ap
-    );
+    var lin = grid.sgap__sidx([sub_x, sub_y, ap]);
 
     // get mutiplanar offset
     var mp_offset = mptable[lin];
@@ -1362,7 +1366,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       return undefined;
     }
     var asg_index = 0;
-    var r = sghash(seed + 379238109821, [ut_x, ut_y])
+    var r = sghash(world_seed + 379238109821, [ut_x, ut_y])
     if (mp_offset == 0) { // natural: index determined by prior stuff
       var row = Math.floor(lin / grid.ULTRATILE_ROW_SOCKETS);
       asg_index = nat_prior + mpsums[row];
@@ -1390,17 +1394,18 @@ function(anarchy, dict, grid, dimensions, caching) {
     return [ asg_x, asg_y, asg_index, mp_offset ];
   }
 
-  function punctuated_assignment_lookup(domain_name, agp, mp_offset, seed) {
-    // The inverse of punctuated_assignment_index (see above); this takes an
-    // assignment position (assignment grid x/y and linear number) and a
-    // multiplanar offset, and returns a (canonical) supergrid assignment
-    // position that contains the indicated assignment index. If suitable
-    // cached multiplanar offset info isn't yet available, this will return
-    // null. Use caching.with_cached_value to execute code as soon as the info
-    // becomes available.
+  function punctuated_assignment_lookup(dimension, agp, world_seed) {
+    // The inverse of punctuated_assignment_index (see above); this takes a
+    // dimenson, and an assignment position (assignment grid x/y and linear
+    // number) and returns a (canonical) supergrid assignment position that
+    // contains the indicated assignment index. If suitable cached multiplanar
+    // offset info isn't yet available, this will return null. Use
+    // caching.with_cached_value to execute code as soon as the info becomes
+    // available.
     //
     // If the linear assignment number is larger than the last assigned socket,
     // this will return undefined.
+    let domain_name = dict.name_of(dimensions.natural_domain(dimension));
 
     var asg_x = agp[0];
     var asg_y = agp[1];
@@ -1412,9 +1417,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // fetch utcontext or fail:
+    let utseed = ultratile_seed(ugp, dimension, world_seed);
     var utcontext = caching.cached_value(
-      "ultratile_context", 
-      [ domain_name, ugp, seed ]
+      "ultratile_context",
+      [ domain_name, [ ugp[0], ugp[1] ], utseed ]
     );
     if (utcontext == null) {
       return null;
@@ -1463,7 +1469,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
-  function punctuated_overlength_index(ugp, utcontext, seed) {
+  function punctuated_overlength_index(ugp, utcontext, world_seed) {
     // Takes an ultragrid supertile position (ultratile x/y and sub x/y) and
     // corresponding ultragrid context (the result of ultratile_context above)
     // and returns an array containing:
@@ -1476,35 +1482,34 @@ function(anarchy, dict, grid, dimensions, caching) {
     //   return undefined.
 
     // unpack:
-    var nat_prior = utcontext.ol_nat_prior;
-    var mptable = utcontext.supertile_offsets;
-    var mpsums = utcontext.ol_nat_sums;
+    let nat_prior = utcontext.ol_nat_prior;
+    let mptable = utcontext.supertile_offsets;
+    let mpsums = utcontext.ol_nat_sums;
 
-    var ut_x = ugp[0];
-    var ut_y = ugp[1];
-    var sub_x = ugp[2];
-    var sub_y = ugp[3];
+    let ut_x = ugp[0];
+    let ut_y = ugp[1];
+    let sub_x = ugp[2];
+    let sub_y = ugp[3];
 
     // compute assignment tile:
-    var asg_x = Math.floor(ut_x / grid.ASSIGNMENT_REGION_SIDE);
-    var asg_y = Math.floor(ut_y / grid.ASSIGNMENT_REGION_SIDE);
+    let asg_x = Math.floor(ut_x / grid.ASSIGNMENT_REGION_SIDE);
+    let asg_y = Math.floor(ut_y / grid.ASSIGNMENT_REGION_SIDE);
 
     // linear index within ultratile:
-    var lin = sub_x + sub_y * grid.ULTRAGRID_SIZE;
+    let lin = grid.sgp__index([sub_x, sub_y]);
 
     // get mutiplanar offset
-    var mp_offset = mptable[lin];
+    let mp_offset = mptable[lin];
     if (mp_offset == undefined) {
       // This supertile is socketed.
       return undefined;
     }
-    var asg_index = 0;
-    var r = sghash(seed + 379238109821, [ut_x, ut_y])
+    let asg_index = 0;
     if (mp_offset == 0) { // natural: index determined by prior stuff
-      var row = sub_y;
+      let row = sub_y;
       asg_index = nat_prior + mpsums[row];
       // iterate from beginning of row to count local priors
-      for (var here = sub_y * grid.ULTRAGRID_SIZE; here < lin; ++here) {
+      for (let here = sub_y * grid.ULTRAGRID_SIZE; here < lin; ++here) {
         if (mptable[here] == 0) {
           asg_index += 1;
         }
@@ -1512,7 +1517,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     } else { // inclusion: index determined by RNG
       // TODO: Pull these together near a destination?
       // compute a suitable seed value for this inclusion:
-      var ir = r + mp_offset;
+      let r = sghash(world_seed + 379238109821, [ut_x, ut_y])
+      let ir = r + mp_offset;
       for (let i = 0; i < (mp_offset % 7) + 2; ++i) {
         ir = anarchy.lfsr(r);
       }
@@ -1527,17 +1533,18 @@ function(anarchy, dict, grid, dimensions, caching) {
     return [ asg_x, asg_y, asg_index, mp_offset ];
   }
 
-  function punctuated_overlength_lookup(domain_name, agp, mp_offset, seed) {
-    // The inverse of punctuated_overlength_index (see above); this takes an
-    // assignment position (assignment grid x/y and linear number) and a
-    // multiplanar offset, and returns the supergrid coordinates of an
-    // overlength supertile that contains the indicated assignment index. If
-    // suitable cached multiplanar offset info isn't yet available, this will
-    // return null. Use caching.with_cached_value to execute code as soon as
-    // the info becomes available.
+  function punctuated_overlength_lookup(dimension, agp, world_seed) {
+    // The inverse of punctuated_overlength_index (see above); this takes a
+    // dimension and an assignment position (assignment grid x/y and linear
+    // number) and returns the supergrid coordinates of an overlength supertile
+    // that contains the indicated assignment index. If suitable cached
+    // multiplanar offset info isn't yet available, this will return null. Use
+    // caching.with_cached_value to execute code as soon as the info becomes
+    // available.
     //
     // If the linear assignment number is larger than the last assigned
     // supertile, this will return undefined.
+    let domain_name = dict.name_of(dimensions.natural_domain(dimension));
 
     var asg_x = agp[0];
     var asg_y = agp[1];
@@ -1549,9 +1556,10 @@ function(anarchy, dict, grid, dimensions, caching) {
     }
 
     // fetch utcontext or fail:
+    let utseed = ultratile_seed(ugp, dimension, world_seed);
     var utcontext = caching.cached_value(
       "ultratile_context", 
-      [ domain_name, ugp, seed ]
+      [ domain_name, [ ugp[0], ugp[1] ], utseed ]
     );
     if (utcontext == null) {
       return null;
@@ -1817,16 +1825,16 @@ function(anarchy, dict, grid, dimensions, caching) {
     return result;
   }
 
-  function generate_supertile(dimension, sgp, seed) {
+  function generate_supertile(dimension, sgp, world_seed) {
     // Calls the appropriate supertile generator for the dimension requested.
     let k = dimensions.kind(dimension);
     if (k == "full") {
-      return generate_full_supertile(dimension, sgp, seed);
+      return generate_full_supertile(dimension, sgp, world_seed);
     } else if (k == "pocket" || k == "custom") {
       return generate_pocket_supertile(
         dimension,
         sgp,
-        seed
+        world_seed
       );
     } else {
       console.warn(
@@ -1848,7 +1856,7 @@ function(anarchy, dict, grid, dimensions, caching) {
   }
 
 
-  function generate_full_supertile(dimension, sgp, seed) {
+  function generate_full_supertile(dimension, sgp, world_seed) {
     // Given that the necessary domain(s) and multiplanar info are all
     // available, generates the glyph contents of the supertile at the given
     // position in a full dimension. Returns undefined if there's missing
@@ -1856,7 +1864,7 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     let result = {
       "pos": sgp.slice(),
-      "seed": seed,
+      "world_seed": world_seed,
       "dimension": dimension,
       "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
       "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
@@ -1866,11 +1874,13 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     let default_domain = dimensions.natural_domain(dimension);
 
+    let seed = world_seed;
     let s = dimensions.seed(dimension)
     seed ^= s;
     for (let i = 0; i < (s % 5) + 3; ++i) {
       seed = anarchy.prng(seed);
     }
+    result.seed = seed;
 
     // set glyphs, colors, and domains to undefined:
     for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
@@ -1888,25 +1898,24 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // Is this supertile actually an overlength supertile?
     let ugp = grid.ugpos(sgp);
+    let utseed = ultratile_seed(ugp, dimension, world_seed);
     // Ultratile context:
     let utcontext = caching.cached_value(
       "ultratile_context",
-      [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], seed ]
+      [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], utseed ]
     );
     if (utcontext == null) {
       return undefined;
     }
 
     // First, embed any socketed words
-    let success = embed_socketed_words(result);
-    if (success == undefined) {
+    let socket_count = embed_socketed_words(result);
+    if (socket_count == undefined) {
       return undefined;
     }
 
     // Next, for overlength supertiles, embed the assigned overlength word
-    // TODO: DEBUG: How can we attempt to embed an overlength word in a
-    // supertile where multiple sockets are already taken?!?
-    let asg = punctuated_overlength_index(ugp, utcontext, seed);
+    let asg = punctuated_overlength_index(ugp, utcontext, world_seed);
     if (asg != undefined) {
       let success = embed_overlength_word(result, asg);
       if (success == undefined) {
@@ -1916,14 +1925,14 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // Assignment grid position of the canonical socket in this supertile:
     let agp = grid.agpos([sgp[0], sgp[1], 0]);
-    // Use that to  seed our random values:
+    // Use that to seed our random values:
     let r = anarchy.lfsr(sghash(seed, agp));
 
     // First try to add more words, then fill any remaining voids:
     // TODO: Call augment multiple times with different domains when inclusions
     // are present?
-    // TODO: Leave some empty spaces
-    //augment_words(result, default_domain, r, WORMS_LEAVE_EMPTY);
+    // TODO: Leave some empty spaces?
+    // augment_words(result, default_domain, r, WORMS_LEAVE_EMPTY);
     augment_words(result, default_domain, r, 0);
     r = anarchy.lfsr(r);
     // Double augment may fill extra gaps
@@ -1939,19 +1948,23 @@ function(anarchy, dict, grid, dimensions, caching) {
   function embed_socketed_words(supertile) {
     // Picks a word for each socket in a supertile and embeds it (or the
     // relevant part of it). Returns undefined if required ultratile context is
-    // still unavailable, or true if it succeeds.
+    // still unavailable, or the number of socketed words embedded if it
+    // succeeds.
     let sgp = supertile.pos;
     let seed = supertile.seed;
+    let world_seed = supertile.world_seed;
     let dimension = supertile.dimension;
     let default_domain = dimensions.natural_domain(dimension);
+    let embed_count = 0;
     for (let socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
       let sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
       let ugp = grid.ugpos(sgap); // socket index is ignored
+      let utseed = ultratile_seed(ugp, dimension, world_seed);
 
       // Compute ultratile context (might come from neighbor):
       let utcontext = caching.cached_value(
         "ultratile_context",
-        [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], seed ]
+        [ dict.name_of(default_domain), [ ugp[0], ugp[1] ], utseed ]
       );
       if (utcontext == null) {
         return undefined;
@@ -1960,20 +1973,22 @@ function(anarchy, dict, grid, dimensions, caching) {
       let asg = punctuated_assignment_index(
         [ ugp[0], ugp[1], ugp[2], ugp[3], sgap[2] ],
         utcontext,
-        seed
+        world_seed
       );
       // If this socket is unassigned (perhaps because of a neighboring
       // overlength supertile, for example), then we skip it and continue to
       // the next socket.
       if (asg == undefined) {
         continue;
+      } else {
+        embed_count += 1;
       }
+
       let asg_x = asg[0];
       let asg_y = asg[1];
       let asg_idx = asg[2];
       let mpo = asg[3];
       let l_seed = sghash(seed, asg);
-      let r = anarchy.lfsr(l_seed);
 
       let mdim = dimensions.neighboring_dimension(dimension, mpo)
       let domain = dimensions.natural_domain(mdim);
@@ -1991,6 +2006,9 @@ function(anarchy, dict, grid, dimensions, caching) {
         return undefined;
       }
 
+      // Pick an embedding seed:
+      let r = anarchy.lfsr(sghash(l_seed, sgap));
+
       // Embed that word in this socket:
       let glyphs = entry[0].slice();
       let maxlen = grid.SOCKET_SIZE;
@@ -2001,6 +2019,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         // This word will be assigned to a long-word supertile; we can skip it
         // here in favor of a shorter word:
         entry = sample_word(domain, r, maxlen);
+        r = anarchy.lfsr(r);
         if (entry == undefined) {
           // No words short enough? Skip all sockets (more food for worms)!
           // Note: This should only happen in very odd domains!
@@ -2036,6 +2055,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         glyphs = glyphs.slice(cut);
       }
       let touched = inlay_word(supertile, glyphs, socket, r);
+      r = anarchy.lfsr(r);
       for (let i = 0; i < touched.length; ++i) {
         let idx = grid.gp__index(touched[i]);
         supertile.domains[idx] = domain;
@@ -2049,7 +2069,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       }
     }
     // Embedding successful
-    return true;
+    return embed_count;
   }
 
   function embed_overlength_word(supertile, asg) {
@@ -2057,6 +2077,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // undefined if required ultratile context is still unavailable, or true if
     // it succeeds.
     let seed = supertile.seed;
+    let world_seed = supertile.world_seed;
     let dimension = supertile.dimension;
 
     let asg_x = asg[0];
@@ -2080,6 +2101,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // TODO: Long words only for normal domains, but all words for
     // overlength-primary domains.
     let entry = pick_word(doms, asg, l_seed);
+
     if (entry == undefined) {
       return undefined;
     }
@@ -2122,7 +2144,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     return true;
   }
 
-  function supertile_known_words(dimension, sgp, seed) {
+  function supertile_known_words(dimension, sgp, world_seed) {
     // Returns a list of words known to be on the given supertile without
     // generating the supertile. Not all words on the supertile (e.g.,
     // augmented words) are returned.
@@ -2675,7 +2697,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     POCKET_LAYOUT_CACHE_SIZE
   );
 
-  function generate_pocket_supertile(dimension, sgp, seed) {
+  function generate_pocket_supertile(dimension, sgp, world_seed) {
     // Given that the necessary domain(s) and pocket layout are available,
     // generates the glyph contents of the supertile at the given position in a
     // pocket dimension. Returns undefined if there's missing information, or
@@ -2690,7 +2712,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     };
 
     // scramble the seed
-    let s = dimensions.seed(dimension)
+    let seed = world_seed;
+    let s = dimensions.seed(dimension);
     seed ^= s;
     for (var i = 0; i < (s % 5) + 3; ++i) {
       seed = anarchy.prng(seed);

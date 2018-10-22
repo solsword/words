@@ -117,8 +117,10 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   function sgap__sidx(sgap) {
     // Inverse of the above.
     return (
-      sgap[0]  * ASSIGNMENT_SOCKETS
-    + sgap[1] * ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS
+      (
+        sgap[0]
+      + sgap[1] * ULTRAGRID_SIZE
+      ) * ASSIGNMENT_SOCKETS
     + sgap[2]
     );
   }

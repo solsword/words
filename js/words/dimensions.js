@@ -193,7 +193,6 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
 
   function pocket_words(dimension) {
     let result = [];
-    let domain = natural_domain(dimension);
     for (let i = 0; i < pocket_word_count(dimension); ++i) {
       let str = pocket_nth_word(dimension, i);
       result.push(utils.string__array(str));
