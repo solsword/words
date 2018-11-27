@@ -1260,10 +1260,12 @@ function(anarchy, dict, grid, dimensions, caching) {
         let sgap = grid.canonical_sgapos(sgp[0], sgp[1], socket);
         let loc = grid.sgap__sidx(sgap);
         let mpo = socket_offsets[loc];
-        if (!mpo_table.hasOwnProperty(mpo)) {
-          mpo_table[mpo] = 0;
+        if (mpo != undefined) {
+          if (!mpo_table.hasOwnProperty(mpo)) {
+            mpo_table[mpo] = 0;
+          }
+          mpo_table[mpo] += 1;
         }
-        mpo_table[mpo] += 1;
       }
       // Figure out the most-frequent multiplanar offset:
       let winner = 0;
@@ -1271,7 +1273,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       for (let k of Object.keys(mpo_table)) {
         if (mpo_table[k] > win_count) {
           win_count = mpo_table[k];
-          winner = parseInt(k);
+          winner = k;
         }
       }
       if (winner == 0) { // non-inclusions win
@@ -1936,13 +1938,6 @@ function(anarchy, dict, grid, dimensions, caching) {
       result.domains[i] = undefined;
     }
 
-    // Add an active element to the center:
-    // TODO: Objects
-    // result.glyphs[grid.SG_CENTER_IDX] = "🗍";
-    // result.domains[grid.SG_CENTER_IDX] = "__object__";
-    // TODO: Scatter objects
-    // TODO: Interesting objects
-
     // Is this supertile actually an overlength supertile?
     let ugp = grid.ugpos(sgp);
     let utseed = ultratile_seed(ugp, dimension, world_seed);
@@ -1989,7 +1984,7 @@ function(anarchy, dict, grid, dimensions, caching) {
         if (grid.is_valid_subindex(xy)) {
           let idx = grid.gp__index(xy);
           if (result.glyphs[idx] == undefined) {
-            result.gylphs[idx] = obj;
+            result.glyphs[idx] = obj;
             result.domains[idx] = "__object__";
             break; // done placing object
           } // else keep looking for an empty spot
