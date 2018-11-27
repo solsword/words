@@ -176,10 +176,20 @@ define([], function() {
   }
 
   function udist(x) {
-    // Generates a random number between 0 and 1 given a seed value.
+    // Generates a random number in [0, 1) given a seed value.
     var ux = lfsr(x >>> 0);
     var sc = (ux ^ (ux << 16)) >>> 0;
     return (sc % 2147483659) / 2147483659; // prime near 2^31
+  }
+
+  function pgdist(x) {
+    // Pseudo-gaussian distribution over [0, 1).
+    let u1 = udist(x);
+    let x = lfsr(x >>> 0);
+    let u2 = udist(x);
+    let x = lfsr(x >>> 0);
+    let u3 = udist(x);
+    return (u1 + u2 + u3) / 3;
   }
 
   function idist(x, start, end) {
@@ -187,6 +197,18 @@ define([], function() {
     // but excluding the higher end (even if the lower end is given second).
     // Distribution bias is about one part in (range/2^31).
     return Math.floor(udist(x) * (end - start)) + start;
+  }
+
+  function pgidist(x, start, end) {
+    // Pseudo-gaussian distribution over the given integer range, including the
+    // lower end but excluding the higher end (even if the lower end is given
+    // second). Distribution bias is about one part in (range/2^31).
+    let i1 = idist(x, start, end);
+    let x = lfsr(x >>> 0);
+    let i2 = idist(x, start, end);
+    let x = lfsr(x >>> 0);
+    let i3 = idist(x, start, end);
+    return Math.floor((i1 + i2 + i3) / 3);
   }
 
   function expdist(x) {

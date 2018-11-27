@@ -343,7 +343,10 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
       // Categorize word as superlong, overlength, or normlength. Because this
       // loop is iterating over entries sorted by frequency, each of these
       // lists will also be sorted by frequency.
-      if (len > grid.SUPERTILE_TILES - grid.SOCKET_SIZE/2 - 1) {
+      if (len >= grid.SUPERTILE_TILES - grid.SOCKET_SIZE/2 - 1) {
+        // To fit into an overlength supertile, we must allow space for one
+        // half-socket to be assigned another word, and for a single tile to be
+        // reserved for an object.
         superlong.push(i);
       } else if (len > grid.SOCKET_SIZE) {
         overlength.push(i);

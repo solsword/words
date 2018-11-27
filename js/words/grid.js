@@ -74,7 +74,8 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   }
 
   function index__gp(idx) {
-    // Inverse of above.
+    // Inverse of above. Similarly does not always result in a valid grid
+    // coordinate.
     let y = Math.floor(idx / SUPERTILE_SIZE);
     let x = idx % SUPERTILE_SIZE;
     return [x, y];

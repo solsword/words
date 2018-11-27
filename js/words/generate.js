@@ -76,6 +76,8 @@ function(anarchy, dict, grid, dimensions, caching) {
   };
   // TODO: Allow words found in combo domains to appear in a common list!?!
 
+  var RESOURCE_TYPES = "🔑📄♻🖌🌱🌼💬🔍🔆🔧🔔🌈🌍🌎🌏";
+
   var BASE_PERMUTATIONS = [
     // 46, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
 
@@ -805,6 +807,11 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
+  function random_resource(seed) {
+    // Takes just a seed value and returns a random resource character.
+    return RESOURCE_TYPES[seed % RESOURCE_TYPES.length];
+  }
+
   function ultratile_context(domain_name, ugp, seed) {
     // Takes a domain string and an ultragrid position and computes generation
     // info including mutiplanar offsets for each assignment position in that
@@ -1195,23 +1202,48 @@ function(anarchy, dict, grid, dimensions, caching) {
 
     // now that multiplanar info is computed, add object info
     // decide how many objects we'll have:
-    // TODO: continuously varying value here!
-    let richness = anarchy.idist(
-      r,
-      MIN_OBJECTS_PER_ULTRATILE,
-      Math.floor(3 * grid.ULTRATILE_SUPERTILES / 4)
-    );
+    // TODO: continuously varying value here?
+    let st = MIN_OBJECTS_PER_ULTRATILE;
+    let ed = Math.floor(4 * grid.ULTRATILE_SUPERTILES / 5);
+    let r1 = anarchy.idist(r, st, ed);
     r = anarchy.lfsr(r);
+    let r2 = anarchy.idist(r, st, ed);
+    r = anarchy.lfsr(r);
+    let r3 = anarchy.idist(r, st, ed);
+    let richness = Math.max(r1, r2, r3);
+
+    // Divide objects among object categories:
+    //
+    //   links---Conditional gates that link to other dimensions.
+    //   wormholes---Conditional gates that link elsewhere in this dimension.
+    //   portals---Conditional gates that link to pocket dimensions.
+    //   resources---Harvestable items that aid the player.
+
+    let links = Math.floor(richness/20);
+    let wormholes = Math.floor(richness/40);
+    let remaining = richness - links - wormholes;
+    let portals = Math.floor(remaining/5);
+    // the rest are resources
 
     // Build a queue of objects to insert
-    obj_queue = [];
+    // Note: Order doesn't matter here, as these will be assigned to random
+    // supertiles within the ultratile.
+    let obj_queue = [];
     for (let i = 0; i < richness; ++i) {
-      // TODO: Object types here!
-      obj_queue.push("🗍");
+      if (i < links) {
+        obj_queue.push("🔗");
+      } else if (i < links + wormholes) {
+        obj_queue.push("🌀");
+      } else if (i < links + wormholes + portals) {
+        obj_queue.push("🚪");
+      } else {
+        let res = random_resource(r);
+        r = anarchy.lfsr(r);
+        obj_queue.push(res);
+      }
     }
 
-    // index objects into grid:
-    // TODO: Reconcile objects w/ overlength supertiles?
+    // index objects into the supergrid:
     let objects = [];
     let shuf_seed = r;
     r = anarchy.lfsr(r);
@@ -1221,17 +1253,32 @@ function(anarchy, dict, grid, dimensions, caching) {
         si % grid.ULTRAGRID_SIZE,
         Math.floor(si / grid.ULTRAGRID_SIZE)
       ];
-      // iterate over canonical sockets in this supertile
-      for (let socket = 0; socket < grid.ASSIGNMENT_SOCKETS; ++socket) {
+      // iterate over canonical sockets that touch this supertile to count
+      // multiplanar offsets
+      let mpo_table = { 0: 0 };
+      for (let socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
         let sgap = grid.canonical_sgapos(sgp[0], sgp[1], socket);
         let loc = grid.sgap__sidx(sgap);
         let mpo = socket_offsets[loc];
-        if (mpo == 0) {
-          objects[si] = obj_queue.pop();
-        } else {
-          // TODO: Foreign objects?
-          objects[si] = null;
+        if (!mpo_table.hasOwnProperty(mpo)) {
+          mpo_table[mpo] = 0;
         }
+        mpo_table[mpo] += 1;
+      }
+      // Figure out the most-frequent multiplanar offset:
+      let winner = 0;
+      let win_count = -1;
+      for (let k of Object.keys(mpo_table)) {
+        if (mpo_table[k] > win_count) {
+          win_count = mpo_table[k];
+          winner = parseInt(k);
+        }
+      }
+      if (winner == 0) { // non-inclusions win
+        objects[si] = obj_queue.pop();
+      } else {
+        // TODO: Foreign objects?
+        objects[si] = null;
       }
     }
 
@@ -1927,6 +1974,28 @@ function(anarchy, dict, grid, dimensions, caching) {
     let agp = grid.agpos([sgp[0], sgp[1], 0]);
     // Use that to seed our random values:
     let r = anarchy.lfsr(sghash(seed, agp));
+
+    // Next, since our required words are out of the way, embed our object, if
+    // we have one, at a random unfilled spot (there will be at least one).
+    // TODO: We could be much more efficient at keeping track of unfilled spots!
+    let sidx = grid.sgp__index(sgp);
+    let obj = utcontext.objects[sidx];
+    if (obj != undefined) {
+      let sseed = anarchy.lfsr(r + 9328749);
+      let stsq = grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE
+      for (let i = 0; i < stsq; ++i) {
+        let si = anarchy.cohort_shuffle(i, stsq, sseed);
+        let xy = grid.index__gp(i);
+        if (grid.is_valid_subindex(xy)) {
+          let idx = grid.gp__index(xy);
+          if (result.glyphs[idx] == undefined) {
+            result.gylphs[idx] = obj;
+            result.domains[idx] = "__object__";
+            break; // done placing object
+          } // else keep looking for an empty spot
+        }
+      }
+    }
 
     // First try to add more words, then fill any remaining voids:
     // TODO: Call augment multiple times with different domains when inclusions
