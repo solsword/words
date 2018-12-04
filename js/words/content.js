@@ -2,8 +2,8 @@
 // Manages grid + generate code to create, store, and deliver content.
 
 define(
-  ["./utils", "./grid", "./generate", "./dimensions"],
-  function(utils, grid, generate, dimensions) {
+  ["./utils", "./grid", "./generate", "./dimensions", "./objects"],
+  function(utils, grid, generate, dimensions, objects) {
   // An object to hold generated supertile info.
   var SUPERTILES = {};
   var QUEUED = {};
@@ -14,7 +14,7 @@ define(
 
   // The list of currently-unlocked words, and the limit for that list:
   var UNLOCKED = [];
-  // TODO: DEBUG
+  // TODO: Pick one
   //var UNLOCK_LIMIT = 5;
   //var UNLOCK_LIMIT = 1;
   var UNLOCK_LIMIT = undefined;
@@ -113,7 +113,6 @@ define(
       delete QUEUED[sgk]; // allow re-queue
       return;
     }
-    // TODO: DEBUG
     var st = generate.generate_supertile(dimension, [sgp[0], sgp[1]], SEED);
     if (st != undefined) {
       cache_supertile(sgk, st);
@@ -162,15 +161,14 @@ define(
     return result;
   }
 
-  function unlocked_paths(dimension) {
-    // Returns an array of position paths representing each unlocked path in
+  function unlocked_entries(dimension) {
+    // Returns an array of unlocked entries representing each unlocked path in
     // the given dimension (not counting pokes). Note that some paths may
     // contain 'undefined' entries where extradimensional glyphs were used.
     let result = [];
-    for (let i = 0; i < UNLOCKED.length; ++i) {
-      let entry = UNLOCKED[i];
+    for (let entry of UNLOCKED) {
       if (dimensions.same(entry.dimension, dimension)) {
-        result.push(entry.path.slice());
+        result.push(entry);
       }
     }
     return result;
@@ -203,24 +201,151 @@ define(
     return false;
   }
 
+  function unlocked_entries_that_overlap(dimension, gpmap) {
+    // Returns a list of each unlocked entry that overlaps any of the grid
+    // positions in the given grid position map. The map should map
+    // coords__key'd grid positions to any kind of value.
+    result = [];
+    for (let i = 0; i < UNLOCKED.length; ++i) {
+      let entry = UNLOCKED[i];
+      if (dimensions.same(entry.dimension, dimension)) {
+        let path = entry.path;
+        for (let j = 0; j < path.length; ++j) {
+          let pos = path[j];
+          let key = grid.coords__key(pos);
+          if (gpmap.hasOwnProperty(key)) {
+            result.push(entry);
+            break;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
   function unlock_path(dimension, path) {
     // Unlocks the given path of grid positions in the given dimension.
     // Depending on UNLOCK_LIMIT, may lock the oldest unlocked path.
-    var entry = { "dimension": dimension, "path": path.slice() };
+    // Also update colors for all unlocked paths.
+    var entry = {
+      "dimension": dimension,
+      "path": path.slice(),
+      "sources": {},
+      "colors": {},
+      "adjacent": [],
+    };
+    let duplicate = false;
     for (var i = 0; i < UNLOCKED.length; ++i) {
-      if (utils.is_equal(UNLOCKED[i], entry)) {
+      if (
+        utils.is_equal(
+          [UNLOCKED[i].dimension, UNLOCKED[i].path],
+          [entry.dimension, entry.path]
+        )
+      ) {
+        duplicate = true;
         break;
       }
     }
-    if (i < UNLOCKED.length) {
-      UNLOCKED.splice(i, 1);
+    if (duplicate) {
+      // recover same object and append it, without bothering to do normal
+      // new-entry updates as they're not needed:
+      entry = UNLOCKED.splice(i, 1)[0];
+      UNLOCKED.push(entry);
+    } else {
+      // Add our new entry and update everything:
+      add_unlocked(entry, !(UNLOCKED.length > UNLOCK_LIMIT));
+      // Note: <= is not the inverse of > here because of the possibility of
+      // undefined! We don't want to propagate here if we're about to recompute
+      // color information below.
     }
-
-    UNLOCKED.push(entry);
 
     if (UNLOCKED.length > UNLOCK_LIMIT) {
-      UNLOCKED.shift();
+      remove_unlocked(UNLOCKED[0]);
     }
+    console.log(UNLOCKED);
+  }
+
+  function add_unlocked(entry, propagate_colors) {
+    // Adds an entry to the unlocked list, updating adjacency lists and
+    // computing color sources for the new entry. If propagate_colors is
+    // truthy, also propagates colors from the new entry.
+
+    // First, calculate the sources and create a gpmap for this entry:
+    let gpmap = {};
+    for (let gp of entry.path) {
+      gpmap[grid.coords__key(gp)] = true;
+      let h_tile = tile_at(entry.dimension, gp);
+      if (h_tile.domain == "__object__" && objects.is_color(h_tile.glyph)) {
+        entry.sources[h_tile.glyph] = true;
+      }
+      for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
+        let nb = grid.neighbor(gp, d);
+        gpmap[grid.coords__key(nb)] = true;
+        let nb_tile = tile_at(entry.dimension, nb);
+        if (nb_tile.domain == "__object__" && objects.is_color(nb_tile.glyph)) {
+          entry.sources[nb_tile.glyph] = true;
+        }
+      }
+    }
+
+    // Set up our adjacent list (contains actual object references):
+    entry.adjacent = unlocked_entries_that_overlap(entry.dimension, gpmap);
+    for (let adj of entry.adjacent) {
+      adj.adjacent.push(entry);
+    }
+
+    // Add this entry after computing adjacent neighbors:
+    UNLOCKED.push(entry);
+
+    // Finally, propagate color information if requested:
+    if (propagate_colors) {
+      for (let src of Object.keys(entry.sources)) {
+        propagate_color(entry, src);
+      }
+    }
+  }
+
+  function propagate_color(entry, color) {
+    // Recursively propagates the given specific color within the adjacency
+    // graph of the unlocked list.
+    if (entry.colors[color]) {
+      // base case: this color has already been added here; do no recurse.
+      return;
+    } else {
+      // recursive case: add the color and recurse to all adjacent entries.
+      entry.colors[color] = true;
+      for (let adj of entry.adjacent) {
+        propagate_color(adj, color);
+      }
+    }
+  }
+
+  function recalculate_unlocked_colors() {
+    // Recomputes the unlocked colors of all entries; necessary when entries
+    // are removed.
+    for (let entry of UNLOCKED) {
+      entry.colors = {};
+    }
+    for (let entry of UNLOCKED) {
+      for (let src of entry.sources) {
+        propagate_color(entry, src);
+      }
+    }
+  }
+  
+  function remove_unlocked(entry) {
+    // Removes the given entry from the unlocked list and from all adjacency
+    // lists within other entries of the unlocked list. Then recomputes colors.
+    for (let entry of UNLOCKED) {
+      let adj_idx = entry.adjacent.indexOf(entry);
+      if (adj_idx >= 0) {
+        entry.adjacent.splice(adj_idx, 1);
+      }
+    }
+    let unlk_idx = UNLOCKED.indexOf(entry);
+    UNLOCKED.splice(unlk_idx, 1);
+
+    recalculate_unlocked_colors();
   }
 
   function unlock_poke(dimension, gp) {
@@ -348,7 +473,7 @@ define(
     "tile_at": tile_at,
     "fetch_supertile": fetch_supertile,
     "unlocked_set": unlocked_set,
-    "unlocked_paths": unlocked_paths,
+    "unlocked_entries": unlocked_entries,
     "is_unlocked": is_unlocked,
     "unlock_path": unlock_path,
     "unlock_poke": unlock_poke,

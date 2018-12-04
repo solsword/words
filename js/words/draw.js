@@ -2,8 +2,8 @@
 // Drawing code for words game.
 
 define(
-  ["./grid", "./content", "./colors"],
-  function(grid, content, colors) {
+  ["./grid", "./content", "./colors", "./objects"],
+  function(grid, content, colors, objects) {
 
   var LOADING_BAR_HEIGHT = 20;
   var LOADING_BAR_WIDTH = 120;
@@ -602,19 +602,13 @@ define(
       ctx.fillStyle = colors.tile_color("pad");
       ctx.fillText('?', vpos[0], vpos[1]);
 
+    } else if (domain == "__empty__") { // an empty slot
+      // Don't draw anything
     } else if (domain == "__object__") { // an active object
       var energized = content.is_energized(tile["dimension"], gpos);
 
-      // The glyph:
-      if (energized) {
-        ctx.fillStyle = colors.tile_color("unlocked-glyph");
-      } else {
-        ctx.fillStyle = colors.tile_color("pad");
-      }
-      ctx.fillText(glyph, vpos[0], vpos[1]);
-
-      // TODO: More special here!
-
+      // Draw the object:
+      draw_object(ctx, glyph, energized, vpos);
     } else { // a loaded normal tile: the works
       var unlocked = content.is_unlocked(tile["dimension"], gpos);
 
@@ -717,13 +711,89 @@ define(
     }
   }
 
+  function draw_object(ctx, glyph, energized, vpos) {
+    // Given an object (type specified by the given glyph), whether it's
+    // energized or not, and the viewport position of the object, draws a
+    // special symbol for that object, perhaps using a specific color.
+
+    ctx.fillStyle = objects.object_color(glyph, energized);
+    ctx.strokeStyle = objects.object_color(glyph, energized);
+    if (objects.is_color(glyph)) {
+      draw_color_symbol(ctx, glyph, vpos);
+    } else {
+      ctx.fillText(glyph, vpos[0], vpos[1]);
+    }
+
+    // TODO: More special here?
+  }
+
+  function draw_color_symbol(ctx, glyph, vpos) {
+    // Draws a custom symbol for each color type
+    ctx.beginPath();
+    let fs = FONT_SIZE * ctx.viewport_scale;
+    if (glyph == "红") {
+      ctx.moveTo(vpos[0] - fs/2, vpos[1] - fs/2);
+      ctx.lineTo(vpos[0], vpos[1] + fs/2);
+      ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (glyph == "黄") {
+      ctx.moveTo(vpos[0] - fs/2, vpos[1] - fs/2);
+      ctx.lineTo(vpos[0] - fs/2, vpos[1] + fs/2);
+      ctx.lineTo(vpos[0] + fs/2, vpos[1] + fs/2);
+      ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (glyph == "蓝") {
+      ctx.arc(vpos[0], vpos[1], fs/2, 0, 2*Math.PI);
+      ctx.stroke();
+    } else if (glyph == "橙") {
+      let trheight = Math.sin(Math.PI/3)*fs/3;
+      ctx.moveTo(vpos[0] - fs/2           , vpos[1] - fs/2           );
+      // top
+      ctx.lineTo(vpos[0] - fs/12          , vpos[1] - fs/2           );
+      ctx.lineTo(vpos[0]                  , vpos[1] - fs/2 - trheight);
+      ctx.lineTo(vpos[0] + fs/12          , vpos[1] - fs/2           );
+      ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/2           );
+      // right
+      ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/12          );
+      ctx.lineTo(vpos[0] + fs/2 + trheight, vpos[1]                  );
+      ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/12          );
+      ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/2           );
+      // bottom
+      ctx.lineTo(vpos[0] + fs/12          , vpos[1] + fs/2           );
+      ctx.lineTo(vpos[0]                  , vpos[1] + fs/2 + trheight);
+      ctx.lineTo(vpos[0] - fs/12          , vpos[1] + fs/2           );
+      ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/2           );
+      // left
+      ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/12          );
+      ctx.lineTo(vpos[0] - fs/2 - trheight, vpos[1]                  );
+      ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/12          );
+      ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/2           );
+
+    } else if (glyph == "绿") {
+      // TODO: HERE
+      return fetch("gn");
+    } else if (glyph == "紫") {
+      return fetch("pl");
+    } else if (glyph == "白") {
+      return fetch("wt");
+    }
+  }
+
   function highlight_unlocked(dimension, ctx) {
-    let paths = content.unlocked_paths(dimension);
-    let pal = colors.palette();
-    let c = 0;
-    for (let p of paths) {
-      draw_swipe(ctx, p, "line", colors.bright_color(pal[c]));
-      c = (c + 1) % pal.length;
+    // Highlights the player's unlocked words
+    let entries = content.unlocked_entries(dimension);
+    for (let entry of entries) {
+      let cmb = objects.combined_color(Object.keys(entry.colors));
+      let color = objects.color_color(cmb);
+      for (let pos of entry.path) {
+        // TODO: Shapey highlights; path merging to get regions?!
+        // TODO: This highlight gets overwritten by another...
+        draw_highlight(ctx, pos, color);
+      }
+      // Also highlight each swipe using a neutral color:
+      draw_swipe(ctx, entry.path, "line", colors.ui_color("trail"));
     }
   }
 

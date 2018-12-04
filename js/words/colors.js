@@ -60,6 +60,9 @@ function() {
         "cr": "#efa",
         "lb": "#bef",
         "lg": "#af4",
+        "pl": "#84f",
+        "wt": "#fff",
+        "bk": "#666",
       },
       "dark": {
         "rd": "#411",
@@ -72,6 +75,9 @@ function() {
         "cr": "#342",
         "lb": "#335",
         "lg": "#453",
+        "pl": "#214",
+        "wt": "#777",
+        "bk": "#111",
       },
     },
     "graph_paper": {
@@ -128,6 +134,9 @@ function() {
         "cr": "#efa",
         "lb": "#bef",
         "lg": "#af4",
+        "pl": "#84f",
+        "wt": "#fff",
+        "bk": "#666",
       },
       "dark": {
         "rd": "#411",
@@ -140,6 +149,9 @@ function() {
         "cr": "#342",
         "lb": "#335",
         "lg": "#453",
+        "pl": "#214",
+        "wt": "#777",
+        "bk": "#111",
       },
     },
     "dusk": {
@@ -189,6 +201,9 @@ function() {
         "cr", // cream
         "lb", // light blue
         "lg", // lime green
+        "pl", // purple
+        "wt", // white
+        "bk", // black
     ];
   }
 

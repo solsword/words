@@ -2,8 +2,8 @@
 // Generates hex grid supertiles for word puzzling.
 
 define(
-["anarchy", "./dict", "./grid", "./dimensions", "./caching"],
-function(anarchy, dict, grid, dimensions, caching) {
+["anarchy", "./dict", "./grid", "./dimensions", "./caching", "./objects"],
+function(anarchy, dict, grid, dimensions, caching, objects) {
 
   // Whether or not to issue warnings to the console.
   var WARNINGS = true;
@@ -75,8 +75,6 @@ function(anarchy, dict, grid, dimensions, caching) {
     "English": [ "adj", "adv", "noun", "verb", "stop" ]
   };
   // TODO: Allow words found in combo domains to appear in a common list!?!
-
-  var RESOURCE_TYPES = "🔑📄♻🖌🌱🌼💬🔍🔆🔧🔔🌈🌍🌎🌏";
 
   var BASE_PERMUTATIONS = [
     // 46, defined in the SE socket including anchors (see EDGE_SOCKET_ANCHORS)
@@ -807,11 +805,6 @@ function(anarchy, dict, grid, dimensions, caching) {
     ];
   }
 
-  function random_resource(seed) {
-    // Takes just a seed value and returns a random resource character.
-    return RESOURCE_TYPES[seed % RESOURCE_TYPES.length];
-  }
-
   function ultratile_context(domain_name, ugp, seed) {
     // Takes a domain string and an ultragrid position and computes generation
     // info including mutiplanar offsets for each assignment position in that
@@ -849,7 +842,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     //   ol_nat_sums:
     //     A one-dimensional array containing the sum of the number of
     //     non-inclusion overlength supertiles on each row of the ultragrid.
-    //   objects:
+    //   obj_map:
     //     A one-dimensional array of object types to be inserted into each
     //     supertile in this ultratile (ULTRAGRID_SIZE × ULTRAGRID_SIZE).
     //     May have missing entries for supertiles that don't have objects in
@@ -1204,7 +1197,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // decide how many objects we'll have:
     // TODO: continuously varying value here?
     let st = MIN_OBJECTS_PER_ULTRATILE;
-    let ed = Math.floor(4 * grid.ULTRATILE_SUPERTILES / 5);
+    let ed = Math.floor(2 * grid.ULTRATILE_SUPERTILES / 5);
     let r1 = anarchy.idist(r, st, ed);
     r = anarchy.lfsr(r);
     let r2 = anarchy.idist(r, st, ed);
@@ -1219,8 +1212,8 @@ function(anarchy, dict, grid, dimensions, caching) {
     //   portals---Conditional gates that link to pocket dimensions.
     //   resources---Harvestable items that aid the player.
 
-    let links = Math.floor(richness/20);
-    let wormholes = Math.floor(richness/40);
+    let links = Math.floor(richness/10);
+    let wormholes = Math.floor(richness/15);
     let remaining = richness - links - wormholes;
     let portals = Math.floor(remaining/5);
     // the rest are resources
@@ -1237,14 +1230,25 @@ function(anarchy, dict, grid, dimensions, caching) {
       } else if (i < links + wormholes + portals) {
         obj_queue.push("🚪");
       } else {
-        let res = random_resource(r);
+        let res = objects.random_resource(r);
         r = anarchy.lfsr(r);
         obj_queue.push(res);
       }
     }
+    // Fill in 2/3 of all remaining tiles with color sources:
+    for (
+      let i = 0;
+      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*2/3);
+      ++i
+    ) {
+      let col = objects.random_color(r);
+      r = anarchy.lfsr(r);
+      obj_queue.push(col);
+    }
 
     // index objects into the supergrid:
-    let objects = [];
+    // TODO: DEBUG lots of supertiles without objects!!!
+    let obj_map = [];
     let shuf_seed = r;
     r = anarchy.lfsr(r);
     for (let i = 0; i < richness; ++i) {
@@ -1277,10 +1281,10 @@ function(anarchy, dict, grid, dimensions, caching) {
         }
       }
       if (winner == 0) { // non-inclusions win
-        objects[si] = obj_queue.pop();
+        obj_map[si] = obj_queue.pop();
       } else {
         // TODO: Foreign objects?
-        objects[si] = null;
+        obj_map[si] = null;
       }
     }
 
@@ -1363,7 +1367,7 @@ function(anarchy, dict, grid, dimensions, caching) {
       "supertile_offsets": supertile_offsets,
       "asg_nat_sums": asg_presums,
       "ol_nat_sums": ol_presums,
-      "objects": objects,
+      "obj_map": obj_map,
     };
   }
   // register ultratile_context as a caching domain:
@@ -1974,7 +1978,7 @@ function(anarchy, dict, grid, dimensions, caching) {
     // we have one, at a random unfilled spot (there will be at least one).
     // TODO: We could be much more efficient at keeping track of unfilled spots!
     let sidx = grid.sgp__index(sgp);
-    let obj = utcontext.objects[sidx];
+    let obj = utcontext.obj_map[sidx];
     if (obj != undefined) {
       let sseed = anarchy.lfsr(r + 9328749);
       let stsq = grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE
@@ -2002,8 +2006,12 @@ function(anarchy, dict, grid, dimensions, caching) {
     // Double augment may fill extra gaps
     augment_words(result, default_domain, r, 0);
     r = anarchy.lfsr(r);
-    // TODO: Do fill voids
+    // TODO: fill voids?
+    // Fill voids with glyphs according to unigram/bigram/trigram probabilities
+    // nearby:
     //fill_voids(result, default_domain, r);
+    // Fill voids with spaces, which are unusable:
+    empty_voids(result);
 
     // all glyphs have been filled in; we're done here!
     return result;
@@ -2518,6 +2526,20 @@ function(anarchy, dict, grid, dimensions, caching) {
           );
           r = anarchy.lfsr(r);
         }
+      }
+    }
+  }
+
+  function empty_voids(supertile) {
+    // Given a partially-filled supertile, fill remaining spots empty glyphs.
+    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+      let xy = grid.index__gp(i);
+      if (!grid.is_valid_subindex(xy)) { // skip out-of-bounds indices
+        continue;
+      }
+      if (supertile.glyphs[i] == undefined) { // need to fill it in
+        supertile.glyphs[i] = " ";
+        supertile.domains[i] = "__empty__";
       }
     }
   }
