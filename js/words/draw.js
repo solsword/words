@@ -785,15 +785,17 @@ define(
     // Highlights the player's unlocked words
     let entries = content.unlocked_entries(dimension);
     for (let entry of entries) {
+      // Highlight each swipe using a neutral color:
+      draw_swipe(ctx, entry.path, "line", colors.ui_color("trail"));
+
+      // Now layer combined colors on top:
       let cmb = objects.combined_color(Object.keys(entry.colors));
-      let color = objects.color_color(cmb);
+      let color = objects.color_color(cmb, true);
       for (let pos of entry.path) {
         // TODO: Shapey highlights; path merging to get regions?!
         // TODO: This highlight gets overwritten by another...
         draw_highlight(ctx, pos, color);
       }
-      // Also highlight each swipe using a neutral color:
-      draw_swipe(ctx, entry.path, "line", colors.ui_color("trail"));
     }
   }
 

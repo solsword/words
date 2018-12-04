@@ -253,22 +253,22 @@ define(
       UNLOCKED.push(entry);
     } else {
       // Add our new entry and update everything:
-      add_unlocked(entry, !(UNLOCKED.length > UNLOCK_LIMIT));
-      // Note: <= is not the inverse of > here because of the possibility of
-      // undefined! We don't want to propagate here if we're about to recompute
-      // color information below.
+      add_unlocked(entry);
     }
 
     if (UNLOCKED.length > UNLOCK_LIMIT) {
       remove_unlocked(UNLOCKED[0]);
     }
-    console.log(UNLOCKED);
+
+    // Finally, recompute unlocked colors:
+    recalculate_unlocked_colors();
   }
 
-  function add_unlocked(entry, propagate_colors) {
+  function add_unlocked(entry) {
     // Adds an entry to the unlocked list, updating adjacency lists and
-    // computing color sources for the new entry. If propagate_colors is
-    // truthy, also propagates colors from the new entry.
+    // computing color sources for the new entry. Note: colors will need to be
+    // recalculated after the new entry is added, and this function doesn't do
+    // that.
 
     // First, calculate the sources and create a gpmap for this entry:
     let gpmap = {};
@@ -296,13 +296,6 @@ define(
 
     // Add this entry after computing adjacent neighbors:
     UNLOCKED.push(entry);
-
-    // Finally, propagate color information if requested:
-    if (propagate_colors) {
-      for (let src of Object.keys(entry.sources)) {
-        propagate_color(entry, src);
-      }
-    }
   }
 
   function propagate_color(entry, color) {
@@ -327,7 +320,7 @@ define(
       entry.colors = {};
     }
     for (let entry of UNLOCKED) {
-      for (let src of entry.sources) {
+      for (let src of Object.keys(entry.sources)) {
         propagate_color(entry, src);
       }
     }
@@ -335,7 +328,9 @@ define(
   
   function remove_unlocked(entry) {
     // Removes the given entry from the unlocked list and from all adjacency
-    // lists within other entries of the unlocked list. Then recomputes colors.
+    // lists within other entries of the unlocked list. Note: colors will need
+    // to be propagated after removing the entry, and this function doesn't do
+    // that.
     for (let entry of UNLOCKED) {
       let adj_idx = entry.adjacent.indexOf(entry);
       if (adj_idx >= 0) {
@@ -344,8 +339,6 @@ define(
     }
     let unlk_idx = UNLOCKED.indexOf(entry);
     UNLOCKED.splice(unlk_idx, 1);
-
-    recalculate_unlocked_colors();
   }
 
   function unlock_poke(dimension, gp) {
