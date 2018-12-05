@@ -18,8 +18,9 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
   // context.
   var CHECK_ASSIGNMENT_OVERLAP = true;
 
-  // Minimum number of objects in each ultratile.
-  var MIN_OBJECTS_PER_ULTRATILE = 8;
+  // Min/max number of objects in each ultratile.
+  var MIN_OBJECTS_PER_ULTRATILE = Math.floor(grid.ULTRATILE_SUPERTILES/3);
+  var MAX_OBJECTS_PER_ULTRATILE = Math.floor(grid.ULTRATILE_SUPERTILES/2);
 
   // Number of attempts to make before giving up on embedding.
   var EMBEDDING_ATTEMPTS = 500;
@@ -1197,7 +1198,7 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
     // decide how many objects we'll have:
     // TODO: continuously varying value here?
     let st = MIN_OBJECTS_PER_ULTRATILE;
-    let ed = Math.floor(2 * grid.ULTRATILE_SUPERTILES / 5);
+    let ed = MAX_OBJECTS_PER_ULTRATILE;
     let r1 = anarchy.idist(r, st, ed);
     r = anarchy.lfsr(r);
     let r2 = anarchy.idist(r, st, ed);
@@ -1235,10 +1236,10 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         obj_queue.push(res);
       }
     }
-    // Fill in 2/3 of all remaining tiles with color sources:
+    // Fill in 4/5 of all remaining tiles with color sources:
     for (
       let i = 0;
-      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*2/3);
+      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*4/5);
       ++i
     ) {
       let col = objects.random_color(r);
@@ -1284,9 +1285,11 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         obj_map[si] = obj_queue.pop();
       } else {
         // TODO: Foreign objects?
-        obj_map[si] = null;
+        obj_map[si] = undefined;
       }
     }
+
+    console.warn(domain_name, ugp, seed, obj_map);
 
     // double-check assignment overlaps:
     if (CHECK_ASSIGNMENT_OVERLAP) {
@@ -2538,8 +2541,10 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         continue;
       }
       if (supertile.glyphs[i] == undefined) { // need to fill it in
-        supertile.glyphs[i] = " ";
-        supertile.domains[i] = "__empty__";
+        // TODO: DEBUG
+        supertile.glyphs[i] = "" + grid.ugpos(supertile.pos).slice(0,2);
+        // supertile.glyphs[i] = " ";
+        // supertile.domains[i] = "__empty__";
       }
     }
   }
