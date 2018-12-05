@@ -135,10 +135,10 @@ define([], function() {
       cell[1] = 0; // reset age
       return cell[0];
     } else { // not yet cached
-      if (QUEUES.hasOwnProperty[key]) { // already queued
+      if (queue.hasOwnProperty(key)) { // already queued
         return null;
       } else { // queue this computation
-        QUEUES[domain][key] = true;
+        queue[key] = true;
         setTimeout(
           complete_computation,
           0,
