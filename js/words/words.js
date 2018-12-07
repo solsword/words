@@ -756,7 +756,9 @@ function(
         var tile = content.tile_at(CURRENT_DIMENSION, gpos);
         if (
           (head == null || grid.is_neighbor(head, gpos))
-       && (tile["glyph"] != undefined && tile["domain"] != "__object__")
+       && tile["glyph"] != undefined
+       && tile["domain"] != "__object__"
+       && tile["domain"] != "__empty__"
         ) {
           // add them if they're a neighbor of the head
           // (and not unloaded, and not an object)

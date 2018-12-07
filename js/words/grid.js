@@ -84,7 +84,10 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   function sgp__index(sgp) {
     // Converts a supergrid position into an ultratile index. Does not check
     // whether the given position is valid (see is_valid_sgindex below).
-    return sgp[0] + sgp[1] * ULTRAGRID_SIZE;
+    return (
+      anarchy.posmod(sgp[0], ULTRAGRID_SIZE)
+    + anarchy.posmod(sgp[1], ULTRAGRID_SIZE) * ULTRAGRID_SIZE
+    );
   }
 
   function index__sgp(idx) {

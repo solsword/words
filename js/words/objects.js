@@ -93,7 +93,7 @@ function(anarchy, colors) {
   function random_resource(seed) {
     // Takes just a seed value and returns a random resource character.
     seed = anarchy.lfsr(seed + 7492374);
-    return RESOURCE_TYPES[seed % RESOURCE_TYPES.length];
+    return RESOURCE_TYPES[anarchy.posmod(seed, RESOURCE_TYPES.length)];
   }
 
   function random_color(seed) {
@@ -101,12 +101,20 @@ function(anarchy, colors) {
     // TODO: DEBUG relative frequencies!
     // return "橙";
     let r = anarchy.lfsr(seed + 5986912731);
-    if (seed % 100 < 90) { // a basic color
-      return BASIC_COLORS[r % BASIC_COLORS.length];
+    if (anarchy.posmod(seed, 100) < 90) { // a basic color
+      return BASIC_COLORS[anarchy.posmod(r, BASIC_COLORS.length)];
     } else {
-      let c1 = BASIC_COLORS[r % BASIC_COLORS.length];
+      let c1i = anarchy.posmod(r, BASIC_COLORS.length);
+      let c1 = BASIC_COLORS[c1i];
       r = anarchy.lfsr(r);
-      let c2 = BASIC_COLORS[r % BASIC_COLORS.length]; 
+      let c2i = anarchy.posmod(
+        c1i + 1 + anarchy.posmod(r, BASIC_COLORS.length - 1),
+        BASIC_COLORS.length
+      );
+      let c2 = BASIC_COLORS[c2i]; 
+      if (COLOR_ADD[c1 + c2] == undefined) {
+        console.warn("Undefined color addition: '" + (c1 + c2) + "'");
+      }
       return COLOR_ADD[c1 + c2];
     }
   }

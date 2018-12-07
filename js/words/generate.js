@@ -1232,17 +1232,24 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         obj_queue.push("🚪");
       } else {
         let res = objects.random_resource(r);
+        if (res == undefined) {
+          console.warn("Undef random resource from seed " + r);
+        }
         r = anarchy.lfsr(r);
         obj_queue.push(res);
       }
     }
-    // Fill in 4/5 of all remaining tiles with color sources:
+
+    // Fill in 4/5 of all remaining supertiles with color sources:
     for (
       let i = 0;
-      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*4/5);
+      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*0.8);
       ++i
     ) {
       let col = objects.random_color(r);
+      if (col == undefined) {
+        console.warn("Undef random color from seed " + r);
+      }
       r = anarchy.lfsr(r);
       obj_queue.push(col);
     }
@@ -1252,8 +1259,10 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
     let obj_map = [];
     let shuf_seed = r;
     r = anarchy.lfsr(r);
-    for (let i = 0; i < richness; ++i) {
+    let i = 0;
+    while (obj_queue.length > 0) {
       let si = anarchy.cohort_shuffle(i, grid.ULTRATILE_SUPERTILES, shuf_seed);
+      i += 1;
       let sgp = [
         si % grid.ULTRAGRID_SIZE,
         Math.floor(si / grid.ULTRAGRID_SIZE)
@@ -1288,8 +1297,6 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         obj_map[si] = undefined;
       }
     }
-
-    console.warn(domain_name, ugp, seed, obj_map);
 
     // double-check assignment overlaps:
     if (CHECK_ASSIGNMENT_OVERLAP) {
@@ -2541,10 +2548,8 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         continue;
       }
       if (supertile.glyphs[i] == undefined) { // need to fill it in
-        // TODO: DEBUG
-        supertile.glyphs[i] = "" + grid.ugpos(supertile.pos).slice(0,2);
-        // supertile.glyphs[i] = " ";
-        // supertile.domains[i] = "__empty__";
+        supertile.glyphs[i] = " ";
+        supertile.domains[i] = "__empty__";
       }
     }
   }
