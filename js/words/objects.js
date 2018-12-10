@@ -99,12 +99,9 @@ function(anarchy, colors) {
   function random_color(seed) {
     // Takes just a seed value and returns a random color character.
     let r = anarchy.lfsr(seed + 5986912731);
-    if (anarchy.posmod(seed, 100) < 10) { // a basic color
+    if (anarchy.posmod(seed, 100) < 90) { // a basic color
       return BASIC_COLORS[anarchy.posmod(r, BASIC_COLORS.length)];
     } else {
-      // TODO: DEBUG relative frequencies!
-      //return "红"
-      return "紫"
       let c1i = anarchy.posmod(r, BASIC_COLORS.length);
       let c1 = BASIC_COLORS[c1i];
       r = anarchy.lfsr(r);
