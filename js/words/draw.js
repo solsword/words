@@ -731,53 +731,88 @@ define(
     // Draws a custom symbol for each color type
     ctx.beginPath();
     let fs = FONT_SIZE * ctx.viewport_scale;
-    if (glyph == "红") {
-      ctx.moveTo(vpos[0] - fs/2, vpos[1] - fs/2);
-      ctx.lineTo(vpos[0], vpos[1] + fs/2);
-      ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
+    if (glyph == "红") { // red -> equilateral triangle
+      // eqh**2 + (fs/2)**2 = fs**2
+      // eqh**2 = fs**2 - (fs/2)**2
+      // eqh = sqrt(fs**2 - (fs/2)**2
+      let fsq = fs*fs;
+      let eqh = Math.sqrt(fsq - fsq/4) // equilateral height
+      // crd + egd = eqh
+      // egd = eqh - crd
+      // crd**2 + (fs/2)**2 = crd**2
+      // eqh**2 - 2*eqh*crd + crd**2 + (fs/2)**2 = crd**2
+      // eqh**2 + (fs/2)**2 = 2*eqh*crd
+      // crd = (eqh + fsq/(4*eqh))/2
+      let crd = (eqh + fsq/(4*eqh))/2 // corner distance
+      let egd = eqh - crd; // edge distance
+      ctx.moveTo(vpos[0] - fs/2, vpos[1] - egd);
+      ctx.lineTo(vpos[0] + fs/2, vpos[1] - egd);
+      ctx.lineTo(vpos[0], vpos[1] + crd);
       ctx.closePath();
       ctx.stroke();
-    } else if (glyph == "黄") {
+    } else if (glyph == "黄") { // yellow -> square
       ctx.moveTo(vpos[0] - fs/2, vpos[1] - fs/2);
       ctx.lineTo(vpos[0] - fs/2, vpos[1] + fs/2);
       ctx.lineTo(vpos[0] + fs/2, vpos[1] + fs/2);
       ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
       ctx.closePath();
       ctx.stroke();
-    } else if (glyph == "蓝") {
+    } else if (glyph == "蓝") { // blue -> circle
       ctx.arc(vpos[0], vpos[1], fs/2, 0, 2*Math.PI);
       ctx.stroke();
-    } else if (glyph == "橙") {
-      let trheight = Math.sin(Math.PI/3)*fs/3;
+    } else if (glyph == "橙") { // orange -> pointed square
+      let trheight = Math.sin(Math.PI/3)*fs/4;
       ctx.moveTo(vpos[0] - fs/2           , vpos[1] - fs/2           );
       // top
-      ctx.lineTo(vpos[0] - fs/12          , vpos[1] - fs/2           );
+      ctx.lineTo(vpos[0] - fs/6           , vpos[1] - fs/2           );
       ctx.lineTo(vpos[0]                  , vpos[1] - fs/2 - trheight);
-      ctx.lineTo(vpos[0] + fs/12          , vpos[1] - fs/2           );
+      ctx.lineTo(vpos[0] + fs/6           , vpos[1] - fs/2           );
       ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/2           );
       // right
-      ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/12          );
+      ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/6           );
       ctx.lineTo(vpos[0] + fs/2 + trheight, vpos[1]                  );
-      ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/12          );
+      ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/6           );
       ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/2           );
       // bottom
-      ctx.lineTo(vpos[0] + fs/12          , vpos[1] + fs/2           );
+      ctx.lineTo(vpos[0] + fs/6           , vpos[1] + fs/2           );
       ctx.lineTo(vpos[0]                  , vpos[1] + fs/2 + trheight);
-      ctx.lineTo(vpos[0] - fs/12          , vpos[1] + fs/2           );
+      ctx.lineTo(vpos[0] - fs/6           , vpos[1] + fs/2           );
       ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/2           );
       // left
-      ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/12          );
+      ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/6           );
       ctx.lineTo(vpos[0] - fs/2 - trheight, vpos[1]                  );
-      ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/12          );
+      ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/6           );
       ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/2           );
+      ctx.stroke();
 
-    } else if (glyph == "绿") {
+    } else if (glyph == "绿") { // green -> half-round-cornered square
+      ctx.arc(vpos[0], vpos[1], fs/2, Math.PI, 3*Math.PI/2);
+      ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
+      ctx.lineTo(vpos[0] + fs/2, vpos[1]);
+      ctx.arc(vpos[0], vpos[1], fs/2, 0, Math.PI/2);
+      ctx.lineTo(vpos[0] - fs/2, vpos[1] + fs/2);
+      ctx.lineTo(vpos[0] - fs/2, vpos[1]);
+      ctx.stroke();
+    } else if (glyph == "紫") { // purple -> trifang
+      // see "红"
+      let fsq = fs*fs;
+      let eqh = Math.sqrt(fsq - fsq/4) // equilateral height
+      let crd = (eqh + fsq/(4*eqh))/2 // corner distance
+      let egd = eqh - crd; // edge distance
+      ctx.arc(vpos[0] - fs, vpos[1] + crd, fs, -Math.PI/3, 0);
+      ctx.arc(vpos[0] + fs, vpos[1] + crd, fs, Math.PI, 4*Math.PI/3);
+      ctx.arc(vpos[0], vpos[1] - egd - eqh, fs, Math.PI/3, 2*Math.PI/3);
+      ctx.stroke();
+    } else if (glyph == "白") { // white
       // TODO: HERE
-      return fetch("gn");
-    } else if (glyph == "紫") {
-      return fetch("pl");
-    } else if (glyph == "白") {
-      return fetch("wt");
+      // 90/60/curve?
+      // sqrt(fs**2 + fs/2**2)
+      let fsq = fs*fs;
+      let lts = Math.sqrt(fsq + fsq/4);
+      let sts = fs;
+      ctx.moveTo(vpos[0], vpos[1] - fs/2);
+      //ctx.arc(vpos[0] - , vpos[1], 
+      ctx.stroke();
     }
   }
 

@@ -19,8 +19,8 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
   var CHECK_ASSIGNMENT_OVERLAP = true;
 
   // Min/max number of objects in each ultratile.
-  var MIN_OBJECTS_PER_ULTRATILE = Math.floor(grid.ULTRATILE_SUPERTILES/3);
-  var MAX_OBJECTS_PER_ULTRATILE = Math.floor(grid.ULTRATILE_SUPERTILES/2);
+  var MIN_OBJECTS_PER_ULTRATILE = Math.floor(grid.ULTRATILE_SUPERTILES/6);
+  var MAX_OBJECTS_PER_ULTRATILE = Math.floor(grid.ULTRATILE_SUPERTILES/3);
 
   // Number of attempts to make before giving up on embedding.
   var EMBEDDING_ATTEMPTS = 500;
@@ -1240,10 +1240,10 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
       }
     }
 
-    // Fill in 4/5 of all remaining supertiles with color sources:
+    // Fill in 3/5 of all remaining supertiles with color sources:
     for (
       let i = 0;
-      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*0.8);
+      i < Math.floor((grid.ULTRATILE_SUPERTILES - richness)*0.6);
       ++i
     ) {
       let col = objects.random_color(r);
