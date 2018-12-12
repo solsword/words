@@ -168,7 +168,7 @@ function(anarchy, colors) {
     // Returns the color for any kind of object, depending on whether it's
     // energized or not.
     if (is_color(obj_glyph)) {
-      // TODO: Energy states for colors?
+      // TODO: Energy states for colors!
       return color_color(obj_glyph, true);
     } else if (energized) {
       return colors.tile_color("unlocked-glyph");

@@ -614,7 +614,6 @@ define(
 
       // Hexagon highlight
       ctx.lineWidth=3;
-      // TODO DEBUG
       if (tcolors.length > 0) {
         var side_colors = [];
         if (tcolors.length <= 3 || tcolors.length >= 6) {
@@ -671,16 +670,7 @@ define(
       }
 
       // Inner circle
-      //var r = grid.GRID_EDGE * 0.63 * ctx.viewport_scale;
       var r = grid.GRID_EDGE * 0.58 * ctx.viewport_scale;
-      /* DEBUG TODO
-      if (colors.length > 0) {
-        ctx.fillStyle = colors.dark_color(colors[0)];
-      } else {
-        ctx.fillStyle = colors.tile_color("pad");
-      }
-      // */
-      //* DEBUG
       if (unlocked) {
         ctx.fillStyle = colors.tile_color("unlocked-pad");
         ctx.strokeStyle = colors.tile_color("unlocked-rim");
@@ -691,7 +681,6 @@ define(
         ctx.fillStyle = colors.tile_color("pad");
         ctx.strokeStyle = colors.tile_color("rim");
       }
-      // */
       var shape = colors.length == 0;
       draw_pad_shape(
         ctx,
@@ -803,16 +792,41 @@ define(
       ctx.arc(vpos[0] + fs, vpos[1] + crd, fs, Math.PI, 4*Math.PI/3);
       ctx.arc(vpos[0], vpos[1] - egd - eqh, fs, Math.PI/3, 2*Math.PI/3);
       ctx.stroke();
-    } else if (glyph == "白") { // white
-      // TODO: HERE
-      // 90/60/curve?
-      // sqrt(fs**2 + fs/2**2)
-      let fsq = fs*fs;
-      let lts = Math.sqrt(fsq + fsq/4);
-      let sts = fs;
-      ctx.moveTo(vpos[0], vpos[1] - fs/2);
-      //ctx.arc(vpos[0] - , vpos[1], 
+    } else if (glyph == "白") { // white -> 90/60/curve
+      let θ = Math.PI/3;
+      let adj = fs;
+      let opp = adj * Math.tan(θ);
+      let hyp = adj / Math.cos(θ);
+      let cr = fs/3.5;
+      let blh = cr*Math.cos(Math.PI/2 - θ);
+      let hyp_int_gap = cr + blh;
+      let opp_extra = Math.tan(θ) * hyp_int_gap;
+      let opp_cutoff = opp_extra + cr*Math.sin(θ/2);
+
+      // Total width/height:
+      let w = opp - opp_cutoff + cr;
+      let h = adj;
+
+      // rotation of entire figure:
+      let rot = -Math.PI/4;
+      let offx = fs/8;
+
+      ctx.translate(vpos[0] + offx, vpos[1]);
+      ctx.rotate(rot);
+      ctx.moveTo(-w/2, -h/2);
+      ctx.lineTo(-w/2 + opp - opp_cutoff, -h/2);
+      ctx.arc(
+        -w/2 + opp - opp_cutoff,
+        -h/2 + cr,
+        cr,
+        -Math.PI/2,
+        θ
+      );
+      ctx.lineTo(-w/2, h/2);
+      ctx.closePath();
       ctx.stroke();
+      ctx.rotate(-rot);
+      ctx.translate(-vpos[0] - offx, -vpos[1]);
     }
   }
 
