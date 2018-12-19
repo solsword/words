@@ -848,6 +848,29 @@ define(
     }
   }
 
+  function highlight_objects(dimension, ctx) {
+    // Highlights objects that have received color activation
+    let cobjs = content.colored_objects(dimension);
+    for (let gpk of Object.keys(cobjs)) {
+      let gp = grid.key__coords(gpk);
+      let colors = cobjs[gpk];
+
+      // Now layer combined colors on top:
+      let cmb = objects.combined_color(Object.keys(colors));
+      let color = objects.color_color(cmb, true);
+
+      // Check for a color tile
+      let tile = content.tile_at(dimension, gp);
+      if (tile != undefined) {
+        let glyph = tile.glyph;
+        if (objects.is_color(glyph)) {
+          color = objects.color_color(glyph, true);
+        }
+      }
+      draw_highlight(ctx, gp, color);
+    }
+  }
+
   function draw_poke(ctx, poke, ticks, max_ticks) {
     // Takes a context and a grid position and highlights that hex as a poke.
     // Also needs to know the current and max # of ticks of the poke.
@@ -1052,6 +1075,7 @@ define(
     "view_pos": view_pos,
     "world_pos": world_pos,
     "highlight_unlocked": highlight_unlocked,
+    "highlight_objects": highlight_objects,
     "draw_poke": draw_poke,
     "draw_swipe": draw_swipe,
     "draw_loading": draw_loading,

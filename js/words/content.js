@@ -19,6 +19,11 @@ define(
   //var UNLOCK_LIMIT = 1;
   var UNLOCK_LIMIT = undefined;
 
+  // A Map from dimension keys to maps from coords__key'd grid positions of
+  // objects to colors active at that position due to neighboring colored
+  // swipes.
+  var OBJ_COLORS = {};
+
   // Same for single-tile pokes:
   var POKES = [];
   var POKE_LIMIT = 1;
@@ -174,6 +179,18 @@ define(
     return result;
   }
 
+  function colored_objects(dimension) {
+    // Returns an map from coords__key'd grid positions to maps from colors to
+    // true for objects in the given dimension which are given colors by nearby
+    // colored swipes.
+    let dk = dimensions.dim__key(dimension);
+    if (OBJ_COLORS.hasOwnProperty(dk)) {
+      return OBJ_COLORS[dk];
+    } else {
+      return {};
+    }
+  }
+
   function is_unlocked(dimension, gp) {
     // Checks whether the given grid position is unlocked or not.
     // TODO: This could be more efficient if multiple tiles were given at once.
@@ -226,12 +243,13 @@ define(
   function unlock_path(dimension, path) {
     // Unlocks the given path of grid positions in the given dimension.
     // Depending on UNLOCK_LIMIT, may lock the oldest unlocked path.
-    // Also update colors for all unlocked paths.
+    // Also update colors for all unlocked paths and their adjacent objects.
     var entry = {
       "dimension": dimension,
       "path": path.slice(),
       "sources": {},
       "colors": {},
+      "objects": {},
       "adjacent": [],
     };
     let duplicate = false;
@@ -273,17 +291,25 @@ define(
     // First, calculate the sources and create a gpmap for this entry:
     let gpmap = {};
     for (let gp of entry.path) {
-      gpmap[grid.coords__key(gp)] = true;
+      let gpk = grid.coords__key(gp);
+      gpmap[gpk] = true;
       let h_tile = tile_at(entry.dimension, gp);
-      if (h_tile.domain == "__object__" && objects.is_color(h_tile.glyph)) {
-        entry.sources[h_tile.glyph] = true;
+      if (h_tile.domain == "__object__") {
+        if (objects.is_color(h_tile.glyph)) {
+          entry.sources[h_tile.glyph] = true;
+        }
+        entry.objects[gpk] = true;
       }
       for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
         let nb = grid.neighbor(gp, d);
-        gpmap[grid.coords__key(nb)] = true;
+        let nbk = grid.coords__key(nb);
+        gpmap[nbk] = true;
         let nb_tile = tile_at(entry.dimension, nb);
-        if (nb_tile.domain == "__object__" && objects.is_color(nb_tile.glyph)) {
-          entry.sources[nb_tile.glyph] = true;
+        if (nb_tile.domain == "__object__") {
+          if (objects.is_color(nb_tile.glyph)) {
+            entry.sources[nb_tile.glyph] = true;
+          }
+          entry.objects[nbk] = true;
         }
       }
     }
@@ -315,13 +341,37 @@ define(
 
   function recalculate_unlocked_colors() {
     // Recomputes the unlocked colors of all entries; necessary when entries
-    // are removed.
+    // are added or removed. Also recomputes the color activations of all
+    // objects.
+
+    // Remove old object colors info for all dimensions:
+    OBJ_COLORS = {};
+    // Remove old color info:
     for (let entry of UNLOCKED) {
       entry.colors = {};
     }
+
+    // Propagate colors:
     for (let entry of UNLOCKED) {
       for (let src of Object.keys(entry.sources)) {
         propagate_color(entry, src);
+      }
+    }
+
+    // Add colors to objects:
+    for (let entry of UNLOCKED) {
+      let dk = dimensions.dim__key(entry.dimension);
+      if (!OBJ_COLORS.hasOwnProperty(dk)) {
+        OBJ_COLORS[dk] = {};
+      }
+      let dobjs = OBJ_COLORS[dk];
+      for (let gpk of Object.keys(entry.objects)) {
+        for (let color of Object.keys(entry.colors)) {
+          if (!dobjs.hasOwnProperty(gpk)) {
+            dobjs[gpk] = {}
+          }
+          dobjs[gpk][color] = true;
+        }
       }
     }
   }
@@ -467,6 +517,7 @@ define(
     "fetch_supertile": fetch_supertile,
     "unlocked_set": unlocked_set,
     "unlocked_entries": unlocked_entries,
+    "colored_objects": colored_objects,
     "is_unlocked": is_unlocked,
     "unlock_path": unlock_path,
     "unlock_poke": unlock_poke,

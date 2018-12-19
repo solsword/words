@@ -1146,6 +1146,7 @@ function(
     // Highlight unlocked:
     if (COLORFUL_UNLOCKED) {
       draw.highlight_unlocked(CURRENT_DIMENSION, CTX);
+      draw.highlight_objects(CURRENT_DIMENSION, CTX);
     }
 
     // Swipes
