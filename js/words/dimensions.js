@@ -229,20 +229,21 @@ define(["anarchy", "./utils"], function(anarchy, utils) {
     return [dimension[0], dimension[1], seed];
   }
 
-  function shape_for(dimension) {
-    let x = MULTIPLANAR_DOMAINS.indexOf(dimension[1]);
+  function shape_for(domain) {
+    let seed = 19803129;
+    let x = MULTIPLANAR_DOMAINS.indexOf(domain);
     x ^= 1092830198;
     for (var i = 0; i < 4; ++i) {
       x = anarchy.lfsr(x);
     }
     var t_shape = x >>> 0;
-    x ^= dimension;
+    x ^= seed;
     x = anarchy.lfsr(x);
     var b_shape = x >>> 0;
-    x ^= dimension;
+    x ^= seed;
     x = anarchy.lfsr(x);
     var v_shape = x >>> 0;
-    x ^= dimension;
+    x ^= seed;
     x = anarchy.lfsr(x);
     var c_shape = x >>> 0;
     return [

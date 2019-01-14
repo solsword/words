@@ -70,7 +70,12 @@ define(["./draw", "./locale", "./colors"], function(draw, locale, colors) {
         }
         if (fit == 0) {
           // Not even a single character will fit!!
-          return undefined;
+          console.warn(
+            "Warning: Attempted to flow text but failed to fit a single "
+          + "character on a line."
+          )
+          // Put each character on its own line:
+          return text.split('');
         }
         rest = flow_text(
           ctx,

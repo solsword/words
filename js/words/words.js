@@ -151,6 +151,16 @@ function(
     QUESTS.push(q);
   }
 
+  function zoom_in() {
+    CTX.viewport_scale *= 1.25;
+    DO_REDRAW = 0;
+  }
+
+  function zoom_out() {
+    CTX.viewport_scale *= 1/1.25;
+    DO_REDRAW = 0;
+  }
+
   function home_view() {
     let wpos = grid.world_pos([0, 0]);
     CTX.viewport_center[0] = wpos[0];
@@ -874,9 +884,9 @@ function(
     var screensize = Math.min(window.innerWidth, window.innerHeight);
     if (screensize < 500) {
       // Smaller devices
-      CTX.viewport_scale = 2.0;
+      CTX.viewport_scale = draw.LARGE_SCALE;
     } else {
-      CTX.viewport_scale = 1.0;
+      CTX.viewport_scale = draw.DEFAULT_SCALE;
     }
     DO_REDRAW = 0;
 
@@ -1003,6 +1013,26 @@ function(
       home_view
     );
     menu.add_menu(HOME_BUTTON);
+
+    ZOOM_IN_BUTTON = new menu.ButtonMenu(
+      CTX,
+      { "right": 10, "top": 10 },
+      { "width": 40, "height": 40 },
+      {},
+      "+",
+      zoom_in
+    );
+    menu.add_menu(ZOOM_IN_BUTTON);
+
+    ZOOM_OUT_BUTTON = new menu.ButtonMenu(
+      CTX,
+      { "right": 10, "top": 60 },
+      { "width": 40, "height": 40 },
+      {},
+      "–",
+      zoom_out
+    );
+    menu.add_menu(ZOOM_OUT_BUTTON);
 
     CLEAR_SELECTION_BUTTON = new menu.ButtonMenu(
       CTX,
@@ -1248,9 +1278,9 @@ function(
     var screensize = Math.min(window.innerWidth, window.innerHeight);
     if (screensize < 500) {
       // Smaller devices
-      CTX.viewport_scale = 2.0;
+      CTX.viewport_scale = draw.LARGE_SCALE;
     } else {
-      CTX.viewport_scale = 1.0;
+      CTX.viewport_scale = draw.DEFAULT_SCALE;
     }
     DO_REDRAW = 0;
 

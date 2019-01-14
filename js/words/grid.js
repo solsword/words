@@ -5,12 +5,11 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   // Whether to log warnings:
   var WARNINGS = true;
 
-  // Grid size in pixels
-  // TODO: Dynamic zoom!
-  // var GRID_SIZE = 45;
-  var GRID_SIZE = 65;
+  // Grid size in canvas units (before viewport_scale)
+  var GRID_SIZE = 30;
 
   // Size constants based on GRID_SIZE
+  // TODO: HERE
   var GRID_TOP = GRID_SIZE/2;
   var GRID_BOTTOM = -GRID_SIZE/2;
   var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2)
@@ -529,7 +528,7 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
     result["glyph"] = supertile.glyphs[idx];
     result["colors"] = supertile.colors[idx].slice();
     result["domain"] = supertile.domains[idx];
-    result["shape"] = dimensions.shape_for(supertile.dimension);
+    result["shape"] = dimensions.shape_for(supertile.domains[idx]);
     result["is_inclusion"] = (
       result["domain"] != dimensions.natural_domain(supertile.dimension)
     );

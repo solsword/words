@@ -5,15 +5,31 @@ define(
   ["./grid", "./content", "./colors", "./objects"],
   function(grid, content, colors, objects) {
 
+  // Loading bar sizes
   var LOADING_BAR_HEIGHT = 20;
   var LOADING_BAR_WIDTH = 120;
   var LOADING_BAR_SPACING = 6;
 
-  // TODO: Dynamic zoom!
-  // var FONT_SIZE = 24;
-  var FONT_SIZE = 30;
+  // Scaling constants
+  var DEFAULT_SCALE = 2.0; 
+  var LARGE_SCALE = 3.0;
+
+  // Line widths
+  var THIN_LINE = 1;
+  var THICK_LINE = 1.5;
+  var VERY_THICK_LINE = 2;
+
+  // Font parameters
+  var FONT_OFFSET = 6;
+  var FONT_SIZE = 15;
   var FONT_FACE = "asap";
   //var FONT_FACE = "serif";
+
+  // Tile dimensions when transformed to draw a certain tile
+  // (multiply by grid.GRID_SIZE):
+  var TILE_UNIT = 1;
+  var TILE_WIDTH = 2;
+  var TILE_HEIGHT = Math.sqrt(3);
 
   var CONTEXT_BOX = {
     "left": 20,
@@ -103,14 +119,31 @@ define(
     return [tl[0], tl[1], br[0], br[1]];
   }
 
+  function transform_to_tile(ctx, gpos) {
+    // Takes a grid position and transforms the drawing matrix to prepare for
+    // drawing stuff on that tile. In the resulting transformed matrix, the
+    // sides of each equilateral triangle that make up the hexagon for the tile
+    // are each 1 unit long, so the tile is 2 units wide and sqrt(3) units
+    // tall. ctx.save() should be used beforehand and ctx.restore() afterwards.
+    let wpos = grid.world_pos(gpos);
+    let vpos = view_pos(ctx, wpos);
+    ctx.translate(vpos[0], vpos[1]);
+    scale_to_viewport(ctx);
+  }
+
+  function scale_to_viewport(ctx) {
+    // Scales the context according to the current viewport_scale.
+    ctx.scale(ctx.viewport_scale, ctx.viewport_scale); // TODO: The inverse?
+  }
+
   function draw_tiles(dimension, ctx) {
     // Draws tiles for the given context. Returns true if all tiles were drawn,
     // or false if there was at least one undefined tile.
     // TODO: Chunk rendering...
     edges = viewport_edges(ctx);
     ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = Math.floor(FONT_SIZE * ctx.viewport_scale) + "px " + FONT_FACE;
+    ctx.textBaseline = "top"; // middle leaves room for descenders it seems
+    ctx.font = Math.floor(FONT_SIZE) + "px " + FONT_FACE;
 
     tiles = content.list_tiles(dimension, edges);
     var any_undefined = false;
@@ -144,16 +177,13 @@ define(
 
   // Draws an edge of the given shape with the given center point, radius, and
   // corner radius.
-  function draw_edge(ctx, e_shape, side, cx, cy, r, cr) {
+  function draw_edge(ctx, e_shape, side, r, cr) {
     ctx.save()
-    ctx.translate(cx, cy);
     ctx.rotate((Math.PI / 2) * side);
     var fx = -r + cr;
     var fy = -r;
     var tx = r - cr;
     var ty = -r;
-    cx = 0;
-    cy = 0;
     e_shape = ((e_shape % 17) + 17) % 17;
     // Draw the edge
     switch (e_shape) {
@@ -166,8 +196,8 @@ define(
         var mx = fx + (tx - fx) / 2;
         var my = fy + (ty - fy) / 2;
 
-        var px = mx - (cx - mx) * 0.2;
-        var py = my - (cy - my) * 0.2;
+        var px = mx + mx * 0.2;
+        var py = my + my * 0.2;
 
         ctx.lineTo(px, py);
         ctx.lineTo(tx, ty);
@@ -177,8 +207,8 @@ define(
         var mx = fx + (tx - fx) / 2;
         var my = fy + (ty - fy) / 2;
 
-        var px = mx + (cx - mx) * 0.2;
-        var py = my + (cy - my) * 0.2;
+        var px = mx - mx * 0.2;
+        var py = my - my * 0.2;
 
         ctx.lineTo(px, py);
         ctx.lineTo(tx, ty);
@@ -191,17 +221,17 @@ define(
         var m1x = fx + (mx - fx) / 2;
         var m1y = fy + (my - fy) / 2;
 
-        var p1x = m1x - (cx - mx) * 0.1;
-        var p1y = m1y - (cy - my) * 0.1;
+        var p1x = m1x + mx * 0.1;
+        var p1y = m1y + my * 0.1;
 
-        var p2x = mx + (cx - mx) * 0.1;
-        var p2y = my + (cy - my) * 0.1;
+        var p2x = mx - mx * 0.1;
+        var p2y = my - my * 0.1;
 
         var m2x = mx + (tx - mx) / 2;
         var m2y = my + (ty - my) / 2;
 
-        var p3x = m2x - (cx - mx) * 0.1;
-        var p3y = m2y - (cy - my) * 0.1;
+        var p3x = m2x + mx * 0.1;
+        var p3y = m2y + my * 0.1;
 
         ctx.lineTo(p1x, p1y);
         ctx.lineTo(p2x, p2y);
@@ -216,17 +246,17 @@ define(
         var m1x = fx + (mx - fx) / 2;
         var m1y = fy + (my - fy) / 2;
 
-        var p1x = m1x + (cx - mx) * 0.1;
-        var p1y = m1y + (cy - my) * 0.1;
+        var p1x = m1x - mx * 0.1;
+        var p1y = m1y - my * 0.1;
 
-        var p2x = mx - (cx - mx) * 0.1;
-        var p2y = my - (cy - my) * 0.1;
+        var p2x = mx + mx * 0.1;
+        var p2y = my + my * 0.1;
 
         var m2x = mx + (tx - mx) / 2;
         var m2y = my + (ty - my) / 2;
 
-        var p3x = m2x + (cx - mx) * 0.1;
-        var p3y = m2y + (cy - my) * 0.1;
+        var p3x = m2x - mx * 0.1;
+        var p3y = m2y - my * 0.1;
 
         ctx.lineTo(p1x, p1y);
         ctx.lineTo(p2x, p2y);
@@ -270,8 +300,8 @@ define(
       case 8: // line with triangle indent
         var mx = (fx + tx) / 2;
         var my = (fy + ty) / 2;
-        var px = mx + (cx - mx) * 0.15;
-        var py = my + (cy - my) * 0.15;
+        var px = mx - mx * 0.15;
+        var py = my - my * 0.15;
         var dist = Math.sqrt(Math.pow(tx - fx, 2) + Math.pow(ty - fy, 2));
         ctx.lineTo(fx + (tx - fx) * 0.3, fy + (ty - fy) * 0.3);
         ctx.lineTo(px, py);
@@ -282,8 +312,8 @@ define(
       case 9: // line with triangle outdent
         var mx = (fx + tx) / 2;
         var my = (fy + ty) / 2;
-        var px = mx - (cx - mx) * 0.15;
-        var py = my - (cy - my) * 0.15;
+        var px = mx + mx * 0.15;
+        var py = my + my * 0.15;
         var dist = Math.sqrt(Math.pow(tx - fx, 2) + Math.pow(ty - fy, 2));
         ctx.lineTo(fx + (tx - fx) * 0.3, fy + (ty - fy) * 0.3);
         ctx.lineTo(px, py);
@@ -303,10 +333,10 @@ define(
         var iey = fy + (ty - fy) * 0.7;
 
         // points 1 and 2 of indent
-        var px1 = isx + (cx - mx) * 0.2;
-        var py1 = isy + (cy - my) * 0.2;
-        var px2 = iex + (cx - mx) * 0.2;
-        var py2 = iey + (cy - my) * 0.2;
+        var px1 = isx - mx * 0.2;
+        var py1 = isy - my * 0.2;
+        var px2 = iex - mx * 0.2;
+        var py2 = iey - my * 0.2;
         ctx.lineTo(isx, isy);
         ctx.lineTo(px1, py1);
         ctx.lineTo(px2, py2);
@@ -326,10 +356,10 @@ define(
         var iey = fy + (ty - fy) * 0.7;
 
         // points 1 and 2 of indent
-        var px1 = isx - (cx - mx) * 0.2;
-        var py1 = isy - (cy - my) * 0.2;
-        var px2 = iex - (cx - mx) * 0.2;
-        var py2 = iey - (cy - my) * 0.2;
+        var px1 = isx + mx * 0.2;
+        var py1 = isy + my * 0.2;
+        var px2 = iex + mx * 0.2;
+        var py2 = iey + my * 0.2;
         ctx.lineTo(isx, isy);
         ctx.lineTo(px1, py1);
         ctx.lineTo(px2, py2);
@@ -531,25 +561,20 @@ define(
     ctx.restore();
   }
 
-  function draw_hex_rim(ctx, wpos) {
+  function draw_hex_rim(ctx) {
     ctx.strokeStyle = colors.tile_color("outline");
     ctx.fillStyle = colors.tile_color("inner");
 
-    ctx.lineWidth=2;
+    ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
 
     ctx.beginPath();
     once = true;
     grid.VERTICES.forEach(function (vertex) {
-      vertex = vertex.slice();
-      vertex[0] += wpos[0];
-      vertex[1] += wpos[1];
-
-      var vv = view_pos(ctx, vertex);
       if (once) {
-        ctx.moveTo(vv[0], vv[1]);
+        ctx.moveTo(vertex[0], vertex[1]);
         once = false;
       } else {
-        ctx.lineTo(vv[0], vv[1]);
+        ctx.lineTo(vertex[0], vertex[1]);
       }
     });
     ctx.closePath();
@@ -557,27 +582,28 @@ define(
     ctx.stroke();
   }
 
-  // Takes a context, an array of four shape integers, a center position, and a
-  // radius and draws a pad shape to put a glyph on. Stroking and/or filling
-  // this shape is up to the caller.
-  function draw_pad_shape(ctx, shape, cx, cy, r) {
+  // Takes a context, an array of four shape integers, and a radius and draws a
+  // pad shape to put a glyph on (assumes that transform_to_tile has been
+  // called). Stroking and/or filling this shape is up to the caller.
+  function draw_pad_shape(ctx, shape, r) {
+    ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
     ctx.beginPath();
     var olj = ctx.lineJoin;
     // ctx.lineJoin = "round";
     // ctx.lineJoin = "mitre";
     var cr = r * 0.4;
-    var lt = cx - r;
-    var rt = cx + r;
-    var tp = cy - r;
-    var bt = cy + r;
+    var lt = -r;
+    var rt =  r;
+    var tp = -r;
+    var bt =  r;
     ctx.moveTo(lt + cr, tp);
-    draw_edge(ctx, shape[0], 0, cx, cy, r, cr);
+    draw_edge(ctx, shape[0], 0, r, cr);
     draw_corner(ctx, shape[3], 0, rt, tp, r, cr);
-    draw_edge(ctx, shape[2], 1, cx, cy, r, cr);
+    draw_edge(ctx, shape[2], 1, r, cr);
     draw_corner(ctx, shape[3], 1, rt, bt, r, cr);
-    draw_edge(ctx, shape[1], 2, cx, cy, r, cr);
+    draw_edge(ctx, shape[1], 2, r, cr);
     draw_corner(ctx, shape[3], 2, lt, bt, r, cr);
-    draw_edge(ctx, shape[2], 3, cx, cy, r, cr);
+    draw_edge(ctx, shape[2], 3, r, cr);
     draw_corner(ctx, shape[3], 3, lt, tp, r, cr);
     ctx.closePath();
     ctx.fill();
@@ -587,20 +613,20 @@ define(
 
   function draw_tile(ctx, tile) {
     var gpos = tile["pos"];
-    var wpos = grid.world_pos(gpos);
     var tcolors = tile["colors"];
     var glyph = tile["glyph"];
     var domain = tile["domain"];
 
-    var vpos = view_pos(ctx, wpos);
+    ctx.save();
+    transform_to_tile(ctx, gpos);
 
     // No matter what goes inside, draw the rim + background:
-    draw_hex_rim(ctx, wpos);
+    draw_hex_rim(ctx);
 
     if (glyph == undefined) { // an unloaded tile: just draw a dim '?'
       // The question mark:
       ctx.fillStyle = colors.tile_color("pad");
-      ctx.fillText('?', vpos[0], vpos[1]);
+      ctx.fillText('?', 0, -FONT_OFFSET);
 
     } else if (domain == "__empty__") { // an empty slot
       // Don't draw anything
@@ -608,12 +634,12 @@ define(
       var energized = content.is_energized(tile["dimension"], gpos);
 
       // Draw the object:
-      draw_object(ctx, glyph, energized, vpos);
+      draw_object(ctx, glyph, energized);
     } else { // a loaded normal tile: the works
       var unlocked = content.is_unlocked(tile["dimension"], gpos);
 
       // Hexagon highlight
-      ctx.lineWidth=3;
+      ctx.lineWidth = THICK_LINE * ctx.viewport_scale;
       if (tcolors.length > 0) {
         var side_colors = [];
         if (tcolors.length <= 3 || tcolors.length >= 6) {
@@ -647,30 +673,23 @@ define(
           tv = grid.VERTICES[i].slice();
           tv[0] *= 0.9;
           tv[1] *= 0.9;
-          tv[0] += wpos[0];
-          tv[1] += wpos[1];
 
           var ni = (i + 1) % grid.VERTICES.length;
           nv = grid.VERTICES[ni].slice();
           nv[0] *= 0.9;
           nv[1] *= 0.9;
-          nv[0] += wpos[0];
-          nv[1] += wpos[1];
-
-          var tvv = view_pos(ctx, tv);
-          var nvv = view_pos(ctx, nv);
 
           ctx.strokeStyle = side_colors[i % side_colors.length];
 
           ctx.beginPath();
-          ctx.moveTo(tvv[0], tvv[1]);
-          ctx.lineTo(nvv[0], nvv[1]);
+          ctx.moveTo(tv[0], tv[1]);
+          ctx.lineTo(nv[0], nv[1]);
           ctx.stroke();
         }
       }
 
       // Inner circle
-      var r = grid.GRID_EDGE * 0.58 * ctx.viewport_scale;
+      var r = grid.GRID_EDGE * 0.58;
       if (unlocked) {
         ctx.fillStyle = colors.tile_color("unlocked-pad");
         ctx.strokeStyle = colors.tile_color("unlocked-rim");
@@ -681,14 +700,8 @@ define(
         ctx.fillStyle = colors.tile_color("pad");
         ctx.strokeStyle = colors.tile_color("rim");
       }
-      var shape = colors.length == 0;
-      draw_pad_shape(
-        ctx,
-        tile.shape,
-        vpos[0],
-        vpos[1],
-        r
-      );
+
+      draw_pad_shape(ctx, tile.shape, r);
 
       // Letter
       if (unlocked) {
@@ -696,11 +709,12 @@ define(
       } else {
         ctx.fillStyle = colors.tile_color("glyph");
       }
-      ctx.fillText(glyph, vpos[0], vpos[1]);
+      ctx.fillText(glyph, 0, -FONT_OFFSET);
     }
+    ctx.restore();
   }
 
-  function draw_object(ctx, glyph, energized, vpos) {
+  function draw_object(ctx, glyph, energized) {
     // Given an object (type specified by the given glyph), whether it's
     // energized or not, and the viewport position of the object, draws a
     // special symbol for that object, perhaps using a specific color.
@@ -708,18 +722,18 @@ define(
     ctx.fillStyle = objects.object_color(glyph, energized);
     ctx.strokeStyle = objects.object_color(glyph, energized);
     if (objects.is_color(glyph)) {
-      draw_color_symbol(ctx, glyph, vpos);
+      draw_color_symbol(ctx, glyph);
     } else {
-      ctx.fillText(glyph, vpos[0], vpos[1]);
+      ctx.fillText(glyph, 0, -FONT_OFFSET);
     }
 
     // TODO: More special here?
   }
 
-  function draw_color_symbol(ctx, glyph, vpos) {
+  function draw_color_symbol(ctx, glyph) {
     // Draws a custom symbol for each color type
     ctx.beginPath();
-    let fs = FONT_SIZE * ctx.viewport_scale;
+    let fs = grid.GRID_EDGE * 0.9;
     if (glyph == "红") { // red -> equilateral triangle
       // eqh**2 + (fs/2)**2 = fs**2
       // eqh**2 = fs**2 - (fs/2)**2
@@ -734,53 +748,55 @@ define(
       // crd = (eqh + fsq/(4*eqh))/2
       let crd = (eqh + fsq/(4*eqh))/2 // corner distance
       let egd = eqh - crd; // edge distance
-      ctx.moveTo(vpos[0] - fs/2, vpos[1] - egd);
-      ctx.lineTo(vpos[0] + fs/2, vpos[1] - egd);
-      ctx.lineTo(vpos[0], vpos[1] + crd);
+      ctx.moveTo(-fs/2, -egd);
+      ctx.lineTo(fs/2, -egd);
+      ctx.lineTo(0, crd);
       ctx.closePath();
       ctx.stroke();
     } else if (glyph == "黄") { // yellow -> square
-      ctx.moveTo(vpos[0] - fs/2, vpos[1] - fs/2);
-      ctx.lineTo(vpos[0] - fs/2, vpos[1] + fs/2);
-      ctx.lineTo(vpos[0] + fs/2, vpos[1] + fs/2);
-      ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
+      ctx.moveTo(-fs/2, -fs/2);
+      ctx.lineTo(-fs/2,  fs/2);
+      ctx.lineTo( fs/2,  fs/2);
+      ctx.lineTo( fs/2, -fs/2);
       ctx.closePath();
       ctx.stroke();
     } else if (glyph == "蓝") { // blue -> circle
-      ctx.arc(vpos[0], vpos[1], fs/2, 0, 2*Math.PI);
+      ctx.arc(0, 0, fs/2, 0, 2*Math.PI);
       ctx.stroke();
     } else if (glyph == "橙") { // orange -> pointed square
       let trheight = Math.sin(Math.PI/3)*fs/4;
-      ctx.moveTo(vpos[0] - fs/2           , vpos[1] - fs/2           );
+      ctx.moveTo(-fs/2           , -fs/2           );
       // top
-      ctx.lineTo(vpos[0] - fs/6           , vpos[1] - fs/2           );
-      ctx.lineTo(vpos[0]                  , vpos[1] - fs/2 - trheight);
-      ctx.lineTo(vpos[0] + fs/6           , vpos[1] - fs/2           );
-      ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/2           );
+      ctx.lineTo(-fs/6           , -fs/2           );
+      ctx.lineTo( 0              , -fs/2 - trheight);
+      ctx.lineTo( fs/6           , -fs/2           );
+      ctx.lineTo( fs/2           , -fs/2           );
       // right
-      ctx.lineTo(vpos[0] + fs/2           , vpos[1] - fs/6           );
-      ctx.lineTo(vpos[0] + fs/2 + trheight, vpos[1]                  );
-      ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/6           );
-      ctx.lineTo(vpos[0] + fs/2           , vpos[1] + fs/2           );
+      ctx.lineTo( fs/2           , -fs/6           );
+      ctx.lineTo( fs/2 + trheight,  0              );
+      ctx.lineTo( fs/2           ,  fs/6           );
+      ctx.lineTo( fs/2           ,  fs/2           );
       // bottom
-      ctx.lineTo(vpos[0] + fs/6           , vpos[1] + fs/2           );
-      ctx.lineTo(vpos[0]                  , vpos[1] + fs/2 + trheight);
-      ctx.lineTo(vpos[0] - fs/6           , vpos[1] + fs/2           );
-      ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/2           );
+      ctx.lineTo( fs/6           ,  fs/2           );
+      ctx.lineTo( 0              ,  fs/2 + trheight);
+      ctx.lineTo(-fs/6           ,  fs/2           );
+      ctx.lineTo(-fs/2           ,  fs/2           );
       // left
-      ctx.lineTo(vpos[0] - fs/2           , vpos[1] + fs/6           );
-      ctx.lineTo(vpos[0] - fs/2 - trheight, vpos[1]                  );
-      ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/6           );
-      ctx.lineTo(vpos[0] - fs/2           , vpos[1] - fs/2           );
+      ctx.lineTo(-fs/2           ,  fs/6           );
+      ctx.lineTo(-fs/2 - trheight,  0              );
+      ctx.lineTo(-fs/2           , -fs/6           );
+      ctx.lineTo(-fs/2           , -fs/2           );
+      ctx.closePath();
       ctx.stroke();
 
     } else if (glyph == "绿") { // green -> half-round-cornered square
-      ctx.arc(vpos[0], vpos[1], fs/2, Math.PI, 3*Math.PI/2);
-      ctx.lineTo(vpos[0] + fs/2, vpos[1] - fs/2);
-      ctx.lineTo(vpos[0] + fs/2, vpos[1]);
-      ctx.arc(vpos[0], vpos[1], fs/2, 0, Math.PI/2);
-      ctx.lineTo(vpos[0] - fs/2, vpos[1] + fs/2);
-      ctx.lineTo(vpos[0] - fs/2, vpos[1]);
+      ctx.arc(0, 0, fs/2, Math.PI, 3*Math.PI/2);
+      ctx.lineTo(fs/2, -fs/2);
+      ctx.lineTo(fs/2, 0);
+      ctx.arc(0, 0, fs/2, 0, Math.PI/2);
+      ctx.lineTo(-fs/2, fs/2);
+      ctx.lineTo(-fs/2, 0);
+      ctx.closePath();
       ctx.stroke();
     } else if (glyph == "紫") { // purple -> trifang
       // see "红"
@@ -788,9 +804,10 @@ define(
       let eqh = Math.sqrt(fsq - fsq/4) // equilateral height
       let crd = (eqh + fsq/(4*eqh))/2 // corner distance
       let egd = eqh - crd; // edge distance
-      ctx.arc(vpos[0] - fs, vpos[1] + crd, fs, -Math.PI/3, 0);
-      ctx.arc(vpos[0] + fs, vpos[1] + crd, fs, Math.PI, 4*Math.PI/3);
-      ctx.arc(vpos[0], vpos[1] - egd - eqh, fs, Math.PI/3, 2*Math.PI/3);
+      ctx.arc(-fs, crd, fs, -Math.PI/3, 0);
+      ctx.arc(fs, crd, fs, Math.PI, 4*Math.PI/3);
+      ctx.arc(0, -egd - eqh, fs, Math.PI/3, 2*Math.PI/3);
+      ctx.closePath();
       ctx.stroke();
     } else if (glyph == "白") { // white -> 90/60/curve
       let θ = Math.PI/3;
@@ -811,7 +828,7 @@ define(
       let rot = -Math.PI/4;
       let offx = fs/8;
 
-      ctx.translate(vpos[0] + offx, vpos[1]);
+      ctx.translate(offx, 0);
       ctx.rotate(rot);
       ctx.moveTo(-w/2, -h/2);
       ctx.lineTo(-w/2 + opp - opp_cutoff, -h/2);
@@ -826,7 +843,7 @@ define(
       ctx.closePath();
       ctx.stroke();
       ctx.rotate(-rot);
-      ctx.translate(-vpos[0] - offx, -vpos[1]);
+      ctx.translate(-offx, 0);
     }
   }
 
@@ -839,11 +856,10 @@ define(
 
       // Now layer combined colors on top:
       let cmb = objects.combined_color(Object.keys(entry.colors));
-      let color = objects.color_color(cmb, true);
       for (let pos of entry.path) {
         // TODO: Shapey highlights; path merging to get regions?!
         // TODO: This highlight gets overwritten by another...
-        draw_highlight(ctx, pos, color);
+        draw_color_highlight(ctx, pos, cmb);
       }
     }
   }
@@ -861,13 +877,18 @@ define(
 
       // Check for a color tile
       let tile = content.tile_at(dimension, gp);
+      let cglyph = undefined;
       if (tile != undefined) {
         let glyph = tile.glyph;
         if (objects.is_color(glyph)) {
-          color = objects.color_color(glyph, true);
+          cglyph = glyph;
         }
       }
-      draw_highlight(ctx, gp, color);
+      if (cglyph != undefined) {
+        draw_color_highlight(ctx, gp, cglyph);
+      } else {
+        draw_color_highlight(ctx, gp, cmb);
+      }
     }
   }
 
@@ -906,28 +927,35 @@ define(
 
     // Draw line:
     if ((method == "highlight" || method == "line") && gplist.length > 1) {
-      var wpos = grid.world_pos(gplist[0]);
-      var vpos = view_pos(ctx, wpos);
 
       ctx.strokeStyle = color || colors.ui_color("trail");
       ctx.fillStyle = ctx.strokeStyle;
       if (method == "line") {
-        ctx.lineWidth = 3;
+        ctx.lineWidth = THICK_LINE * ctx.viewport_scale;
       } else {
-        ctx.lineWidth = 2;
+        ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
       }
       // dots at ends:
-      let vp = view_pos(ctx, grid.world_pos(gplist[0]));
+      ctx.save();
+      transform_to_tile(ctx, gplist[0]);
       ctx.beginPath();
-      ctx.arc(vp[0], vp[1], 3, 0, 2*Math.PI);
+      ctx.arc(0, 0, VERY_THICK_LINE, 0, 2*Math.PI);
       ctx.fill();
-      vp = view_pos(ctx, grid.world_pos(gplist[gplist.length-1]));
+      ctx.restore();
+
+      ctx.save();
+      transform_to_tile(ctx, gplist[gplist.length - 1]);
       ctx.beginPath();
-      ctx.arc(vp[0], vp[1], 4, 0, 2*Math.PI);
+      ctx.arc(0, 0, VERY_THICK_LINE, 0, 2*Math.PI);
       ctx.fill();
-      // curves along the path:
+      ctx.restore();
+
+      // curves along the path (without using transform_to_tile):
       ctx.beginPath();
+      let vpos = view_pos(ctx, grid.world_pos(gplist[0]));
       ctx.moveTo(vpos[0], vpos[1]);
+      let nvpos = view_pos(ctx, grid.world_pos(gplist[1]));
+      ctx.lineTo((vpos[0] + nvpos[0])/2, (vpos[1] + nvpos[1])/2);
       for (var i = 1; i < gplist.length - 1; ++i) {
         let vcp = view_pos(ctx, grid.world_pos(gplist[i]));
         let vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
@@ -949,10 +977,10 @@ define(
   function draw_highlight(ctx, gpos, color) {
     // Takes a context, a grid position, and a color, and highlights that grid
     // cell using that color.
-    var wpos = grid.world_pos(gpos);
-    var vpos = view_pos(ctx, wpos);
+    ctx.save();
+    transform_to_tile(ctx, gpos);
 
-    ctx.lineWidth = 2;
+    ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
 
     // Outer hexagon
     ctx.strokeStyle = color;
@@ -967,30 +995,69 @@ define(
       vertex[0] *= 0.95;
       vertex[1] *= 0.95;
 
+      // compute view position and draw a line
+      if (once) {
+        ctx.moveTo(vertex[0], vertex[1]);
+        once = false;
+      } else {
+        ctx.lineTo(vertex[0], vertex[1]);
+      }
+    });
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function draw_color_highlight(ctx, gpos, cglyph) {
+    // Takes a context, a grid position, and a color glyph, and highlights that
+    // grid cell using the appropriate shape and color.
+    ctx.save();
+    transform_to_tile(ctx, gpos);
+
+    ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
+
+    // Outer hexagon
+    ctx.strokeStyle = objects.color_color(cglyph, true);
+
+    ctx.beginPath();
+    once = true;
+    grid.VERTICES.forEach(function (vertex) {
+      // copy the vertex
+      vertex = vertex.slice();
+
+      // bring things in just a touch
+      vertex[0] *= 0.95;
+      vertex[1] *= 0.95;
+
+      /*
       // offset to our current world position
       vertex[0] += wpos[0];
       vertex[1] += wpos[1];
 
       // compute view position and draw a line
       var vv = view_pos(ctx, vertex);
+      */
       if (once) {
-        ctx.moveTo(vv[0], vv[1]);
+        ctx.moveTo(vertex[0], vertex[1]);
         once = false;
       } else {
-        ctx.lineTo(vv[0], vv[1]);
+        ctx.lineTo(vertex[0], vertex[1]);
       }
     });
     ctx.closePath();
     ctx.stroke();
+
+    ctx.restore();
   }
 
   function draw_ticks(ctx, gpos, ticks, max_ticks, color) {
     // Takes a context, a grid position, counts of current & max ticks, and a
     // color, and draws a countdown in that grid cell using that color.
-    var wpos = grid.world_pos(gpos);
-    var vpos = view_pos(ctx, wpos);
+    ctx.save();
+    transform_to_tile(ctx, gpos);
 
-    ctx.lineWidth = 4;
+    ctx.lineWidth = VERY_THICK_LINE * ctx.viewport_scale;
 
     // Outer hexagon
     ctx.strokeStyle = color;
@@ -999,13 +1066,14 @@ define(
 
     ctx.beginPath();
     ctx.arc(
-      vpos[0],
-      vpos[1],
+      0,
+      0,
       grid.GRID_EDGE * 0.7,
       -Math.PI/2,
       -Math.PI/2 + angle
     );
     ctx.stroke();
+    ctx.restore();
   }
 
   function draw_loading(ctx, keys, loading) {
@@ -1068,6 +1136,8 @@ define(
   return {
     "FONT_FACE": FONT_FACE,
     "FONT_SIZE": FONT_SIZE,
+    "DEFAULT_SCALE": DEFAULT_SCALE,
+    "LARGE_SCALE": LARGE_SCALE,
     "measure_text": measure_text,
     "interp_color": interp_color,
     "draw_tiles": draw_tiles,
