@@ -816,7 +816,8 @@ function(
 
     let edom = env["domain"];
     if (!edom || !dimensions.MULTIPLANAR_DOMAINS.includes(edom)) {
-      edom = "成语";
+      //edom = "成语";
+      edom = "English";
     }
     let eseed = Number.parseInt(env["seed"]);
     if (Number.isNaN(eseed)) {
@@ -1438,8 +1439,6 @@ function(
 
   function offer_string(name, str) {
     loading.innerText = "Done loading. Receive output below.";
-
-    var file_input = document.getElementById("words_list");
 
     var output_bin = document.getElementById("output_bin");
     output_bin.removeAttribute("disabled");
