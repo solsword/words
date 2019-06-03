@@ -185,9 +185,9 @@ define([], function() {
   function pgdist(x) {
     // Pseudo-gaussian distribution over [0, 1).
     let u1 = udist(x);
-    let x = lfsr(x >>> 0);
+    x = lfsr(x >>> 0);
     let u2 = udist(x);
-    let x = lfsr(x >>> 0);
+    x = lfsr(x >>> 0);
     let u3 = udist(x);
     return (u1 + u2 + u3) / 3;
   }
@@ -204,9 +204,9 @@ define([], function() {
     // lower end but excluding the higher end (even if the lower end is given
     // second). Distribution bias is about one part in (range/2^31).
     let i1 = idist(x, start, end);
-    let x = lfsr(x >>> 0);
+    x = lfsr(x >>> 0);
     let i2 = idist(x, start, end);
-    let x = lfsr(x >>> 0);
+    x = lfsr(x >>> 0);
     let i3 = idist(x, start, end);
     return Math.floor((i1 + i2 + i3) / 3);
   }
