@@ -930,7 +930,7 @@ function(
     // set up menus:
     QUEST_MENU = new menu.QuestList(
       CTX,
-      { "left": "50%", "right": 40, "top": 30, "bottom": 90 },
+      { "left": "50%", "right": 100, "top": 30, "bottom": 100 },
       { "width": undefined, "height": undefined },
       undefined,
       QUESTS
@@ -938,7 +938,7 @@ function(
 
     QUEST_SIDEBAR = new menu.ToggleMenu(
       CTX,
-      { "right": 0, "top": 80 },
+      { "right": 10, "top": 240 },
       { "width": 40, "height": 40 },
       undefined, 
       "!",
@@ -951,11 +951,11 @@ function(
       }
     );
     // TODO: Re-enable
-    // menu.add_menu(QUEST_SIDEBAR);
+    //menu.add_menu(QUEST_SIDEBAR);
 
     WORDS_LIST_MENU = new menu.WordList(
       CTX,
-      { "left": "50%", "right": 80, "top": 30, "bottom": 90 },
+      { "left": "50%", "right": 100, "top": 30, "bottom": 100 },
       { "width": undefined, "height": undefined },
       undefined,
       found_list(dimensions.natural_domain(CURRENT_DIMENSION)),
@@ -966,10 +966,11 @@ function(
 
     WORDS_SIDEBAR = new menu.ToggleMenu(
       CTX,
-      { "right": 0, "top": 120 },
-      { "width": 80, "height": 40 },
+      { "right": 10, "top": 330 },
+      { "width": 40, "height": 40 },
       undefined, 
-      "找到",
+      //"找到",
+      "🗎",
       function () {
         QUEST_SIDEBAR.off();
         menu.add_menu(WORDS_LIST_MENU);
@@ -1027,7 +1028,7 @@ function(
 
     ZOOM_OUT_BUTTON = new menu.ButtonMenu(
       CTX,
-      { "right": 10, "top": 60 },
+      { "right": 10, "top": 100 },
       { "width": 40, "height": 40 },
       {},
       "–",
