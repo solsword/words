@@ -816,6 +816,7 @@ define([], function() {
     "lfsr": lfsr,
 
     "udist": udist,
+    "pgdist": pgdist,
     "idist": idist,
     "expdist": expdist,
 
