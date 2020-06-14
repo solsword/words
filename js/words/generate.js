@@ -1223,8 +1223,6 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
     // Note: Order doesn't matter here, as these will be assigned to random
     // supertiles within the ultratile.
     let obj_queue = [];
-    /*
-     * TODO: Temporarily disabled this object stuff for the FDG demo
     for (let i = 0; i < richness; ++i) {
       if (i < links) {
         obj_queue.push("🔗");
@@ -1241,7 +1239,6 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
         obj_queue.push(res);
       }
     }
-    */
 
     // Fill in 3/5 of all remaining supertiles with color sources:
     for (
@@ -2144,8 +2141,6 @@ function(anarchy, dict, grid, dimensions, caching, objects) {
       for (let i = 0; i < touched.length; ++i) {
         let idx = grid.gp__index(touched[i]);
         supertile.domains[idx] = domain;
-        // TODO: Get rid of this?
-        //supertile.colors[idx] = colors_for_domains(dl);
         if (DEBUG_SHOW_SOCKETS) {
           supertile.colors[idx].push(
             ["bl", "yl", "gn"][socket % 3]

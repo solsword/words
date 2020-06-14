@@ -6,10 +6,10 @@ define(["./dimensions", "anarchy"], function(dimensions, anarchy) {
   var WARNINGS = true;
 
   // Grid size in canvas units (before viewport_scale)
+  // This is the distance between grid cell centers.
   var GRID_SIZE = 30;
 
   // Size constants based on GRID_SIZE
-  // TODO: HERE
   var GRID_TOP = GRID_SIZE/2;
   var GRID_BOTTOM = -GRID_SIZE/2;
   var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2)

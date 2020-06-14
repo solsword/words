@@ -46,7 +46,7 @@ function(
   var LAST_POSITION = [0, 0];
   var MS_PER_FRAME = 1000/60;
   // TODO: Measure this!
-  var COLORFUL_UNLOCKED = true; // whether to color unlocked regions
+  var TRACE_UNLOCKED = false; // whether to trace unlocked swipes
 
   var CURRENT_DIMENSION = undefined;
 
@@ -1171,15 +1171,18 @@ function(
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
 
     // Tiles
-    if (!draw.draw_tiles(CURRENT_DIMENSION, CTX)) {
+    visible_tiles = draw.visible_tile_list(CURRENT_DIMENSION, CTX);
+    if (!draw.draw_tiles(CURRENT_DIMENSION, CTX, visible_tiles)) {
       DO_REDRAW = MISSING_TILE_RETRY;
     };
 
     // Highlight unlocked:
-    if (COLORFUL_UNLOCKED) {
-      draw.highlight_unlocked(CURRENT_DIMENSION, CTX);
-      draw.highlight_objects(CURRENT_DIMENSION, CTX);
+    if (TRACE_UNLOCKED) {
+      draw.trace_unlocked(CURRENT_DIMENSION, CTX);
     }
+
+    // Add color highlights:
+    draw.draw_colors(CURRENT_DIMENSION, CTX, visible_tiles);
 
     // Swipes
     let combined = combine_arrays(CURRENT_SWIPES);
