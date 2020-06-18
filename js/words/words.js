@@ -814,6 +814,8 @@ function(
       }
     }
 
+    console.log(env);
+
     let edom = env["domain"];
     if (!edom || !dimensions.MULTIPLANAR_DOMAINS.includes(edom)) {
       //edom = "成语";
@@ -985,8 +987,7 @@ function(
       CTX,
       undefined,
       undefined,
-      {}, 
-      ( "This is Words 成语, version 0.1. Select 成语 and press SPACE. Find "
+      {}, ( "This is Words 成语, version 0.1. Select 成语 and press SPACE. Find "
       + "as many as you can! You can scroll to see more. Use the ⊗ at the "
       + "bottom-left or ESCAPE to clear the selection, or double-tap to remove "
       + "a glyph. Review 成语 with the 找到 button on the right-hand side. The "
@@ -1469,9 +1470,52 @@ function(
     }
   }
 
+  function eventually_process_word_list(element) {
+    var files = element.files;
+    if (files === null || files === undefined || files.length < 1) {
+      setTimeout(eventually_process_word_list, 50, element);
+    } else {
+      var first = files[0];
+      var firstname = first.name;
+      var fr = new FileReader();
+      fr.onload = function (e) {
+        var file_text = e.target.result;
+        handle_uploaded_word_list(firstname.split(".")[0], file_text);
+      }
+      fr.readAsText(first);
+    }
+  }
+
+  function handle_uploaded_word_list(fileName, text){
+    let words = text.split(/\s+/);
+    if(words[words.length-1] == ""){
+      words.pop();
+    }
+    if(words[0] == ""){
+      words.shift();
+    }
+    let wordsURL = words.join(";");
+    wordsURL = escape(wordsURL);
+    let link = document.getElementById("quiz_link");
+    link.href = encodeURI("index.html#words=" + wordsURL);
+    link.innerText = link.href; 
+  }
+
+  function setup_quiz() {
+    // Setup function for the domain builder.
+    var file_input = document.getElementById("words_list");
+
+    file_input.onmousedown = function () { this.setAttribute("value", ""); };
+    file_input.ontouchstart = file_input.onmousedown;
+    file_input.onchange = function () {
+      eventually_process_word_list(this);
+    }
+  }
+
   return {
     "start_game": start_game,
     "test_grid": test_grid,
     "build_domains": build_domains,
+    "setup_quiz": setup_quiz,
   };
 });
