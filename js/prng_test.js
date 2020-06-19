@@ -78,11 +78,11 @@ export function main() {
 var MODE = 0;
 var N_MODES = 5;
 
-FROMTO = 0;
-AUTOCORRELATIONS = 1;
-GAPS = 2;
-HISTOGRAMS = 3;
-XY = 4;
+let FROMTO = 0;
+let AUTOCORRELATIONS = 1;
+let GAPS = 2;
+let HISTOGRAMS = 3;
+let XY = 4;
 
 MODE = AUTOCORRELATIONS;
 
@@ -103,7 +103,9 @@ function draw(ctx) {
 
   var ss_sample = []; // sequential-seeds sample
   var sv_sample = []; // sequential-values sample
-  var sample_size = 1000000;
+  // TODO: Move this back up?
+  //var sample_size = 1000000;
+  var sample_size = 100000;
   var p = 1;
   for (var i = 0; i < sample_size; ++i) {
     ss_sample.push(prng(i + 1));
@@ -143,7 +145,10 @@ function draw(ctx) {
       var stride = Math.floor(Math.exp(x / 50));
       var ac = 0;
       for (var idx = 0; idx < sample_size - stride; idx += 1) {
-        ac += udist(ss_sample[idx]) * udist(ss_sample[idx + stride]);
+        ac += (
+            anarchy.udist(ss_sample[idx])
+          * anarchy.udist(ss_sample[idx + stride])
+        );
       }
       ac /= (sample_size - stride);
       draw_dot(
