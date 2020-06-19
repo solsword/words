@@ -1,5 +1,6 @@
 // dimensions.js
 // Dimension handling code.
+/* jshint esversion: 6 */
 
 import * as anarchy from "../anarchy.mjs";
 import * as utils from "./utils.js";
@@ -34,7 +35,7 @@ var DIMENSION_KINDS = {
     "pocket": "P",
     "C": "custom",
     "custom": "C",
-}
+};
 
 /**
  * The different possible layout values for each kind of dimension,
@@ -111,12 +112,12 @@ export function dim__key(d) {
         let f = DIMENSION_FLAVORS[d.kind][d.flavor];
         result += "/" + f;
     }
-    result += "#" + d.seed + ":" + d.domain
-        if (d.kind == "custom") {
-            for (let w of d.words) {
-                result += "," + w;
-            }
+    result += "#" + d.seed + ":" + d.domain;
+    if (d.kind == "custom") {
+        for (let w of d.words) {
+            result += "," + w;
         }
+    }
     return result;
 }
 
@@ -145,7 +146,7 @@ export function key__dim(k) {
     let result = {
         "kind": kind,
         "layout": layout,
-    }
+    };
     if (kind != "full") {
         result["flavor"] = DIMENSION_FLAVORS[kind][k[4]];
     }
@@ -161,13 +162,13 @@ export function key__dim(k) {
             }
         } else if (mode == "seed") {
             if (k[i] == ":") {
-                mode = "domain"
+                mode = "domain";
             } else {
                 seed += k[i];
             }
         } else if (mode == "domain") {
             if (k[i] == ",") {
-                mode = "words"
+                mode = "words";
             } else {
                 domain += k[i];
             }
@@ -329,7 +330,7 @@ export function neighboring_dimension(dimension, offset) {
         ],
         // TODO: Seed pairing
         "seed": seed(dimension),
-    }
+    };
 }
 
 /**

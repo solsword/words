@@ -1,5 +1,6 @@
 // locale.js
 // Locale-specific fixes & stuff.
+/* jshint esversion: 6 */
 
 // Note: so that this can be accessed from both normal module code and
 // web workers, we are currently forced to implement it as a classic JS
@@ -49,4 +50,4 @@ locale = {
     'DEFAULT_LOCALE': DEFAULT_LOCALE,
     'lc_upper': lc_upper,
     'lc_lower': lc_lower,
-}
+};

@@ -1,6 +1,7 @@
 // dict.js
 // Manages domains and their associated dictionaries. For now, the
 // 'dictionaries' do not include definitions.
+/* jshint esversion: 6 */
 
 import * as utils from "./utils.js";
 import * as grid from "./grid.js";
@@ -12,6 +13,11 @@ import * as grid from "./grid.js";
  * Whether or not to issue console warnings.
  */
 var WARNINGS = true;
+
+/**
+ * String used to mark the end of a string in an index.
+ */
+var EOS = ""; // jshint ignore:line
 
 /**
  * Loaded domains, in-flight domains, and failed domains.
@@ -57,10 +63,8 @@ export function lookup_domain(name) {
     } else if (FAILED.hasOwnProperty(name)) {
         console.warn("Internal Error: Unknown domain '" + name + "'");
         console.warn("Known domains are:");
-        for (var d in DOMAINS) {
-            if (DOMAINS.hasOwnProperty(d)) {
-                console.warn("  " + d);
-            }
+        for (let d of Object.keys(DOMAINS)) {
+            console.warn("  " + d);
         }
         console.warn("...still-loading domains:");
         for (let d of Object.keys(LOADING)) {
@@ -68,7 +72,7 @@ export function lookup_domain(name) {
         }
         console.warn("---");
         return undefined;
-    } else if (!LOADING.hasOwnProperty(d)) {
+    } else if (!LOADING.hasOwnProperty(name)) {
         load_dictionary(name);
         return undefined;
     }
@@ -237,7 +241,7 @@ export function polish_and_callback(
                 finished_callback(msg.data[0], msg.data[1]);
             }
         }
-    }
+    };
 }
 
 /**
@@ -264,7 +268,7 @@ export function stringify_and_callback(object, callback) {
         } else {
             callback(msg.data); // must be the final result
         }
-    }
+    };
 }
 
 /**
@@ -366,7 +370,7 @@ export function load_json_or_list(name) {
     };
     xobj.onerror = function () {
         load_simple_word_list(name);
-    }
+    };
     try {
         xobj.send(null);
     } catch (e) {
@@ -400,10 +404,11 @@ export function load_json_or_list_from_data(
     index_progress_callback,
     finished_callback
 ) {
+    let rough;
     try {
-        var rough = JSON.parse(data);
+        rough = JSON.parse(data);
     } catch (error) {
-        var rough = create_rough_domain_from_word_list(data);
+        rough = create_rough_domain_from_word_list(data);
     }
     polish_and_callback(
         name,
@@ -505,17 +510,15 @@ export function create_rough_domain_from_word_list(name, list_text) {
     var entries = [];
     var total_count = 0;
     for (let w of words) {
-        var bits = w.split(",");
-        var word = bits[0];
+        let bits = w.split(",");
+        let word = bits[0];
         // Filter out 'words' that contain whitespace
         if (/\s+/.test(word)) { continue; }
-        var freq = bits[1]; // might be 'undefined'
-        bits = word.split("→")
-            var glyphs = bits[0];
-        var word = bits[1]; // might be undefined
-        if (word == undefined) {
-            word = glyphs;
-        }
+        let freq = bits[1]; // might be 'undefined'
+        bits = word.split("→");
+        let glyphs = bits[0];
+        word = bits[1]; // might be undefined
+        if (word == undefined) { word = glyphs; }
         if (freq == undefined) {
             freq = 1;
         } else {
@@ -541,21 +544,21 @@ export function create_rough_domain_from_word_list(name, list_text) {
     var fq_counttable = [];
     var short_fq_counttable = [];
     var lt_counttable = [];
-    for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+    for (let i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
         fq_counttable[i] = 0;
         short_fq_counttable[i] = 0;
     }
-    for (var i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
+    for (let i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
         lt_counttable[i] = 0;
     }
-    var hf_entries = 0;
-    var short_hf_entries = 0;
-    var freq = undefined;
-    var len = undefined;
-    var normlength = [];
-    var overlength = [];
-    var superlong = [];
-    for (var i = 0; i < entries.length; ++i) {
+    let hf_entries = 0;
+    let short_hf_entries = 0;
+    let freq = undefined;
+    let len = undefined;
+    let normlength = [];
+    let overlength = [];
+    let superlong = [];
+    for (let i = 0; i < entries.length; ++i) {
         // count words by frequency and length
         freq = entries[i][2];
         len = entries[i][0].length;
@@ -603,7 +606,7 @@ export function create_rough_domain_from_word_list(name, list_text) {
     var short_fq_sumtable = [];
     var sum = 0;
     var short_sum = 0;
-    for (var i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
+    for (let i = 0; i < DOMAIN_FREQUENCY_BINS; ++i) {
         // frequency sumtables are reversed (things
         // at-least-this-frequent starting with the most-frequent group
         // and proceeding to less-frequent groups)
@@ -619,7 +622,7 @@ export function create_rough_domain_from_word_list(name, list_text) {
     // Create length sumtable:
     var lt_sumtable = [];
     sum = 0;
-    for (var i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
+    for (let i = 0; i < DOMAIN_LENGTH_BINS; ++i) {
         // length sumtable is normal (entries no-longer-than-this-plus-1)
         sum += lt_counttable[i];
         lt_sumtable[i] = sum;
@@ -642,27 +645,27 @@ export function create_rough_domain_from_word_list(name, list_text) {
         "normlength": normlength,
         "overlength": overlength,
         "superlong": superlong,
-    }
+    };
 
     for (let d of directives) {
         dbits = d.slice(1).split(":");
-        key = dbits[0].trim()
-            val = dbits[1].trim()
-            if (key == "colors") {
-                var colors = val.split(",");
-                rough["colors"] = [];
-                colors.forEach(function (c) {
-                    rough["colors"].push(c.trim());
-                });
-            } else if (key == "ordered" || key == "cased") {
-                rough[key] = [
-                    "true", "True", "TRUE",
-                    "yes", "Yes", "YES",
-                    "y", "Y"
-                ].indexOf(val) >= 0;
-            } else {
-                rough[key] = dbits[1].trim();
+        key = dbits[0].trim();
+        val = dbits[1].trim();
+        if (key == "colors") {
+            var colors = val.split(",");
+            rough["colors"] = [];
+            for (let c of colors) {
+                rough["colors"].push(c.trim());
             }
+        } else if (key == "ordered" || key == "cased") {
+            rough[key] = [
+                "true", "True", "TRUE",
+                "yes", "Yes", "YES",
+                "y", "Y"
+            ].indexOf(val) >= 0;
+        } else {
+            rough[key] = dbits[1].trim();
+        }
     }
 
     return rough;
@@ -723,14 +726,10 @@ export function load_simple_word_list(name) {
 export function check_word(glyphs, domains) {
     var matches = [];
     for (let domain of domains) {
-        matches = matches.concat(
-            find_word_in_domain(
-                glyphs,
-                domain
-            ).map(
-                x => [name_of(domain)].concat(x)
-            )
-        );
+        let indom = find_word_in_domain(glyphs, domain);
+        for (let match of indom) {
+            matches.push([name_of(domain), ...match]);
+        }
     }
     return matches;
 }
@@ -799,14 +798,14 @@ export function find_word_in_domain(glyphs, domain) {
         }
         if (Array.isArray(index)) {
             // no more indices to search
-            break
+            break;
         }
     }
 
     var result = [];
     // multiple words in this index bucket
     if (Array.isArray(index)) {
-        for (var i = 0; i < index.length; ++i) {
+        for (let i = 0; i < index.length; ++i) {
             var idx = index[i]; // index in entries list
             var test_entry = dom.entries[idx];
             var against = test_entry[0];
@@ -819,11 +818,11 @@ export function find_word_in_domain(glyphs, domain) {
             }
         }
     } else if (g == null) {
-        if (index.hasOwnProperty("")) {
-            for (var i = 0; i < index[""].length; ++i) {
-                var idx = index[""][i];
-                var test_entry = dom.entries[idx];
-                var against = test_entry[0];
+        if (index.hasOwnProperty(EOS)) {
+            for (let i = 0; i < index[EOS].length; ++i) {
+                let idx = index[EOS][i];
+                let test_entry = dom.entries[idx];
+                let against = test_entry[0];
                 if (!dom.cased) {
                     against = locale.lc_upper(against, dom.locale);
                 }
@@ -895,7 +894,7 @@ export function unrolled_word(n, domain) {
         console.warn(
             "WARNING: unexpectedly dodged both cases in unrolled_word!\n"
             + "  (n is " + n + " and the domain is '" + domain.name + "')"
-        )
+        );
     }
     // default to the most-frequent entry in this should-be-impossible case:
     return domain.entries[0];
@@ -933,14 +932,14 @@ export function unrolled_short_word(n, domain) {
     } else {
         // In this case, we're within some other part of the
         // short-words-binned-by-frequency realm.
-        var offset = domain.short_high_frequency_entries;
-        for (var i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
+        let offset = domain.short_high_frequency_entries;
+        for (let i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
             // The i-th bin represents words that appear
             // DOMAIN_FREQUENCY_BINS - i times in our domain:
-            var count = DOMAIN_FREQUENCY_BINS - i;
+            let count = DOMAIN_FREQUENCY_BINS - i;
             if (n < domain.short_count_sums[i]) { // it's in this bin
-                var inside = n - domain.short_count_sums[i-1];
-                var idx = offset + Math.floor(inside / count);
+                let inside = n - domain.short_count_sums[i-1];
+                let idx = offset + Math.floor(inside / count);
                 return domain.entries[domain.normlength[idx]];
             } else {
                 // it's not in this bin, so adjust our offset
@@ -955,7 +954,7 @@ export function unrolled_short_word(n, domain) {
         console.warn(
             "WARNING: unexpectedly dodged both cases in unrolled_short_word!\n"
             + "  (n is " + n + " and the domain is '" + domain.name + "')"
-        )
+        );
     }
     // default to the most-frequent entry in this should-be-impossible case:
     return domain.entries[0];

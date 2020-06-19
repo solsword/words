@@ -1,5 +1,6 @@
 // grid.js
 // Hex grid code.
+/* jshint esversion: 6 */
 
 import * as anarchy from "../anarchy.mjs";
 import * as dimensions from "./dimensions.js";
@@ -48,7 +49,7 @@ export var NEIGHBORS = [
     [0, -1],
     [-1, -1],
     [-1, 0]
-]
+];
 
 /**
  * Directions as indices into the NEIGHBORS array:
@@ -72,7 +73,7 @@ export var SG_NEIGHBORS = [
     [1, 0],
     [1, -1],
     [0, -1]
-]
+];
 
 /**
  * Supergrid directions as indices into the SG_NEIGHBORS array.
@@ -504,31 +505,31 @@ export function grid_pos(wp) {
 
     var celly = (wp[1] + GRID_SIZE/(2 - (col % 2 != 0)));
     // Note fancy denominator shifts grid squares in odd rows (see picture)
-    var row = Math.floor(celly / GRID_SIZE)
+    var row = Math.floor(celly / GRID_SIZE);
 
-        // We only need fractional exact positions now:
-        cellx -= col * GRID_EDGE * 1.5;
+    // We only need fractional exact positions now:
+    cellx -= col * GRID_EDGE * 1.5;
     celly -= row * GRID_SIZE;
 
     // Here we adjust for the x-axis skew relative to the y-axis (they're at
     // 60/120 degrees, not 90)
-    row += Math.floor(col / 2) // integer division
+    row += Math.floor(col / 2); // integer division
 
-        // Now check if we fell into an edge case:
-        if (cellx > GRID_EDGE) {
-            // far enough left to be an edge case:
-            var from_right = GRID_SIZE*1.5 - cellx;
-            var above_center = celly - GRID_SIZE/2;
-            let slope_from_corner = above_center / from_right;
-            if (slope_from_corner > Math.tan(Math.PI/3)) {
-                // The upper-right exception: x+1 and y+1
-                col += 1;
-                row += 1;
-            } else if (slope_from_corner < -Math.tan(Math.PI/3)) {
-                // The lower-right exception: x+1
-                col += 1;
-            }
+    // Now check if we fell into an edge case:
+    if (cellx > GRID_EDGE) {
+        // far enough left to be an edge case:
+        var from_right = GRID_SIZE*1.5 - cellx;
+        var above_center = celly - GRID_SIZE/2;
+        let slope_from_corner = above_center / from_right;
+        if (slope_from_corner > Math.tan(Math.PI/3)) {
+            // The upper-right exception: x+1 and y+1
+            col += 1;
+            row += 1;
+        } else if (slope_from_corner < -Math.tan(Math.PI/3)) {
+            // The lower-right exception: x+1
+            col += 1;
         }
+    }
 
     return [col, row];
 }
@@ -1070,7 +1071,7 @@ export function tiles_at_ring(r) {
  *     central tile.
  */
 export function tiles_within_ring(r) {
-    return 1 + (r * (r+1))/2 * 6
+    return 1 + (r * (r+1))/2 * 6;
 }
 
 /**
@@ -1192,8 +1193,8 @@ export function gp__rp(gp) {
     if (adjθ < 0) {
         adjθ = adjθ + Math.PI*2;
     }
-    let tri = Math.floor(rsize * (adjθ / Math.PI*2))
-        let leeway = Math.floor(rsize/16);
+    let tri = Math.floor(rsize * (adjθ / Math.PI*2));
+    let leeway = Math.floor(rsize/16);
     for (let guess = tri - leeway; guess < tri + leeway + 1; ++tri) {
         let guess_pos = rp__gp(ring, guess);
         if (guess_pos[0] == gp[0] && guess_pos[1] == gp[1]) {
@@ -1230,8 +1231,8 @@ export function sgp__srp(sgp) {
     if (adjθ < 0) {
         adjθ = adjθ + Math.PI*2;
     }
-    let tri = Math.floor(rsize * (adjθ / Math.PI*2))
-        let leeway = Math.floor(rsize/16);
+    let tri = Math.floor(rsize * (adjθ / Math.PI*2));
+    let leeway = Math.floor(rsize/16);
     for (let guess = tri - leeway; guess < tri + leeway + 1; ++tri) {
         let guess_pos = srp__sgp(ring, guess);
         if (guess_pos[0] == sgp[0] && guess_pos[1] == sgp[1]) {

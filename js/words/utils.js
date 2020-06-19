@@ -1,5 +1,6 @@
 // utils.js
 // Miscellaneous general utilities.
+/* jshint esversion: 6 */
 
 /**
  * Generates an array containing the N numbers 0 .. N-1.
@@ -135,8 +136,13 @@ export function equivalent(a, b, seen) {
                 } else if (
                     !equivalent(
                         a[key],
-                        b[key]
-                        [access_path + '.' + key, encountered, a_paths, b_paths]
+                        b[key],
+                        [
+                            access_path + '.' + key,
+                            encountered,
+                            a_paths,
+                            b_paths
+                        ]
                     )
                 ) {
                     return false;

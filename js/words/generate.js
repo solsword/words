@@ -1,5 +1,6 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
+/* jshint esversion: 6, maxerr: 10000 */
 
 import * as anarchy from "../anarchy.mjs";
 import * as dict from "./dict.js";
@@ -222,7 +223,7 @@ var BASE_PERMUTATIONS = [
     [2, [ grid.N, grid.NW, grid.NE ]],
     [2, [ grid.N, grid.N, grid.SW, grid.SW, grid.SE ]],
     [2, [ grid.N, grid.N, grid.SW, grid.S, grid.NW ]],
-]
+];
 
 /**
  * Index first by a socket index and then again by an anchor number to
@@ -235,7 +236,7 @@ var EDGE_SOCKET_ANCHORS = [
     [ [6, 3], [6, 4], [6, 5] ],
     [ [3, 0], [4, 1], [5, 2] ],
     [ [0, 0], [1, 0], [2, 0] ],
-]
+];
 
 /**
  * Which permutation-site-value combinations are valid for crossover
@@ -410,7 +411,7 @@ export function sample_table(table, seed, smoothing) {
 
     var last = undefined;
     var selected = null;
-    for (var e of Object.keys(table)) {
+    for (let e of Object.keys(table)) {
         selected = e;
         r -= table[e] + smoothing;
         if (r < 0) {
@@ -495,7 +496,7 @@ export function distort_probabilities(probabilities, bias) {
         exp = (1 + bias*4);
     }
     // distort
-    for (var k in probabilities) {
+    for (let k in probabilities) {
         if (probabilities.hasOwnProperty(k)) {
             var adj = Math.pow(probabilities[k], exp);
             newsum += adj;
@@ -503,7 +504,7 @@ export function distort_probabilities(probabilities, bias) {
         }
     }
     // re-normalize:
-    for (var k in result) {
+    for (let k in result) {
         if (result.hasOwnProperty(k)) {
             result[k] /= newsum;
         }
@@ -566,7 +567,7 @@ export function index_order(index, seed, bias) {
     var probs = {};
     var n_keys = 0;
     for (var key of Object.keys(index)) {
-        if (key != "" && key != "_count_") {
+        if (key != dict.EOS && key != "_count_") {
             n_keys += 1;
             if (Array.isArray(index[key])) {
                 probs[key] = index[key].length / bc;
@@ -575,8 +576,8 @@ export function index_order(index, seed, bias) {
             }
         }
     }
-    if (index.hasOwnProperty("")) {
-        probs[""] = 1/bc;
+    if (index.hasOwnProperty(dict.EOS)) {
+        probs[dict.EOS] = 1/bc;
     }
     probs = distort_probabilities(probs, bias);
     return weighted_shuffle(probs, seed);
@@ -1233,8 +1234,8 @@ export function ultratile_context(domain_name, ugp, seed) {
                 ii / grid.ULTRATILE_INTERIOR_SUPERTILES_ROW
             );
             let col = 1 + ii % grid.ULTRATILE_INTERIOR_SUPERTILES_ROW;
-            let sgp = [row, col]
-                let full_idx = grid.sgp__index(sgp);
+            let sgp = [row, col];
+            let full_idx = grid.sgp__index(sgp);
             incl_count += 1;
             if (incl_count > ol_incl_here) {
                 break;
@@ -1431,8 +1432,8 @@ export function ultratile_context(domain_name, ugp, seed) {
                     ) {
                         // not on the edge (slight asymmetry, but that's
                         // alright).
-                        let nloc = grid.sgap__sidx(nb)
-                            let taken = false;
+                        let nloc = grid.sgap__sidx(nb);
+                        let taken = false;
                         // check for queue overlap
                         for (let k = 0; k < queues.length; ++k) {
                             if (queues[k].indexOf(nloc) >= 0) {
@@ -1662,23 +1663,23 @@ export function ultratile_context(domain_name, ugp, seed) {
                     }
                 }
             }
-            let count = asg_count + border_count + skip_count
-                if (
-                    (quota == 1 && count > 1)
-                    || (quota > 1 && count != quota)
-                ) {
-                    // Our count doesn't match our quota!
-                    console.warn(
-                        "Count doesn't match quota at: " + sgp + " ("
-                      + i + ")\n"
-                      + "  Count is: " + asg_count + "/" + border_count
-                      + "/" + skip_count
-                      + " but quota is: " + quota + "\n"
-                      + "  Sockets here: " + locs
-                    );
-                    console.warn(socket_offsets);
-                    console.warn(supertile_offsets);
-                }
+            let count = asg_count + border_count + skip_count;
+            if (
+                (quota == 1 && count > 1)
+                || (quota > 1 && count != quota)
+            ) {
+                // Our count doesn't match our quota!
+                console.warn(
+                    "Count doesn't match quota at: " + sgp + " ("
+                  + i + ")\n"
+                  + "  Count is: " + asg_count + "/" + border_count
+                  + "/" + skip_count
+                  + " but quota is: " + quota + "\n"
+                  + "  Sockets here: " + locs
+                );
+                console.warn(socket_offsets);
+                console.warn(supertile_offsets);
+            }
         }
     }
 
@@ -1700,7 +1701,7 @@ export function ultratile_context(domain_name, ugp, seed) {
 caching.register_domain(
     "ultratile_context", 
     function (ds, ugp, seed) {
-        return ds + ":" + ugp[0] + "," + ugp[1] + ":" + seed
+        return ds + ":" + ugp[0] + "," + ugp[1] + ":" + seed;
     },
     ultratile_context,
     MULTIPLANAR_INFO_CACHE_SIZE
@@ -1756,33 +1757,33 @@ export function punctuated_assignment_index(ugap, utcontext, world_seed) {
         return undefined;
     }
     var asg_index = 0;
-    var r = sghash(world_seed + 379238109821, [ut_x, ut_y])
-        if (mp_offset == 0) { // natural: index determined by prior stuff
-            var row = Math.floor(lin / grid.ULTRATILE_ROW_SOCKETS);
-            asg_index = nat_prior + mpsums[row];
-            // iterate from beginning of row to count local priors
-            for (
-                var here = sub_y * grid.ULTRATILE_ROW_SOCKETS;
-                here < lin;
-                ++here
-            ) {
-                if (mptable[here] == 0) {
-                    asg_index += 1;
-                }
+    var r = sghash(world_seed + 379238109821, [ut_x, ut_y]);
+    if (mp_offset == 0) { // natural: index determined by prior stuff
+        var row = Math.floor(lin / grid.ULTRATILE_ROW_SOCKETS);
+        asg_index = nat_prior + mpsums[row];
+        // iterate from beginning of row to count local priors
+        for (
+            var here = sub_y * grid.ULTRATILE_ROW_SOCKETS;
+            here < lin;
+            ++here
+        ) {
+            if (mptable[here] == 0) {
+                asg_index += 1;
             }
-        } else { // inclusion: index determined by RNG
-            // TODO: Pull these together near a destination?
-            // compute a suitable seed value for this inclusion:
-            var ir = r + mp_offset;
-            for (let i = 0; i < (mp_offset % 7) + 2; ++i) {
-                ir = anarchy.lfsr(r);
-            }
-            asg_index = anarchy.cohort_shuffle(
-                lin,
-                grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
-                ir
-            );
         }
+    } else { // inclusion: index determined by RNG
+        // TODO: Pull these together near a destination?
+        // compute a suitable seed value for this inclusion:
+        var ir = r + mp_offset;
+        for (let i = 0; i < (mp_offset % 7) + 2; ++i) {
+            ir = anarchy.lfsr(r);
+        }
+        asg_index = anarchy.cohort_shuffle(
+            lin,
+            grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
+            ir
+        );
+    }
 
     // Return values:
     return [ asg_x, asg_y, asg_index, mp_offset ];
@@ -1933,8 +1934,8 @@ export function punctuated_overlength_index(ugp, utcontext, world_seed) {
     } else { // inclusion: index determined by RNG
         // TODO: Pull these together near a destination?
         // compute a suitable seed value for this inclusion:
-        let r = sghash(world_seed + 379238109821, [ut_x, ut_y])
-            let ir = r + mp_offset;
+        let r = sghash(world_seed + 379238109821, [ut_x, ut_y]);
+        let ir = r + mp_offset;
         for (let i = 0; i < (mp_offset % 7) + 2; ++i) {
             ir = anarchy.lfsr(r);
         }
@@ -2130,9 +2131,10 @@ export function pick_word(domains, arp, seed, only_socketable) {
     });
     if (WARNINGS && lesser_total > grid.ASSIGNMENT_REGION_TOTAL_SOCKETS) {
         console.warn(
-            "Warning: domain/combo? size exceeds number of assignable sockets: "
-            + grand_total + " > " + grid.ASSIGNMENT_REGION_TOTAL_SOCKETS
-        )
+            "Warning: domain/combo? size exceeds number of assignable"
+          + " sockets: "
+          + grand_total + " > " + grid.ASSIGNMENT_REGION_TOTAL_SOCKETS
+        );
     }
 
     let r = sghash(seed, arp);
@@ -2408,8 +2410,8 @@ export function generate_full_supertile(dimension, sgp, world_seed) {
     let default_domain = dimensions.natural_domain(dimension);
 
     let seed = world_seed;
-    let s = dimensions.seed(dimension)
-        seed ^= s;
+    let s = dimensions.seed(dimension);
+    seed ^= s;
     for (let i = 0; i < (s % 5) + 3; ++i) {
         seed = anarchy.prng(seed);
     }
@@ -2462,19 +2464,19 @@ export function generate_full_supertile(dimension, sgp, world_seed) {
     let act = utcontext.active_map[sidx];
     if (act != undefined) {
         let sseed = anarchy.lfsr(r + 9328749);
-        let stsq = grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE
-            for (let i = 0; i < stsq; ++i) {
-                let si = anarchy.cohort_shuffle(i, stsq, sseed);
-                let xy = grid.index__igp(i);
-                if (grid.is_valid_subindex(xy)) {
-                    let idx = grid.igp__index(xy);
-                    if (result.glyphs[idx] == undefined) {
-                        result.glyphs[idx] = act;
-                        result.domains[idx] = "__active__";
-                        break; // done placing active element
-                    } // else keep looking for an empty spot
-                }
+        let stsq = grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE;
+        for (let i = 0; i < stsq; ++i) {
+            let si = anarchy.cohort_shuffle(i, stsq, sseed);
+            let xy = grid.index__igp(i);
+            if (grid.is_valid_subindex(xy)) {
+                let idx = grid.igp__index(xy);
+                if (result.glyphs[idx] == undefined) {
+                    result.glyphs[idx] = act;
+                    result.domains[idx] = "__active__";
+                    break; // done placing active element
+                } // else keep looking for an empty spot
             }
+        }
     }
 
     // First try to add more words, then fill any remaining voids:
@@ -2660,8 +2662,8 @@ export function embed_overlength_word(supertile, asg) {
     let l_seed = sghash(seed, asg);
     let r = anarchy.lfsr(l_seed);
 
-    let mdim = dimensions.neighboring_dimension(dimension, mpo)
-        let domain = dimensions.natural_domain(mdim);
+    let mdim = dimensions.neighboring_dimension(dimension, mpo);
+    let domain = dimensions.natural_domain(mdim);
 
     // Ensure domain(s) are loaded:
     let dl = domains_list(domain);
@@ -2753,7 +2755,7 @@ export function worm_fill_skip(domain) {
     let wfs = WORM_FILL_SKIP;
     while (wfs > 0) {
         let short_total = domain_objs
-            .map(d => dict.words_no_longer_than(d, wfs))
+            .map(d => dict.words_no_longer_than(d, wfs)) // jshint ignore: line
             .reduce((a, b) => a + b);
         let grand_total = domain_objs
             .map(d => d.entries.length)
@@ -2909,8 +2911,8 @@ export function augment_words(supertile, domain, seed, leave_empty) {
         // multiple words per worm
         while (worm.length > wfs) {
             remaining = open_spaces - leave_empty;
-            limit = Math.min(worm.length, remaining)
-                wseed = anarchy.lfsr(wseed + worm[worm.length-1] + wtw);
+            limit = Math.min(worm.length, remaining);
+            wseed = anarchy.lfsr(wseed + worm[worm.length-1] + wtw);
             wtw += 1;
             let fill = sample_word(domain, wseed, limit);
             if (fill == undefined) {
@@ -3437,9 +3439,7 @@ export function generate_pocket_layout(dimension) {
 // Register generate_pocket_layout as a caching domain
 caching.register_domain(
     "pocket_layout", 
-    function (dimension) {
-        return "" + dimension
-    },
+    dimension => "" + dimension,
     generate_pocket_layout,
     POCKET_LAYOUT_CACHE_SIZE
 );
@@ -3490,14 +3490,14 @@ export function generate_pocket_supertile(dimension, sgp, world_seed) {
     );
 
     // Ensure domain(s) are loaded:
-    var domain = dimensions.natural_domain(dimension);
-    var dl = domains_list(domain);
+    let domain = dimensions.natural_domain(dimension);
+    let dl = domains_list(domain);
     if (dict.lookup_domains(dl) == undefined) {
         return undefined;
     }
 
     // set glyphs, colors, and domains to undefined:
-    for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
+    for (let i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
         result.glyphs[i] = undefined;
         result.colors[i] = [];
         result.domains[i] = undefined;
@@ -3603,41 +3603,41 @@ export function merge_glyph_counts(gs1, gs2) {
  *     merge_glyph_counts, normalization happens before merging.
  */
 export function merge_glyph_bicounts(gs1, gs2) {
-    var result = {};
-    var gs1_total = 0;
-    var gs2_total = 0;
-    for (var g in gs1) {
+    let result = {};
+    let gs1_total = 0;
+    let gs2_total = 0;
+    for (let g in gs1) {
         if (gs1.hasOwnProperty(g)) {
-            for (var gg in gs1[g]) {
+            for (let gg in gs1[g]) {
                 if (gs1[g].hasOwnProperty(gg)) {
                     gs1_total += gs1[g][gg];
                 }
             }
         }
     }
-    for (var g in gs2) {
+    for (let g in gs2) {
         if (gs2.hasOwnProperty(g)) {
-            for (var gg in gs2[g]) {
+            for (let gg in gs2[g]) {
                 if (gs2[g].hasOwnProperty(gg)) {
                     gs2_total += gs2[g][gg];
                 }
             }
         }
     }
-    for (var g in gs1) {
+    for (let g in gs1) {
         if (gs1.hasOwnProperty(g)) {
             result[g] = {};
-            for (var gg in gs1[g]) {
+            for (let gg in gs1[g]) {
                 if (gs1[g].hasOwnProperty(gg)) {
                     result[g][gg] = gs1[g][gg] / gs1_total;
                 }
             }
         }
     }
-    for (var g in gs2) {
+    for (let g in gs2) {
         if (gs2.hasOwnProperty(g)) {
             if (result.hasOwnProperty(g)) {
-                for (var gg in gs2[g]) {
+                for (let gg in gs2[g]) {
                     if (gs2[g].hasOwnProperty(gg)) {
                         if (result[g].hasOwnProperty(gg)) {
                             result[g][gg] += gs2[g][gg] / gs2_total;
@@ -3648,7 +3648,7 @@ export function merge_glyph_bicounts(gs1, gs2) {
                 }
             } else {
                 result[g] = {};
-                for (var gg in gs2[g]) {
+                for (let gg in gs2[g]) {
                     if (gs2[g].hasOwnProperty(gg)) {
                         result[g][gg] = gs2[g][gg] / gs2_total;
                     }
@@ -3673,9 +3673,9 @@ export function merge_glyph_bicounts(gs1, gs2) {
  *     merge_glyph_bicounts.
  */
 export function merge_glyph_tricounts(gs1, gs2) {
-    var result = {};
-    var gs1_total = 0;
-    var gs2_total = 0;
+    let result = {};
+    let gs1_total = 0;
+    let gs2_total = 0;
     for (let g of Object.keys(gs1)) {
         for (let gg of Object.keys(gs1[g])) {
             for (let ggg of Object.keys(gs1[g][gg])) {
@@ -3755,14 +3755,14 @@ export function merge_glyph_tricounts(gs1, gs2) {
  *     trigrams object.
  */
 export function merge_bigrams_into_trigrams(trigrams, bigrams) {
-    var result = {};
-    var tri_total = 0;
-    var bi_total = 0;
-    for (var g in trigrams) {
+    let result = {};
+    let tri_total = 0;
+    let bi_total = 0;
+    for (let g in trigrams) {
         if (trigrams.hasOwnProperty(g)) {
-            for (var gg in trigrams[g]) {
+            for (let gg in trigrams[g]) {
                 if (trigrams[g].hasOwnProperty(gg)) {
-                    for (var ggg in trigrams[g][gg]) {
+                    for (let ggg in trigrams[g][gg]) {
                         if (trigrams[g][gg].hasOwnProperty(ggg)) {
                             tri_total += trigrams[g][gg][ggg];
                         }
@@ -3771,11 +3771,11 @@ export function merge_bigrams_into_trigrams(trigrams, bigrams) {
             }
         }
     }
-    for (var g in bigrams) {
+    for (let g in bigrams) {
         if (bigrams.hasOwnProperty(g)) {
-            for (var gg in bigrams[g]) {
+            for (let gg in bigrams[g]) {
                 if (bigrams[g].hasOwnProperty(gg)) {
-                    for (var ggg in bigrams[g][gg]) {
+                    for (let ggg in bigrams[g][gg]) {
                         if (bigrams[g][gg].hasOwnProperty(ggg)) {
                             bi_total += bigrams[g][gg][ggg];
                         }
@@ -3784,27 +3784,28 @@ export function merge_bigrams_into_trigrams(trigrams, bigrams) {
             }
         }
     }
-    for (var g in trigrams) {
+    for (let g in trigrams) {
         if (trigrams.hasOwnProperty(g)) {
             result[g] = {};
-            for (var gg in trigrams[g]) {
+            for (let gg in trigrams[g]) {
                 if (trigrams[g].hasOwnProperty(gg)) {
                     result[g][gg] = {};
-                    for (var ggg in trigrams[g][gg]) {
+                    for (let ggg in trigrams[g][gg]) {
                         result[g][gg][ggg] = trigrams[g][gg][ggg] / tri_total;
                     }
                 }
             }
         }
     }
-    for (var base in result) {
+    for (let base in result) {
         if (result.hasOwnProperty(base)) {
-            for (var g in bigrams) {
+            for (let g in bigrams) {
                 if (bigrams.hasOwnProperty(g)) {
+                    let entry;
                     if (result[base].hasOwnProperty(g)) {
-                        var entry = result[base][g];
+                        entry = result[base][g];
                     } else {
-                        var entry = {};
+                        entry = {};
                         result[base][g] = entry;
                     }
                     for (var gg in bigrams[g]) {
@@ -3927,15 +3928,15 @@ export function generate_test_supertile(sgp, seed) {
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
-    for (var socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
-        var sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
-        var cs = sgap[2];
-        var ugp = grid.sgp__ugp(sgap); // socket index is ignored
+    for (let socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
+        let sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
+        let cs = sgap[2];
+        let ugp = grid.sgp__ugp(sgap); // socket index is ignored
 
-        var l_seed = sghash(seed, sgap);
-        var r = anarchy.lfsr(l_seed);
+        let l_seed = sghash(seed, sgap);
+        let r = anarchy.lfsr(l_seed);
 
-        var glyphs = [
+        let glyphs = [
             ["0a", "0b", "0c", "0d", "0e", "0f", "0g", "0h"],
             ["1a", "1b", "1c", "1d", "1e", "1f", "1g", "1h"],
             ["2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"],
@@ -3966,13 +3967,14 @@ export function generate_test_supertile(sgp, seed) {
         var half_max = Math.floor(maxlen / 2);
         var min_cut = glyphs.length - half_max;
         var max_cut = half_max;
+        let cut;
         if (min_cut == max_cut) {
-            var cut = min_cut;
+            cut = min_cut;
         } else if (min_cut > max_cut) {
             glyphs = glyphs.slice(0, maxlen);
             cut = half_max;
         } else {
-            var cut = anarchy.idist(r, min_cut, max_cut + 1);
+            cut = anarchy.idist(r, min_cut, max_cut + 1);
         }
         r = anarchy.lfsr(r);
         if (flip ^ grid.is_canonical(socket)) { // take first half
@@ -3982,9 +3984,9 @@ export function generate_test_supertile(sgp, seed) {
         } else {
             glyphs = glyphs.slice(cut);
         }
-        var touched = inlay_word(result, glyphs, socket, r);
-        for (var i = 0; i < touched.length; ++i) {
-            var idx = grid.igp__index(touched[i]);
+        let touched = inlay_word(result, glyphs, socket, r);
+        for (let i = 0; i < touched.length; ++i) {
+            let idx = grid.igp__index(touched[i]);
             result.colors[idx] = tile_colors;
         }
     }

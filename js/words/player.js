@@ -1,6 +1,7 @@
 // player.js
 // Holds all player-specific information in one place so that it can be saved
 // and loaded.
+/* jshint esversion: 6 */
 
 /**
  * All current players by ID
@@ -49,7 +50,7 @@ export function new_player() {
         "unlock_xp": 0,
         "domains_visited": [],
         "words_found": {},
-    }
+    };
     CURRENT_PLAYERS[id] = result;
     return result;
 }

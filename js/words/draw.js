@@ -1,5 +1,6 @@
 // draw.js
 // Drawing code for words game.
+/* jshint esversion: 6 */
 
 import * as anarchy from "../anarchy.mjs";
 import * as grid from "./grid.js";
@@ -79,9 +80,9 @@ export function measure_text(ctx, text) {
  *     ideal but which is simple.
  */
 export function interp_color(original, proportion, target) {
-    var c1 = color_from_hex(original);
-    var c2 = color_from_hex(target);
-    var r = [
+    let c1 = color_from_hex(original);
+    let c2 = color_from_hex(target);
+    let r = [
         c1[0] * (1 - proportion) + c2[0] * proportion,
         c1[1] * (1 - proportion) + c2[1] * proportion,
         c1[2] * (1 - proportion) + c2[2] * proportion
@@ -104,9 +105,9 @@ export function color_from_hex(h) {
         h = h.slice(1);
     }
     if (h.length == 3) {
-        var r = h.substr(0, 1);
-        var g = h.substr(1, 1);
-        var b = h.substr(2, 1);
+        let r = h.substr(0, 1);
+        let g = h.substr(1, 1);
+        let b = h.substr(2, 1);
         h = r+r+g+g+b+b;
     }
     return [
@@ -128,9 +129,9 @@ export function color_from_hex(h) {
  *     blue values for the given color.
  */
 export function hex_from_color(c) {
-    var r = ("0" + Math.floor(c[0]).toString(16)).slice(-2);
-    var g = ("0" + Math.floor(c[1]).toString(16)).slice(-2);
-    var b = ("0" + Math.floor(c[2]).toString(16)).slice(-2);
+    let r = ("0" + Math.floor(c[0]).toString(16)).slice(-2);
+    let g = ("0" + Math.floor(c[1]).toString(16)).slice(-2);
+    let b = ("0" + Math.floor(c[2]).toString(16)).slice(-2);
     return "#" + r + g + b;
 }
 
@@ -147,7 +148,7 @@ export function hex_from_color(c) {
  * @return A 2-element world position x/y coordinate array.
  */
 export function world_pos(ctx, vpos) {
-    var result = [vpos[0], vpos[1]];
+    let result = [vpos[0], vpos[1]];
     result[0] -= ctx.middle[0];
     result[1] -= ctx.middle[1];
     result[1] = -result[1];
@@ -169,7 +170,7 @@ export function world_pos(ctx, vpos) {
  *     upper-left corner of the canvas.
  */
 export function view_pos(ctx, wpos) {
-    var result = [wpos[0], wpos[1]];
+    let result = [wpos[0], wpos[1]];
     result[0] -= ctx.viewport_center[0];
     result[1] -= ctx.viewport_center[1];
     result[1] = -result[1];
@@ -191,8 +192,8 @@ export function view_pos(ctx, wpos) {
  *     viewport in that order.
  */
 export function viewport_edges(ctx) {
-    var tl = world_pos(ctx, [0, 0]);
-    var br = world_pos(ctx, [ctx.cwidth, ctx.cheight]);
+    let tl = world_pos(ctx, [0, 0]);
+    let br = world_pos(ctx, [ctx.cwidth, ctx.cheight]);
     return [tl[0], tl[1], br[0], br[1]];
 }
 
@@ -264,7 +265,7 @@ export function draw_tiles(dimension, ctx, tiles) {
     ctx.textBaseline = "top"; // middle leaves room for descenders?
     ctx.font = Math.floor(FONT_SIZE) + "px " + FONT_FACE;
 
-    var any_undefined = false;
+    let any_undefined = false;
     tiles.forEach(function(tile) {
         draw_tile(ctx, tile);
         if (tile["glyph"] == undefined) {
@@ -304,7 +305,7 @@ export function draw_supertile(ctx, supertile) {
                     "colors": supertile.colors[idx],
                     "glyph": supertile.glyphs[idx],
                     "domain": supertile.domains[idx],
-                }
+                };
 
                 draw_tile(ctx, tile);
             }
@@ -332,11 +333,16 @@ export function draw_supertile(ctx, supertile) {
 function define_edge(ctx, e_shape, side, r, cr) {
     ctx.save();
     ctx.rotate((Math.PI / 2) * side);
-    var fx = -r + cr;
-    var fy = -r;
-    var tx = r - cr;
-    var ty = -r;
+    let fx = -r + cr;
+    let fy = -r;
+    let tx = r - cr;
+    let ty = -r;
     e_shape = anarchy.posmod(e_shape, 17);
+    // Variables for our case statements:
+    let mx, my, m1x, m1y, m2x, m2y, px, py, p1x, p1y, p2x, p2y, p3x, p3y;
+    let dist, ir, angle, radius;
+    let isx, isy, iex, iey;
+    let sixth, rad;
     // Draw the edge
     switch (e_shape) {
         default:
@@ -345,45 +351,45 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 1: // two-segment outer line
-            var mx = fx + (tx - fx) / 2;
-            var my = fy + (ty - fy) / 2;
+            mx = fx + (tx - fx) / 2;
+            my = fy + (ty - fy) / 2;
 
-            var px = mx + mx * 0.2;
-            var py = my + my * 0.2;
+            px = mx + mx * 0.2;
+            py = my + my * 0.2;
 
             ctx.lineTo(px, py);
             ctx.lineTo(tx, ty);
             break;
 
         case 2: // two-segment inner line
-            var mx = fx + (tx - fx) / 2;
-            var my = fy + (ty - fy) / 2;
+            mx = fx + (tx - fx) / 2;
+            my = fy + (ty - fy) / 2;
 
-            var px = mx - mx * 0.2;
-            var py = my - my * 0.2;
+            px = mx - mx * 0.2;
+            py = my - my * 0.2;
 
             ctx.lineTo(px, py);
             ctx.lineTo(tx, ty);
             break;
 
         case 3: // four-segment outer zig-zag
-            var mx = fx + (tx - fx) / 2;
-            var my = fy + (ty - fy) / 2;
+            mx = fx + (tx - fx) / 2;
+            my = fy + (ty - fy) / 2;
 
-            var m1x = fx + (mx - fx) / 2;
-            var m1y = fy + (my - fy) / 2;
+            m1x = fx + (mx - fx) / 2;
+            m1y = fy + (my - fy) / 2;
 
-            var p1x = m1x + mx * 0.1;
-            var p1y = m1y + my * 0.1;
+            p1x = m1x + mx * 0.1;
+            p1y = m1y + my * 0.1;
 
-            var p2x = mx - mx * 0.1;
-            var p2y = my - my * 0.1;
+            p2x = mx - mx * 0.1;
+            p2y = my - my * 0.1;
 
-            var m2x = mx + (tx - mx) / 2;
-            var m2y = my + (ty - my) / 2;
+            m2x = mx + (tx - mx) / 2;
+            m2y = my + (ty - my) / 2;
 
-            var p3x = m2x + mx * 0.1;
-            var p3y = m2y + my * 0.1;
+            p3x = m2x + mx * 0.1;
+            p3y = m2y + my * 0.1;
 
             ctx.lineTo(p1x, p1y);
             ctx.lineTo(p2x, p2y);
@@ -392,23 +398,23 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 4: // four-segment inner zig-zag
-            var mx = fx + (tx - fx) / 2;
-            var my = fy + (ty - fy) / 2;
+            mx = fx + (tx - fx) / 2;
+            my = fy + (ty - fy) / 2;
 
-            var m1x = fx + (mx - fx) / 2;
-            var m1y = fy + (my - fy) / 2;
+            m1x = fx + (mx - fx) / 2;
+            m1y = fy + (my - fy) / 2;
 
-            var p1x = m1x - mx * 0.1;
-            var p1y = m1y - my * 0.1;
+            p1x = m1x - mx * 0.1;
+            p1y = m1y - my * 0.1;
 
-            var p2x = mx + mx * 0.1;
-            var p2y = my + my * 0.1;
+            p2x = mx + mx * 0.1;
+            p2y = my + my * 0.1;
 
-            var m2x = mx + (tx - mx) / 2;
-            var m2y = my + (ty - my) / 2;
+            m2x = mx + (tx - mx) / 2;
+            m2y = my + (ty - my) / 2;
 
-            var p3x = m2x - mx * 0.1;
-            var p3y = m2y - my * 0.1;
+            p3x = m2x - mx * 0.1;
+            p3y = m2y - my * 0.1;
 
             ctx.lineTo(p1x, p1y);
             ctx.lineTo(p2x, p2y);
@@ -417,8 +423,8 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 5: // curved line
-            var angle = (Math.PI / 2) - Math.atan2(r + cr, r - cr);
-            var radius = Math.sqrt(
+            angle = (Math.PI / 2) - Math.atan2(r + cr, r - cr);
+            radius = Math.sqrt(
                 Math.pow(r + cr, 2)
                 + Math.pow(r - cr, 2)
             );
@@ -433,37 +439,37 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 6: // circular-indented line
-            var mx = (fx + tx) / 2;
-            var my = (fy + ty) / 2;
-            var dist = Math.sqrt(
+            mx = (fx + tx) / 2;
+            my = (fy + ty) / 2;
+            dist = Math.sqrt(
                 Math.pow(tx - fx, 2)
                 + Math.pow(ty - fy, 2)
             );
-            var ir = 0.14 * dist;
+            ir = 0.14 * dist;
             ctx.lineTo(fx + (tx - fx) * 0.43, fy + (ty - fy) * 0.43);
             ctx.arc(mx, my, ir, Math.PI, 0, true); // ccw
             ctx.lineTo(tx, ty);
             break;
 
         case 7: // circular-outdented line
-            var mx = (fx + tx) / 2;
-            var my = (fy + ty) / 2;
-            var dist = Math.sqrt(
+            mx = (fx + tx) / 2;
+            my = (fy + ty) / 2;
+            dist = Math.sqrt(
                 Math.pow(tx - fx, 2)
                 + Math.pow(ty - fy, 2)
             );
-            var ir = 0.2 * dist;
+            ir = 0.2 * dist;
             ctx.lineTo(fx + (tx - fx) * 0.4, fy + (ty - fy) * 0.4);
             ctx.arc(mx, my, ir, Math.PI, 2 * Math.PI); // ccw
             ctx.lineTo(tx, ty);
             break;
 
         case 8: // line with triangle indent
-            var mx = (fx + tx) / 2;
-            var my = (fy + ty) / 2;
-            var px = mx - mx * 0.15;
-            var py = my - my * 0.15;
-            var dist = Math.sqrt(
+            mx = (fx + tx) / 2;
+            my = (fy + ty) / 2;
+            px = mx - mx * 0.15;
+            py = my - my * 0.15;
+            dist = Math.sqrt(
                 Math.pow(tx - fx, 2)
                 + Math.pow(ty - fy, 2)
             );
@@ -474,11 +480,11 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 9: // line with triangle outdent
-            var mx = (fx + tx) / 2;
-            var my = (fy + ty) / 2;
-            var px = mx + mx * 0.15;
-            var py = my + my * 0.15;
-            var dist = Math.sqrt(
+            mx = (fx + tx) / 2;
+            my = (fy + ty) / 2;
+            px = mx + mx * 0.15;
+            py = my + my * 0.15;
+            dist = Math.sqrt(
                 Math.pow(tx - fx, 2)
                 + Math.pow(ty - fy, 2)
             );
@@ -490,62 +496,62 @@ function define_edge(ctx, e_shape, side, r, cr) {
 
         case 10: // line with square indent
             // midpoint
-            var mx = (fx + tx) / 2;
-            var my = (fy + ty) / 2;
+            mx = (fx + tx) / 2;
+            my = (fy + ty) / 2;
             // indent start
-            var isx = fx + (tx - fx) * 0.3;
-            var isy = fy + (ty - fy) * 0.3;
+            isx = fx + (tx - fx) * 0.3;
+            isy = fy + (ty - fy) * 0.3;
             // indent end
-            var iex = fx + (tx - fx) * 0.7;
-            var iey = fy + (ty - fy) * 0.7;
+            iex = fx + (tx - fx) * 0.7;
+            iey = fy + (ty - fy) * 0.7;
 
             // points 1 and 2 of indent
-            var px1 = isx - mx * 0.2;
-            var py1 = isy - my * 0.2;
-            var px2 = iex - mx * 0.2;
-            var py2 = iey - my * 0.2;
+            p1x = isx - mx * 0.2;
+            p1y = isy - my * 0.2;
+            p2x = iex - mx * 0.2;
+            p2y = iey - my * 0.2;
             ctx.lineTo(isx, isy);
-            ctx.lineTo(px1, py1);
-            ctx.lineTo(px2, py2);
+            ctx.lineTo(p1x, p1y);
+            ctx.lineTo(p2x, p2y);
             ctx.lineTo(iex, iey);
             ctx.lineTo(tx, ty);
             break;
 
         case 11: // line with square outdent
             // midpoint
-            var mx = (fx + tx) / 2;
-            var my = (fy + ty) / 2;
+            mx = (fx + tx) / 2;
+            my = (fy + ty) / 2;
             // indent start
-            var isx = fx + (tx - fx) * 0.3;
-            var isy = fy + (ty - fy) * 0.3;
+            isx = fx + (tx - fx) * 0.3;
+            isy = fy + (ty - fy) * 0.3;
             // indent end
-            var iex = fx + (tx - fx) * 0.7;
-            var iey = fy + (ty - fy) * 0.7;
+            iex = fx + (tx - fx) * 0.7;
+            iey = fy + (ty - fy) * 0.7;
 
             // points 1 and 2 of indent
-            var px1 = isx + mx * 0.2;
-            var py1 = isy + my * 0.2;
-            var px2 = iex + mx * 0.2;
-            var py2 = iey + my * 0.2;
+            p1x = isx + mx * 0.2;
+            p1y = isy + my * 0.2;
+            p2x = iex + mx * 0.2;
+            p2y = iey + my * 0.2;
             ctx.lineTo(isx, isy);
-            ctx.lineTo(px1, py1);
-            ctx.lineTo(px2, py2);
+            ctx.lineTo(p1x, p1y);
+            ctx.lineTo(p2x, p2y);
             ctx.lineTo(iex, iey);
             ctx.lineTo(tx, ty);
             break;
 
         case 12: // two bumps
-            var idist = r * 0.15;
+            idist = r * 0.15;
 
-            var p1x = fx / 2;
-            var p1y = -r + idist;
+            p1x = fx / 2;
+            p1y = -r + idist;
 
-            var p2x = tx / 2;
-            var p2y = -r + idist;
+            p2x = tx / 2;
+            p2y = -r + idist;
 
-            var angle = Math.atan2(idist, fx - p1x) - (Math.PI / 2);
+            angle = Math.atan2(idist, fx - p1x) - (Math.PI / 2);
 
-            var radius = Math.sqrt(
+            radius = Math.sqrt(
                 Math.pow(fx - p1x, 2)
                 + Math.pow(fy - p1y, 2)
             );
@@ -567,17 +573,17 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 13: // two round indents
-            var idist = r * 0.15;
+            idist = r * 0.15;
 
-            var p1x = fx / 2;
-            var p1y = -r - idist;
+            p1x = fx / 2;
+            p1y = -r - idist;
 
-            var p2x = tx / 2;
-            var p2y = -r - idist;
+            p2x = tx / 2;
+            p2y = -r - idist;
 
-            var angle = Math.atan2(idist, fx - p1x) - (Math.PI / 2);
+            angle = Math.atan2(idist, fx - p1x) - (Math.PI / 2);
 
-            var radius = Math.sqrt(
+            radius = Math.sqrt(
                 Math.pow(fx - p1x, 2)
                 + Math.pow(fy - p1y, 2)
             );
@@ -601,22 +607,22 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 14: // three-curve wave
-            var idist = r * 0.15;
+            idist = r * 0.15;
 
-            var sixth = (tx - fx) / 6;
+            sixth = (tx - fx) / 6;
 
-            var p1x = fx + sixth;
-            var p1y = -r + idist;
+            p1x = fx + sixth;
+            p1y = -r + idist;
 
-            var p2x = 0;
-            var p2y = -r - idist;
+            p2x = 0;
+            p2y = -r - idist;
 
-            var p3x = tx - sixth;
-            var p3y = -r + idist;
+            p3x = tx - sixth;
+            p3y = -r + idist;
 
-            var angle = (Math.PI / 2) - Math.atan2(idist, sixth);
+            angle = (Math.PI / 2) - Math.atan2(idist, sixth);
 
-            var radius = Math.sqrt(
+            radius = Math.sqrt(
                 Math.pow(sixth, 2)
                 + Math.pow(idist, 2)
             );
@@ -646,22 +652,22 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 15: // inverted wave
-            var idist = r * 0.15;
+            idist = r * 0.15;
 
-            var sixth = (tx - fx) / 6;
+            sixth = (tx - fx) / 6;
 
-            var p1x = fx + sixth;
-            var p1y = -r - idist;
+            p1x = fx + sixth;
+            p1y = -r - idist;
 
-            var p2x = 0;
-            var p2y = -r + idist;
+            p2x = 0;
+            p2y = -r + idist;
 
-            var p3x = tx - sixth;
-            var p3y = -r - idist;
+            p3x = tx - sixth;
+            p3y = -r - idist;
 
-            var angle = (Math.PI / 2) - Math.atan2(idist, sixth);
+            angle = (Math.PI / 2) - Math.atan2(idist, sixth);
 
-            var radius = Math.sqrt(
+            radius = Math.sqrt(
                 Math.pow(sixth, 2)
                 + Math.pow(idist, 2)
             );
@@ -692,13 +698,13 @@ function define_edge(ctx, e_shape, side, r, cr) {
             break;
 
         case 16: // inner trapezoid
-            var rad = cr/3;
+            rad = cr/3;
             ctx.lineTo(fx + rad, -r + rad);
             ctx.lineTo(tx - rad, -r + rad);
             ctx.lineTo(tx, ty);
             break;
     }
-    ctx.restore()
+    ctx.restore();
 }
 
 /**
@@ -734,9 +740,9 @@ function define_corner(ctx, shape, ori, x, y, r, cr) {
             ctx.lineTo(0, cr);
             break;
         case 1: // arc corner (chopped is too similar)
-            var a1 = Math.atan2(r - cr, r) + 3 * Math.PI / 2;
-            var a2 = Math.atan2(r, r - cr) + 3 * Math.PI / 2;
-            var arc_r = Math.sqrt(
+            let a1 = Math.atan2(r - cr, r) + 3 * Math.PI / 2;
+            let a2 = Math.atan2(r, r - cr) + 3 * Math.PI / 2;
+            let arc_r = Math.sqrt(
                 Math.pow(r, 2)
                 + Math.pow(r - cr, 2)
             );
@@ -804,14 +810,14 @@ function draw_hex_rim(ctx) {
 function draw_pad_shape(ctx, shape, r) {
     ctx.lineWidth = THIN_LINE;
     ctx.beginPath();
-    var olj = ctx.lineJoin;
+    let olj = ctx.lineJoin;
     // ctx.lineJoin = "round";
     // ctx.lineJoin = "mitre";
-    var cr = r * 0.4;
-    var lt = -r;
-    var rt =  r;
-    var tp = -r;
-    var bt =  r;
+    let cr = r * 0.4;
+    let lt = -r;
+    let rt =  r;
+    let tp = -r;
+    let bt =  r;
     ctx.moveTo(lt + cr, tp);
     define_edge(ctx, shape[0], 0, r, cr);
     define_corner(ctx, shape[3], 0, rt, tp, r, cr);
@@ -1180,15 +1186,15 @@ export function draw_energy_symbol(ctx, glyph) {
         // eqh**2 = fs**2 - (fs/2)**2
         // eqh = sqrt(fs**2 - (fs/2)**2
         let fsq = fs*fs;
-        let eqh = Math.sqrt(fsq - fsq/4) // equilateral height
-            // crd + egd = eqh
-            // egd = eqh - crd
-            // crd**2 + (fs/2)**2 = crd**2
-            // eqh**2 - 2*eqh*crd + crd**2 + (fs/2)**2 = crd**2
-            // eqh**2 + (fs/2)**2 = 2*eqh*crd
-            // crd = (eqh + fsq/(4*eqh))/2
-            let crd = (eqh + fsq/(4*eqh))/2 // corner distance
-            let egd = eqh - crd; // edge distance
+        let eqh = Math.sqrt(fsq - fsq/4); // equilateral height
+        // crd + egd = eqh
+        // egd = eqh - crd
+        // crd**2 + (fs/2)**2 = crd**2
+        // eqh**2 - 2*eqh*crd + crd**2 + (fs/2)**2 = crd**2
+        // eqh**2 + (fs/2)**2 = 2*eqh*crd
+        // crd = (eqh + fsq/(4*eqh))/2
+        let crd = (eqh + fsq/(4*eqh))/2; // corner distance
+        let egd = eqh - crd; // edge distance
         ctx.moveTo(-fs/2, -egd);
         ctx.lineTo(fs/2, -egd);
         ctx.lineTo(0, crd);
@@ -1242,8 +1248,8 @@ export function draw_energy_symbol(ctx, glyph) {
     } else if (glyph == "紫") { // purple -> trifang
         // see "红"
         let fsq = fs*fs;
-        let eqh = Math.sqrt(fsq - fsq/4) // equilateral height
-            let crd = (eqh + fsq/(4*eqh))/2 // corner distance
+        let eqh = Math.sqrt(fsq - fsq/4); // equilateral height
+            let crd = (eqh + fsq/(4*eqh))/2; // corner distance
             let egd = eqh - crd; // edge distance
         ctx.arc(-fs, crd, fs, -Math.PI/3, 0);
         ctx.arc(fs, crd, fs, Math.PI, 4*Math.PI/3);
@@ -1325,9 +1331,9 @@ function draw_arcs(ctx, size) {
  */
 function draw_triangle_corners(ctx, size, color1, color2, color3) {
     let ssq = size*size;
-    let eqh = Math.sqrt(ssq - ssq/4) // equilateral height
-        let crd = (eqh + ssq/(4*eqh))/2 // corner distance
-        let egd = eqh - crd; // edge distance
+    let eqh = Math.sqrt(ssq - ssq/4); // equilateral height
+    let crd = (eqh + ssq/(4*eqh))/2; // corner distance
+    let egd = eqh - crd; // edge distance
     let broff = size * 0.25; // offset from corner to edge of brace
     let brx = broff * Math.cos(Math.PI/3); // brace line width
     let bry = broff * Math.sin(Math.PI/3); // brace line height

@@ -1,5 +1,6 @@
 // content.js
 // Manages grid + generate code to create, store, and deliver content.
+/* jshint esversion: 6 */
 
 import * as utils from "./utils.js";
 import * as grid from "./grid.js";
@@ -292,11 +293,11 @@ export function unlocked_entries(dimension) {
  */
 export function is_unlocked(dimension, gp) {
     for (let i = 0; i < UNLOCKED.length; ++i) {
-        var entry = UNLOCKED[i];
+        let entry = UNLOCKED[i];
         if (dimensions.same(entry.dimension, dimension)) {
             var path = entry.path;
             for (let j = 0; j < path.length; ++j) {
-                var pos = path[j];
+                let pos = path[j];
                 if (pos[0] == gp[0] && pos[1] == gp[1]) {
                     return true;
                 }
@@ -304,9 +305,9 @@ export function is_unlocked(dimension, gp) {
         }
     }
     for (let i = 0; i < POKES.length; ++i) {
-        var entry = POKES[i];
+        let entry = POKES[i];
         if (dimensions.same(entry.dimension, dimension)) {
-            var pos = entry.pos;
+            let pos = entry.pos;
             if (pos[0] == gp[0] && pos[1] == gp[1]) {
                 return true;
             }
@@ -536,7 +537,7 @@ export function recalculate_unlocked_energies() {
         let delems = ENERGY_MAP[dk];
         for (let gpk of Object.keys(entry.active_elements)) {
             if (!delems.hasOwnProperty(gpk)) {
-                delems[gpk] = {}
+                delems[gpk] = {};
             }
             for (let energy of Object.keys(entry.energies)) {
                 delems[gpk][energy] = true;

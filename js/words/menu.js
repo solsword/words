@@ -1,5 +1,6 @@
 // menu.js
 // Menu system for HTML5 canvas.
+/* jshint esversion: 6, maxerr: 10000 */
 
 import * as draw from "./draw.js";
 import * as colors from "./colors.js";
@@ -147,11 +148,11 @@ export function flow_text(ctx, text, max_width) {
  *     rendered within the given bounds.
  */
 export function auto_text_layout(ctx, text, line_height, width) {
-    var lh = line_height * ctx.viewport_scale;
+    let lh = line_height * ctx.viewport_scale;
     if (width != undefined) {
-        var gw = width * CANVAS_SIZE[0];
-        var given = flow_text(ctx, text, gw);
-        var th = given.length * lh;
+        let gw = width * CANVAS_SIZE[0];
+        let given = flow_text(ctx, text, gw);
+        let th = given.length * lh;
         return {
             "lines": given,
             "width": gw,
@@ -159,13 +160,13 @@ export function auto_text_layout(ctx, text, line_height, width) {
             "line_height": lh
         };
     } else {
-        var nw = NARROW_TEXT_WIDTH * CANVAS_SIZE[0];
-        var narrow = flow_text(ctx, text, nw);
-        var th = narrow.length * lh;
+        let nw = NARROW_TEXT_WIDTH * CANVAS_SIZE[0];
+        let narrow = flow_text(ctx, text, nw);
+        let th = narrow.length * lh;
         if (th / nw <= NARROW_MAX_RATIO && th < CANVAS_SIZE[1]) {
             // fits
             if (narrow.length == 1) {
-                var tw = draw.measure_text(ctx, narrow[0]).width;
+                let tw = draw.measure_text(ctx, narrow[0]).width;
                 return {
                     "lines": narrow,
                     "width": tw,
@@ -183,7 +184,7 @@ export function auto_text_layout(ctx, text, line_height, width) {
         }
 
         let mw = MEDIUM_TEXT_WIDTH * CANVAS_SIZE[0];
-        var medium = flow_text(ctx, text, mw);
+        let medium = flow_text(ctx, text, mw);
         th = medium.length * lh;
         if (th / mw <= MEDIUM_MAX_RATIO && th < CANVAS_SIZE[1]) {
             // fits
@@ -205,7 +206,7 @@ export function auto_text_layout(ctx, text, line_height, width) {
         }
 
         ww = WIDE_TEXT_WIDTH * CANVAS_SIZE[0];
-        var wide = flow_text(ctx, text, mw);
+        let wide = flow_text(ctx, text, mw);
         th = wide.length * lh;
         // No other alternatives even if this is too tall
         if (wide.length == 1) {
@@ -239,9 +240,9 @@ export function auto_text_layout(ctx, text, line_height, width) {
  *     three values are pixel-based measurements for the text.
  */
 export function draw_text(ctx, pos, text_layout) {
-    var x = pos[0];
-    var y = pos[1] + text_layout.line_height;
-    for (var i = 0; i < text_layout.lines.length; ++i) {
+    let x = pos[0];
+    let y = pos[1] + text_layout.line_height;
+    for (let i = 0; i < text_layout.lines.length; ++i) {
         let line = text_layout.lines[i];
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
@@ -382,8 +383,8 @@ export function trigger_horizontal_buttons(
     ) { // vertical miss
         return undefined;
     }
-    var bfrac = rpos[0] / swidth
-        var bwhich = 0;
+    var bfrac = rpos[0] / swidth;
+    var bwhich = 0;
     var nb = buttons.length;
     var freach = swidth / nb;
     for (var i = 0; i < nb; ++i) {
@@ -474,7 +475,7 @@ export function BaseMenu(ctx, pos, shape, style) {
  */
 BaseMenu.prototype.color = function (name) {
     return style_color(this.style, name);
-}
+};
 
 /**
  * Sets the current font to the font specified by this menu's style.
@@ -487,7 +488,7 @@ BaseMenu.prototype.set_font = function (ctx) {
         + this.style.font_face
     );
     ctx.fillStyle = this.color("text");
-}
+};
 
 /**
  * Determines whether this menu is hit by a click at the given canvas
@@ -504,7 +505,7 @@ BaseMenu.prototype.is_hit = function (pos) {
         && pos[0] < ap[0] + as[0]
         && pos[1] < ap[1] + as[1]
     );
-}
+};
 
 /**
  * A function for converting a complicated position and/or size value
@@ -541,7 +542,7 @@ BaseMenu.prototype.concrete = function (x, max) {
         return (+x.slice(0, x.length-1))/100 * max;
     } // else leave multiplier at 1
     return multiplier * +(x.slice(0, x.length-2));
-}
+};
 
 /**
  * Computes the absolute position of this menu.
@@ -551,7 +552,7 @@ BaseMenu.prototype.concrete = function (x, max) {
  */
 BaseMenu.prototype.abspos = function () {
     // Compute current absolute position in canvas coordinates
-    var result = [ 0, 0 ];
+    let result = [ 0, 0 ];
     if (this.pos.hasOwnProperty("left") && this.pos.left != undefined) {
         result[0] = this.concrete(this.pos.left, this.ctx.cwidth);
     } else if (
@@ -562,7 +563,7 @@ BaseMenu.prototype.abspos = function () {
             this.shape.hasOwnProperty("width")
          && this.shape.width != undefined
         ) {
-            var w = (
+            let w = (
                 this.concrete(this.shape.width, this.ctx.cwidth)
                 * this.ctx.viewport_scale
             );
@@ -579,7 +580,7 @@ BaseMenu.prototype.abspos = function () {
             this.shape.hasOwnProperty("width")
          && this.shape.width != undefined
         ) {
-            var w = (
+            let w = (
                 this.concrete(this.shape.width, this.ctx.cwidth)
                 * this.ctx.viewport_scale
             );
@@ -598,7 +599,7 @@ BaseMenu.prototype.abspos = function () {
             this.shape.hasOwnProperty("height")
             && this.shape.height != undefined
         ) {
-            var h = (
+            let h = (
                 this.concrete(this.shape.height, this.ctx.cheight)
                 * this.ctx.viewport_scale
             );
@@ -615,7 +616,7 @@ BaseMenu.prototype.abspos = function () {
             this.shape.hasOwnProperty("height")
             && this.shape.height != undefined
         ) {
-            var h = (
+            let h = (
                 this.concrete(this.shape.height, this.ctx.cheight)
                 * this.ctx.viewport_scale
             );
@@ -625,7 +626,7 @@ BaseMenu.prototype.abspos = function () {
         }
     }
     return result;
-}
+};
 
 /**
  * Computes the absolute shape of this menu.
@@ -660,7 +661,7 @@ BaseMenu.prototype.absshape = function () {
         }
     }
     return result;
-}
+};
 
 /**
  * Returns the position of a given point relative to the top-left corner
@@ -673,7 +674,7 @@ BaseMenu.prototype.absshape = function () {
 BaseMenu.prototype.rel_pos = function (pos) {
     var ap = this.abspos();
     return [ pos[0] - ap[0], pos[1] - ap[1] ];
-}
+};
 
 /**
  * Returns the center point of this menu.
@@ -685,7 +686,7 @@ BaseMenu.prototype.center = function () {
     var ap = this.abspos();
     var as = this.absshape();
     return [ ap[0] + as[0]/2, ap[1] + as[1]/2 ];
-}
+};
 
 /**
  * Draws the menu background and edges, which are the same for all types
@@ -708,7 +709,7 @@ BaseMenu.prototype.draw = function (ctx) {
     ctx.lineWidth = this.style.border_width;
     ctx.strokeRect(ap[0], ap[1], as[0], as[1]);
     return false;
-}
+};
 
 
 /**
@@ -733,7 +734,7 @@ ModalMenu.prototype.tap = function (pos, hit) {
     if (this.modal && !hit) {
         remove_menu(this);
     }
-}
+};
 
 /**
  * A Dialog pops up and shows the given text, disabling all other
@@ -819,7 +820,7 @@ Dialog.prototype.tap = function (pos, hit) {
         this.selected = sel;
         this.fade = 1.0;
     }
-}
+};
 
 /**
  * Drawing function for dialogs. Draws the text in a box with the buttons
@@ -854,12 +855,12 @@ Dialog.prototype.draw = function (ctx) {
     if (this.fade != undefined) {
         this.fade -= 0.5;
         if (this.fade < 0.1) {
-            remove_menu(this)
+            remove_menu(this);
         }
         return true;
     }
     return false;
-}
+};
 
 /**
  * Called when the menu is cleaned up. We end up resetting the fade
@@ -868,7 +869,7 @@ Dialog.prototype.draw = function (ctx) {
  */
 Dialog.prototype.removed = function () {
     this.fade = undefined;
-}
+};
 
 /*
  * A ToggleMenu is a persistent button that can be tapped to toggle
@@ -909,7 +910,7 @@ ToggleMenu.prototype.constructor = ToggleMenu;
 ToggleMenu.prototype.on = function () {
     this.on_();
     this.on_action();
-}
+};
 
 /**
  * Call this function to turn the toggle off.
@@ -917,7 +918,7 @@ ToggleMenu.prototype.on = function () {
 ToggleMenu.prototype.off = function () {
     this.off_();
     this.off_action();
-}
+};
 
 /**
  * Use this to turn the toggle on without triggering the toggle action.
@@ -928,7 +929,7 @@ ToggleMenu.prototype.on_ = function () {
     this.style.colors.background = this.color("active_background");
     this.style.colors.border = this.color("active_border");
     this.is_on = true;
-}
+};
 
 /**
  * Use this to turn the toggle off without triggering the toggle action.
@@ -940,7 +941,7 @@ ToggleMenu.prototype.off_ = function () {
     this.style.colors.background = this.color("inactive_background");
     this.style.colors.border = this.color("inactive_border");
     this.is_on = false;
-}
+};
 
 /**
  * Use to flip the toggle into the opposite state from its current state.
@@ -951,7 +952,7 @@ ToggleMenu.prototype.toggle = function () {
     } else {
         this.on();
     }
-}
+};
 
 /**
  * Flips the toggle when the menu is hit. See BaseMenu.tap.
@@ -960,7 +961,7 @@ ToggleMenu.prototype.tap = function (pos, hit) {
     if (hit) {
         this.toggle();
     }
-}
+};
 
 /**
  * Draws a box with the button text inside it. See BaseMenu.draw.
@@ -988,7 +989,7 @@ ToggleMenu.prototype.draw = function (ctx) {
     }
     ctx.restore();
     return false;
-}
+};
 
 /**
  * A ScrollBox displays a vertical list of items, allowing the user to
@@ -1035,7 +1036,7 @@ ScrollBox.prototype.constructor = ScrollBox;
  */
 ScrollBox.prototype.replace_items = function(new_items) {
     this.items = new_items;
-}
+};
 
 /**
  * A function for retrieving the height of an individual item in this
@@ -1051,7 +1052,7 @@ ScrollBox.prototype.get_item_height = function(it) {
     } else {
         return it.height(this.ctx);
     }
-}
+};
 
 /**
  * Like get_item_height, but for item widths.
@@ -1066,7 +1067,7 @@ ScrollBox.prototype.get_item_width = function(it) {
     } else {
         return it.width(this.ctx);
     }
-}
+};
 
 /**
  * A function for drawing an individual item. Notice that the width
@@ -1085,7 +1086,7 @@ ScrollBox.prototype.draw_item = function(it, ctx, width) {
     } else {
         return it.draw(ctx, width);
     }
-}
+};
 
 /**
  * Determines the response when an item is clicked/tapped on.
@@ -1103,7 +1104,7 @@ ScrollBox.prototype.tap_item = function(it, rxy) {
     } else {
         return it.tap(rxy);
     }
-}
+};
 
 /**
  * Determines the maximum width of all items in the scrollbox. Simply
@@ -1125,7 +1126,7 @@ ScrollBox.prototype.item_max_width = function() {
         }
         return result;
     }
-}
+};
 
 /**
  * @return The combined height of all items in the scroll box.
@@ -1140,7 +1141,7 @@ ScrollBox.prototype.item_total_height = function() {
         }
         return result;
     }
-}
+};
 
 /**
  * Determines the geometry of the scroll box's scroll bar.
@@ -1170,7 +1171,7 @@ ScrollBox.prototype.sb_geom = function () {
         sb_hmin,
         sb_hmax
     ];
-}
+};
 
 /**
  * Determines the scroll limits for the scroll box.
@@ -1198,7 +1199,7 @@ ScrollBox.prototype.scroll_limits = function() {
         min_horiz,
         Math.max(min_horiz, max_horiz)
     ];
-}
+};
 
 /**
  * Handles taps on the scroll box. Taps on scrollbar arrows scroll the
@@ -1273,7 +1274,7 @@ ScrollBox.prototype.tap = function (pos, hit) {
         }
         this.tap_item(this.items[idx], [lrx, iry]);
     }
-}
+};
 
 /**
  * Called continuously during a drag/swipe. Updates the ScrollBox scroll
@@ -1314,7 +1315,7 @@ ScrollBox.prototype.drag = function (path, hit) {
 
     if (
         this.scroll_drag == "vert"
-        || (this.press_last == undefined && x >= sb_vmin && x <= sb_vmax)
+     || (this.press_last == undefined && x >= sb_vmin && x <= sb_vmax)
     ) { // hit on the vertical scrollbar
         this.scroll_drag = "vert";
         this.scroll_position = [
@@ -1323,10 +1324,10 @@ ScrollBox.prototype.drag = function (path, hit) {
         ];
     } else if (
         this.scroll_drag == "horiz"
-        || (this.press_last == undefined && y >= sb_hmin & y <= sb_hmax)
+     || (this.press_last == undefined && y >= sb_hmin & y <= sb_hmax)
     ) { // hit on the horizontal scrollbar
-        this.scroll_drag == "horiz"
-            let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
+        this.scroll_drag = "horiz";
+        let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
         this.scroll_position = [
             hn + (hx - hn) * (x / (w - asw)),
             this.scroll_position[1]
@@ -1345,7 +1346,7 @@ ScrollBox.prototype.drag = function (path, hit) {
     if (this.scroll_position[0] > hx) { this.scroll_position[0] = hx; }
     if (this.scroll_position[1] < vn) { this.scroll_position[1] = vn; }
     if (this.scroll_position[1] > vx) { this.scroll_position[1] = vx; }
-}
+};
 
 /**
  * Called at the end of a swipe.
@@ -1362,7 +1363,7 @@ ScrollBox.prototype.swipe = function (path, st_hit, ed_hit) {
     this.press_time = 0;
     this.press_last = undefined;
     this.scroll_drag = false;
-}
+};
 
 /**
  * Called to draw the scroll box.
@@ -1430,8 +1431,8 @@ ScrollBox.prototype.draw = function(ctx) {
                 // adjust for smaller area:
                 let each = sb_h / 2;
                 let diff = asw - each;
-                let scale_diff = diff * (asw - 2*ao) / asw
-                    left += scale_diff;
+                let scale_diff = diff * (asw - 2*ao) / asw;
+                left += scale_diff;
                 right -= scale_diff;
                 tb -= scale_diff;
                 bt += scale_diff;
@@ -1493,8 +1494,8 @@ ScrollBox.prototype.draw = function(ctx) {
                 // adjust for smaller area:
                 let each = sb_w / 2;
                 let diff = asw - each;
-                let scale_diff = diff * (asw - 2*ao) / asw
-                    top += scale_diff;
+                let scale_diff = diff * (asw - 2*ao) / asw;
+                top += scale_diff;
                 bot -= scale_diff;
                 lr -= scale_diff;
                 rl += scale_diff;
@@ -1581,7 +1582,7 @@ ScrollBox.prototype.draw = function(ctx) {
     ctx.restore();
 
     return false; // no further updates needed
-}
+};
 
 // A LinksMenu displays a scrollable list of items with optional clickable
 // prefixes for each item. If base_url is left undefined or given some
@@ -1689,7 +1690,7 @@ LinksMenu.prototype.constructor = LinksMenu;
  */
 LinksMenu.prototype.set_base_url = function(new_base_url) {
     this.base_url = new_base_url;
-}
+};
 
 
 /**
@@ -1752,7 +1753,7 @@ export function ButtonMenu(ctx, pos, shape, style, text, action) {
     BaseMenu.call(this, ctx, pos, shape, style);
     this.text = text;
     this.action = action;
-};
+}
 ButtonMenu.prototype = Object.create(BaseMenu.prototype);
 ButtonMenu.prototype.constructor = ButtonMenu;
 
@@ -1766,7 +1767,7 @@ ButtonMenu.prototype.tap = function (pos, hit) {
     if (hit) {
         this.action();
     }
-}
+};
 
 /**
  * Draws the button.
@@ -1781,7 +1782,7 @@ ButtonMenu.prototype.draw = function (ctx) {
     var ctr = this.center();
     ctx.fillText(this.text, ctr[0], ctr[1]);
     return false; // no further updates needed
-}
+};
 
 /**
  * A ButtonMenu which displays glyphs-so-far, and which can flash colors.
@@ -1818,7 +1819,7 @@ GlyphsMenu.prototype.add_glyph = function (glyph) {
     // Add a glyph
     this.glyphs.push(glyph);
     this.adjust_width();
-}
+};
 
 /**
  * Removes the last glyph from the button text.
@@ -1827,7 +1828,7 @@ GlyphsMenu.prototype.remove_glyph = function () {
     // Remove the last glyph
     this.glyphs.pop();
     this.adjust_width();
-}
+};
 
 /**
  * Replaces the current glyphs with a new array of glyphs.
@@ -1839,7 +1840,7 @@ GlyphsMenu.prototype.remove_glyph = function () {
 GlyphsMenu.prototype.set_glyphs = function (glyphs) {
     this.glyphs = glyphs.slice();
     this.adjust_width();
-}
+};
 
 /**
  * Adjusts the width of the menu to account for the current glyphs being
@@ -1860,7 +1861,7 @@ GlyphsMenu.prototype.adjust_width = function () {
         dw = m.width + this.style.padding * 2;
     }
     this.shape.width = dw;
-}
+};
 
 /**
  * Initiates a flash of color using the border of the menu. The actual
@@ -1871,7 +1872,7 @@ GlyphsMenu.prototype.adjust_width = function () {
 GlyphsMenu.prototype.flash = function (color) {
     this.fade_color = color;
     this.fade = 1.0;
-}
+};
 
 /**
  * Draws the glyphs menu.
@@ -1915,7 +1916,7 @@ GlyphsMenu.prototype.draw = function (ctx) {
     ctx.fillText(this.display_text, ctr[0], ctr[1]);
 
     return animating;
-}
+};
 
 /**
  * A SlotsMenu has an adjustable number of slots, and each slot can be
@@ -1973,7 +1974,7 @@ SlotsMenu.prototype.constructor = SlotsMenu;
  */
 SlotsMenu.prototype.adjust_width = function () {
     this.shape.width = this.shape.slot_width * this.contents.legnth;
-}
+};
 
 /**
  * Adds a slot to this menu. Omit the glyph argument to add an empty
@@ -1985,7 +1986,7 @@ SlotsMenu.prototype.adjust_width = function () {
 SlotsMenu.prototype.add_slot = function (glyph) {
     this.contents.push(glyph);
     this.adjust_width();
-}
+};
 
 /**
  * Removes the last (rightmost) slot from the menu.
@@ -1998,7 +1999,7 @@ SlotsMenu.prototype.remove_slot = function () {
     let result = this.contents.pop();
     this.adjust_width();
     return result;
-}
+};
 
 /**
  * Handles a tap/click on the menu.
@@ -2016,7 +2017,7 @@ SlotsMenu.prototype.tap = function (pos, hit) {
 
     rp[0] / this.shape.width;
     // TODO: HERE
-}
+};
 
 /**
  * Draws the slots menu.
@@ -2056,7 +2057,7 @@ SlotsMenu.prototype.draw = function (ctx) {
     }
 
     return false;
-}
+};
 
 
 /**
@@ -2085,7 +2086,7 @@ export function remove_menu(menu) {
     }
     if (t != null) {
         call_if_available(menu, "removed", []);
-        MENUS = MENUS.slice(0,t).concat(MENUS.slice(t+1))
+        MENUS = MENUS.slice(0,t).concat(MENUS.slice(t+1));
     }
 }
 
@@ -2102,12 +2103,12 @@ export function remove_menu(menu) {
  *     function with the requested name.
  */
 export function call_if_available(obj, fname, args) {
-    var fcn = obj[fname]
-        if (fcn != undefined) {
-            return fcn.apply(obj, args);
-        } else {
-            return undefined;
-        }
+    var fcn = obj[fname];
+    if (fcn != undefined) {
+        return fcn.apply(obj, args);
+    } else {
+        return undefined;
+    }
 }
 
 /**
@@ -2369,8 +2370,8 @@ export function mouseup(vpos) {
         // else miss on a non-modal menu; continue checking other menus
     }
     // to get here we must miss all menus, and none can be modal
-    clear_context()
-        return false;
+    clear_context();
+    return false;
 }
 
 /**

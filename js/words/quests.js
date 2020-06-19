@@ -1,5 +1,6 @@
 // quests.js
 // Quests functionality.
+/* jshint esversion: 6 */
 
 import * as draw from "./draw.js";
 import * as content from "./content.js";
@@ -329,7 +330,7 @@ export function Quest(type, reward) {
     this.reward = reward;
     this.expanded = false;
     this.icon = icons.unknown;
-};
+}
 
 /**
  * Sets up the quest based on the contents of a specific dimension and a
@@ -405,7 +406,7 @@ Quest.prototype.tap = function(rxy) {
     } else {
         this.expanded = !this.expanded;
     }
-}
+};
 
 /**
  * Returns a summary string indicating the completion state of the quest.
@@ -415,7 +416,7 @@ Quest.prototype.tap = function(rxy) {
 Quest.prototype.summary_string = function () {
     console.warn("summary_string isn't implemented for base Quest.");
     return "<error>";
-}
+};
 
 /**
  * Returns the canvas width of the quest UI element.
@@ -428,7 +429,7 @@ Quest.prototype.width = function(ctx) {
     let ss = this.summary_string();
     let m = draw.measure_text(ctx, ss);
     return 2*(icons.WIDTH + 2*PADDING) + SPACE + m.width + 2*PADDING;
-}
+};
 
 /**
  * Returns the canvas height of the quest UI element.
@@ -441,7 +442,7 @@ Quest.prototype.height = function (ctx) {
     let ss = this.summary_string();
     let m = draw.measure_text(ctx, ss);
     return Math.max(icons.HEIGHT, m.height) + 2*PADDING;
-}
+};
 
 /**
  * Base implementation draws border, summary: completion icon, and quest
@@ -493,7 +494,7 @@ Quest.prototype.draw = function (ctx, width) {
         sspos = ss_left;
     }
     ctx.fillText(ss, sspos, h/2);
-}
+};
 
 
 /**
@@ -525,7 +526,7 @@ NumericQuest.prototype.constructor = NumericQuest;
 NumericQuest.prototype.full_string = function () {
     console.warn("full_string isn't implemented for base NumericQuest.");
     return "<error>";
-}
+};
 
 /**
  * @return The positions (on a scale of 0--1) of the current value and
@@ -536,7 +537,7 @@ NumericQuest.prototype.threshold_positions = function () {
         Math.min(1, this.value / this.bonus),
         Math.min(1, this.target / this.bonus)
     ];
-}
+};
 
 /**
  * @return True if the current numeric value is greater than or equal to
@@ -544,7 +545,7 @@ NumericQuest.prototype.threshold_positions = function () {
  */
 NumericQuest.prototype.is_complete = function () {
     return this.value >= this.target; 
-}
+};
 
 /**
  * @return True if the current numeric value is greater than or equal to
@@ -552,7 +553,7 @@ NumericQuest.prototype.is_complete = function () {
  */
 NumericQuest.prototype.got_bonus = function () {
     return this.value >= this.bonus; 
-}
+};
 
 /**
  * Indicates the quest progress with the current value in the numerator
@@ -562,7 +563,7 @@ NumericQuest.prototype.got_bonus = function () {
  */
 NumericQuest.prototype.summary_string = function() {
     return "" + this.value + "/" + this.target;
-}
+};
 
 /**
  * A string indicating progress which includes the bonus value as well as
@@ -587,7 +588,7 @@ NumericQuest.prototype.full_string = function() {
             + this.target
         );
     }
-}
+};
 
 /**
  * Computes the natural width of the quest UI element.
@@ -600,10 +601,10 @@ NumericQuest.prototype.width = function (ctx) {
     let xw = Quest.prototype.width.call(this, ctx);
     if (this.expanded) {
         let m = draw.measure_text(ctx, this.full_string());
-        xw = Math.max(xw, m.width + 2*SPACE + 3*PADDING)
+        xw = Math.max(xw, m.width + 2*SPACE + 3*PADDING);
     }
     return xw;
-}
+};
 
 /**
  * Computes the height of the quest UI element.
@@ -618,7 +619,7 @@ NumericQuest.prototype.height = function (ctx) {
         th += draw.FONT_SIZE * ctx.viewport_scale + PADDING;
     }
     return th;
-}
+};
 
 /**
  * Draws the numeric quest UI element.
@@ -675,7 +676,7 @@ NumericQuest.prototype.draw = function (ctx, width) {
         ctx.textAlign = "left";
         ctx.fillText(txt, 2*SPACE + 2*PADDING, bh + 0.5*lh);
     }
-}
+};
 
 /**
  * A Hunt quest asks the user to search for words that match a specific
@@ -730,7 +731,7 @@ HuntQuest.prototype.initialize = function(dimension, words_found) {
             }
         }
     }
-}
+};
 
 /**
  * Updates the quest to include a match in the given dimension. Any given
@@ -753,7 +754,7 @@ HuntQuest.prototype.find_word = function(dimension, match) {
             this.found[b] = true;
         }
     }
-}
+};
 
 /**
  * @return True if the quest is complete.
@@ -766,7 +767,7 @@ HuntQuest.prototype.is_complete = function() {
         }
     }
     return complete;
-}
+};
 
 /**
  * @return True if the bonus is complete.
@@ -779,7 +780,7 @@ HuntQuest.prototype.got_bonus = function() {
         }
     }
     return bonus;
-}
+};
 
 /**
  * @return A summary string indicating quest progress.
@@ -802,7 +803,7 @@ HuntQuest.prototype.summary_string = function() {
     } else {
         return ft + "/" + this.targets.length;
     }
-}
+};
 
 /**
  * @return A string to represent a target or bonus hint.
@@ -812,7 +813,7 @@ HuntQuest.prototype.summary_string = function() {
 HuntQuest.prototype.ex_string = function (hint) {
     // TODO: Incorporate actual word found?
     return target;
-}
+};
 
 /**
  * Returns the natural width of the quest UI element.
@@ -842,7 +843,7 @@ HuntQuest.prototype.width = function (ctx) {
         }
     } // else nothing; xw from the base call stands.
     return xw;
-}
+};
 
 /**
  * Returns the height of the quest UI element.
@@ -863,7 +864,7 @@ HuntQuest.prototype.height = function (ctx) {
     } else {
         return bh;
     }
-}
+};
 
 /**
  * Draws the quest UI element.
@@ -937,7 +938,7 @@ HuntQuest.prototype.draw = function (ctx, width) {
             line += 1;
         }
     }
-}
+};
 
 
 /**
@@ -992,7 +993,7 @@ EncircleQuest.prototype.find_word = function(dimension) {
 export function StretchQuest(target, bonus, reward) {
     NumericQuest.call(this, "stretch", target, bonus, reward);
     this.icon = icons.stretch;
-};
+}
 
 StretchQuest.prototype = Object.create(NumericQuest.prototype);
 StretchQuest.prototype.constructor = StretchQuest;
@@ -1125,7 +1126,7 @@ BigQuest.prototype.target_count = function () {
         count += this.sizes[i] || 0;
     }
     return count;
-}
+};
 
 
 /**
@@ -1140,7 +1141,7 @@ BigQuest.prototype.bonus_count = function () {
         count += this.sizes[i] || 0;
     }
     return count;
-}
+};
 
 /**
  * Determines if the quest is complete.
@@ -1149,7 +1150,7 @@ BigQuest.prototype.bonus_count = function () {
  */
 BigQuest.prototype.is_complete = function () {
     return this.target_count() >= this.target[1];
-}
+};
 
 
 /**
@@ -1159,7 +1160,7 @@ BigQuest.prototype.is_complete = function () {
  */
 BigQuest.prototype.got_bonus = function () {
     return this.bonus_count() >= this.bonus[1];
-}
+};
 
 /**
  * @return A short summary string of goal progress.
@@ -1167,7 +1168,7 @@ BigQuest.prototype.got_bonus = function () {
 BigQuest.prototype.summary_string = function () {
     return "" + this.target_count() + "/" + this.target[1];
     // TODO: Include bonus info somehow?
-}
+};
 
 /**
  * @return A short string showing the target length as well as progress
@@ -1178,7 +1179,7 @@ BigQuest.prototype.target_string = function () {
         "" + this.target[0] + "+: "
         + this.target_count() + "/" + this.target[1]
     );
-}
+};
 
 /**
  * @return A short string showing the bonus length as well as progress
@@ -1189,7 +1190,7 @@ BigQuest.prototype.bonus_string = function () {
         "" + this.bonus[0] + "+: "
         + this.bonus_count() + "/" + this.bonus[1]
     );
-}
+};
 
 /**
  * Returns the natural width of the quest UI element.
@@ -1208,7 +1209,7 @@ BigQuest.prototype.width = function(ctx) {
         xw = Math.max(xw, tw, bw);
     }
     return xw;
-}
+};
 
 /**
  * Returns the height of the quest UI element.
@@ -1225,7 +1226,7 @@ BigQuest.prototype.height = function(ctx) {
         result += lh;
     }
     return result;
-}
+};
 
 /**
  * Draws the quest UI element.
@@ -1287,7 +1288,7 @@ BigQuest.prototype.draw = function (ctx, width) {
             ctx.fillText(bs, PADDING + SPACE + icons.WIDTH, bh + 0.5*lh);
         }
     }
-}
+};
 
 
 /**
@@ -1350,7 +1351,7 @@ GlyphQuest.prototype.find_word = function(dimension, match) {
             }
         }
     }
-}
+};
 
 /**
  * @return True if the quest is complete (if for each required target
@@ -1364,7 +1365,7 @@ GlyphQuest.prototype.is_complete = function () {
         }
     }
     return !missing;
-}
+};
 
 /**
  * @return As is_complete, true when the quest's bonus criterion has been
@@ -1377,7 +1378,7 @@ GlyphQuest.prototype.got_bonus = function () {
         }
     }
     return true;
-}
+};
 
 /**
  * @return A short string summarizing quest progress.
@@ -1400,7 +1401,7 @@ GlyphQuest.prototype.summary_string = function() {
     } else {
         return ft + "/" + this.targets.length;
     }
-}
+};
 
 /**
  * Summarizes progress towards the required count for an individual
@@ -1411,7 +1412,7 @@ GlyphQuest.prototype.summary_string = function() {
  */
 GlyphQuest.prototype.ex_tstring = function (t) {
     return "" + t + ": " + (this.found[t] || 0) + "/" + this.targets[t];
-}
+};
 
 /**
  * Summarizes progress towards the required count for an individual
@@ -1422,7 +1423,7 @@ GlyphQuest.prototype.ex_tstring = function (t) {
  */
 GlyphQuest.prototype.ex_bstring = function (b) {
     return "" + b + ": " + (this.found[b] || 0) + "/" + this.bonuses[b];
-}
+};
 
 /**
  * Returns the natural width of the quest UI element.
@@ -1452,7 +1453,7 @@ GlyphQuest.prototype.width = function (ctx) {
         }
     } // else nothing; xw from the base call stands.
     return xw;
-}
+};
 
 /**
  * Returns the height of the quest UI element.
@@ -1474,7 +1475,7 @@ GlyphQuest.prototype.height = function (ctx) {
     } else {
         return bh;
     }
-}
+};
 
 /**
  * Draws the quest UI element.
@@ -1548,4 +1549,4 @@ GlyphQuest.prototype.draw = function (ctx, width) {
             line += 1;
         }
     }
-}
+};

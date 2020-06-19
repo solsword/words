@@ -1,5 +1,6 @@
 // colors.js
 // Color schemes for words game.
+/* jshint esversion: 6 */
 
 /**
  * The various color schemes.
@@ -159,7 +160,7 @@ export var SCHEMES = {
     "noon": {
         // TODO
     }
-}
+};
 
 /**
  * The current color scheme.

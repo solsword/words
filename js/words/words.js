@@ -1,5 +1,6 @@
 // words.js
 // Word game.
+/* jshint esversion: 6 */
 
 import * as draw from "./draw.js";
 import * as content from "./content.js";
@@ -56,7 +57,7 @@ var PRESS_RECORDS = [undefined, undefined];
  * The time at which the most recent mouse-release (or touch-end)
  * occurred.
  */
-var LAST_RELEASE = undefined;
+var LAST_RELEASE = null;
 
 /**
  * The number of milliseconds within which a second click or tap will
@@ -73,7 +74,7 @@ export var DBL_DIST = 10;
 /**
  * During scrolling, the view position at which the scroll was started.
  */
-var SCROLL_REFERENT = undefined;
+var SCROLL_REFERENT = null;
 
 /**
  * An array holding zero or more arrays which each hold 2-element tile
@@ -102,13 +103,13 @@ export var POKE_DELAY = 1;
 /**
  * The currently-happening selection-clear animation.
  */
-var SEL_CLEAR_ANIM = undefined;
+var SEL_CLEAR_ANIM = null;
 
 /**
  * The currently-happening energy-clear animation.
  * TODO: remove this.
  */
-var EN_CLEAR_ANIM = undefined;
+var EN_CLEAR_ANIM = null;
 
 /**
  * A 2-element array holding tile grid x/y coordinates specifying where
@@ -130,7 +131,7 @@ var TRACE_UNLOCKED = true;
 /**
  * The current dimension object.
  */
-var CURRENT_DIMENSION = undefined;
+var CURRENT_DIMENSION;
 
 /**
  * Mouse scroll correction factors:
@@ -155,7 +156,7 @@ var RESIZE_TIMEOUT = 20;
  * function doesn't specify a further waiting period, this will be set
  * back to undefined.
  */
-var DO_REDRAW = undefined;
+var DO_REDRAW = null;
 
 /**
  * The current global canvas reference and associated drawing context.
@@ -229,7 +230,7 @@ var LOADING_RETRY = 10;
 /**
  * A fixed array of supertiles for grid testing.
  */
-var GRID_TEST_DATA = undefined;
+var GRID_TEST_DATA;
 
 /**
  * Returns (possibly after creating) the found list for the given domain
@@ -394,7 +395,7 @@ export function warp_to(coordinates, dimension) {
 export var COMMANDS = {
     // DEBUG:
     "D": function (e) {
-        MODE = MODES[(MODES.index(MODE) + 1) % MODES.length]
+        MODE = MODES[(MODES.index(MODE) + 1) % MODES.length];
     },
     "d": function (e) {
         let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
@@ -462,13 +463,13 @@ export var COMMANDS = {
             );
         }
     }
-}
+};
 
 /**
  * Keyboard commands for the grid test.
  */
 var GRID_TEST_COMMANDS = {
-}
+};
 
 /**
  * Clears the selection, animating lines from each selected tile to the
@@ -486,15 +487,15 @@ export function clear_selection(destination, style) {
     if (destination == undefined) {
         CURRENT_SWIPES = [];
         CURRENT_GLYPHS_BUTTON.set_glyphs([]);
-        if (SEL_CLEAR_ANIM != undefined) {
+        if (SEL_CLEAR_ANIM != null) {
             animate.stop_animation(SEL_CLEAR_ANIM);
-            SEL_CLEAR_ANIM = undefined;
+            SEL_CLEAR_ANIM = null;
         }
         DO_REDRAW = 0;
     } else {
-        if (SEL_CLEAR_ANIM != undefined) {
+        if (SEL_CLEAR_ANIM != null) {
             if (!animate.is_active(SEL_CLEAR_ANIM)) {
-                SEL_CLEAR_ANIM = undefined;
+                SEL_CLEAR_ANIM = null;
             } else {
                 return; // there's a clear animation already in-flight
             }
@@ -519,7 +520,7 @@ export function clear_selection(destination, style) {
             function () {
                 CURRENT_SWIPES = [];
                 CURRENT_GLYPHS_BUTTON.set_glyphs([]);
-            },
+            }
         );
         animate.activate_animation(SEL_CLEAR_ANIM);
         DO_REDRAW = 0;
@@ -541,15 +542,15 @@ export function clear_selection(destination, style) {
 export function clear_energy(destination, style) {
     if (destination == undefined) {
         content.reset_energy();
-        if (EN_CLEAR_ANIM != undefined) {
+        if (EN_CLEAR_ANIM != null) {
             animate.stop_animation(EN_CLEAR_ANIM);
-            EN_CLEAR_ANIM = undefined;
+            EN_CLEAR_ANIM = null;
         }
         DO_REDRAW = 0;
     } else {
-        if (EN_CLEAR_ANIM != undefined) {
+        if (EN_CLEAR_ANIM != null) {
             if (!animate.is_active(EN_CLEAR_ANIM)) {
-                EN_CLEAR_ANIM = undefined;
+                EN_CLEAR_ANIM = null;
             } else {
                 return; // there's a clear animation already in-flight
             }
@@ -557,7 +558,7 @@ export function clear_energy(destination, style) {
         var lines = [];
         content.energized_positions().forEach(
             function (entry) {
-                var gp = entry["position"];
+                var gp = entry.position;
                 var wp = grid.world_pos(gp);
                 var vp = draw.view_pos(CTX, wp);
                 lines.push(
@@ -730,21 +731,21 @@ export function update_canvas_size() {
  * CURRENT_GLYPHS_BUTTON based on the contents of the CURRENT_SWIPES.
  */
 export function update_current_glyphs() {
-    var glyphs = []
-        for (let sw of CURRENT_SWIPES) {
-            for (let gp of sw) {
-                // TODO: Add code here for handling extra-planar glyphs!
-                let g = content.tile_at(CURRENT_DIMENSION, gp)["glyph"];
-                if (g == undefined) { // should never happen in theory:
-                    console.warn(
-                        "InternalError: update_current_glyphs found"
-                      + " undefined glyph at: " + gp
-                    );
-                    g = "?";
-                }
-                glyphs.push(g);
+    var glyphs = [];
+    for (let sw of CURRENT_SWIPES) {
+        for (let gp of sw) {
+            // TODO: Add code here for handling extra-planar glyphs!
+            let g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
+            if (g == undefined) { // should never happen in theory:
+                console.warn(
+                    "InternalError: update_current_glyphs found"
+                  + " undefined glyph at: " + gp
+                );
+                g = "?";
             }
+            glyphs.push(g);
         }
+    }
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
 }
 
@@ -780,8 +781,8 @@ function handle_primary_down(ctx, e) {
         // a normal tile: select it
         if (
             !is_selected(gpos)
-            && (head == null || grid.is_neighbor(head, gpos))
-            && tile.glyph != undefined
+         && (head == null || grid.is_neighbor(head, gpos))
+         && tile.glyph != undefined
         ) {
             CURRENT_SWIPES.push([gpos]);
             update_current_glyphs();
@@ -827,7 +828,7 @@ function handle_primary_up(ctx, e) {
 
     // Check for double-click/tap:
     let isdbl = false;
-    if (LAST_RELEASE != undefined) {
+    if (LAST_RELEASE != null) {
         let dx = vpos[0] - LAST_RELEASE[0];
         let dy = vpos[1] - LAST_RELEASE[1];
         let dt = window.performance.now() - PRESS_RECORDS[0];
@@ -991,7 +992,7 @@ function handle_primary_up(ctx, e) {
 function handle_tertiary_up(ctx, e) {
     var vpos = canvas_position_of_event(e);
     if (menu.mouseup(vpos, "tertiary")) { return; }
-    SCROLL_REFERENT = undefined;
+    SCROLL_REFERENT = null;
 }
 
 /**
@@ -1005,7 +1006,7 @@ function handle_movement(ctx, e) {
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
     if (menu.mousemove(vpos)) { DO_REDRAW = 0; return; }
-    if (SCROLL_REFERENT != undefined) {
+    if (SCROLL_REFERENT != null) {
         // scrolling w/ aux button or two fingers
         var dx = vpos[0] - SCROLL_REFERENT[0];
         var dy = vpos[1] - SCROLL_REFERENT[1];
@@ -1062,9 +1063,9 @@ function handle_movement(ctx, e) {
             var tile = content.tile_at(CURRENT_DIMENSION, gpos);
             if (
                 (head == null || grid.is_neighbor(head, gpos))
-                && tile["glyph"] != undefined
-                && tile["domain"] != "__active__"
-                && tile["domain"] != "__empty__"
+                && tile.glyph != undefined
+                && tile.domain != "__active__"
+                && tile.domain != "__empty__"
             ) {
                 // add them if they're a neighbor of the head
                 // (and not unloaded, and not an object)
@@ -1311,7 +1312,7 @@ export function start_game() {
         {},
         "?",
         function () { menu.add_menu(ABOUT_DIALOG); },
-        function () { menu.remove_menu(ABOUT_DIALOG); },
+        function () { menu.remove_menu(ABOUT_DIALOG); }
     );
     menu.add_menu(ABOUT_TOGGLE);
 
@@ -1409,7 +1410,7 @@ export function start_game() {
         } else if (which == "tertiary") {
             handle_tertiary_down(CTX, e);
         } // otherwise ignore this click
-    }
+    };
     document.ontouchstart = document.onmousedown;
 
     document.onmouseup = function(e) {
@@ -1423,30 +1424,30 @@ export function start_game() {
             handle_tertiary_up(CTX, e);
         } // otherwise ignore this click
         // Reset scroll referent anyways just to be sure:
-        SCROLL_REFERENT = undefined;
-    }
-    document.ontouchend = document.onmouseup
-    document.ontouchcancel = document.onmouseup
+        SCROLL_REFERENT = null;
+    };
+    document.ontouchend = document.onmouseup;
+    document.ontouchcancel = document.onmouseup;
 
     document.onmousemove = function (e) {
         // TODO: Remove this debug
         // LAST_MOUSE_POSITION = canvas_position_of_event(e);
         if (e.preventDefault) { e.preventDefault(); }
         handle_movement(CTX, e);
-    }
+    };
     document.ontouchmove = document.onmousemove;
 
     // TODO: Make this passive? (see chromium verbose warning)
     document.onwheel = function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         handle_wheel(CTX, e);
-    }
+    };
 
     document.onkeydown = function (e) {
         if (COMMANDS.hasOwnProperty(e.key)) {
             COMMANDS[e.key](e);
         }
-    }
+    };
 }
 
 
@@ -1489,7 +1490,7 @@ export function draw_frame(now) {
     ANIMATION_FRAME %= animate.ANIMATION_FRAME_MAX;
     var ms_time = window.performance.now();
     // TODO: Normalize frame count to passage of time!
-    if (DO_REDRAW == undefined) {
+    if (DO_REDRAW == null) {
         window.requestAnimationFrame(draw_frame);
         return;
     } else if (DO_REDRAW > 0) {
@@ -1497,7 +1498,7 @@ export function draw_frame(now) {
         window.requestAnimationFrame(draw_frame);
         return;
     }
-    DO_REDRAW = undefined;
+    DO_REDRAW = null;
 
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
@@ -1505,12 +1506,12 @@ export function draw_frame(now) {
     // Tiles
     let visible_tiles = draw.visible_tile_list(CURRENT_DIMENSION, CTX);
     if (!draw.draw_tiles(CURRENT_DIMENSION, CTX, visible_tiles)) {
-        if (DO_REDRAW != undefined) {
+        if (DO_REDRAW != null) {
             DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
         } else {
             DO_REDRAW = MISSING_TILE_RETRY;
         }
-    };
+    }
 
     // Highlight unlocked:
     if (TRACE_UNLOCKED) {
@@ -1569,7 +1570,7 @@ export function draw_frame(now) {
     if (lks.length > 0) {
         lks.sort();
         if (draw.draw_loading(CTX, lks, loading)) {
-            if (DO_REDRAW != undefined) {
+            if (DO_REDRAW != null) {
                 DO_REDRAW = Math.min(DO_REDRAW, LOADING_RETRY);
             } else {
                 DO_REDRAW = LOADING_RETRY;
@@ -1586,9 +1587,9 @@ export function draw_frame(now) {
     var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
     if (
         next_horizon != undefined
-        && (
-            DO_REDRAW == undefined
-            || DO_REDRAW > next_horizon
+     && (
+            DO_REDRAW == null
+         || DO_REDRAW > next_horizon
         )
     ) {
         DO_REDRAW = next_horizon;
@@ -1668,7 +1669,7 @@ export function test_grid() {
         if (GRID_TEST_COMMANDS.hasOwnProperty(e.key)) {
             GRID_TEST_COMMANDS[e.key](e);
         }
-    }
+    };
 }
 
 /**
@@ -1678,7 +1679,7 @@ export function test_grid() {
  * @param now The number of milliseconds since the time origin.
  */
 export function animate_grid_test(now) {
-    if (DO_REDRAW == undefined) {
+    if (DO_REDRAW == null) {
         window.requestAnimationFrame(animate_grid_test);
         return;
     } else if (DO_REDRAW > 0) {
@@ -1686,7 +1687,7 @@ export function animate_grid_test(now) {
         window.requestAnimationFrame(animate_grid_test);
         return;
     }
-    DO_REDRAW = undefined;
+    DO_REDRAW = null;
 
     // draw the test supertile
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
@@ -1733,7 +1734,7 @@ export function eventually_process_upload(element) {
         fr.onload = function (e) {
             var file_text = e.target.result;
             handle_uploaded_domain(firstname.split(".")[0], file_text);
-        }
+        };
         fr.readAsText(first);
     }
 }
@@ -1835,7 +1836,7 @@ export function offer_string(name, str) {
         var link = document.getElementById("download_link");
         link.setAttribute("href", ourl);
         link.setAttribute("download", name + ".json");
-    }
+    };
 }
 
 /**
@@ -1850,5 +1851,5 @@ export function build_domains() {
     file_input.ontouchstart = file_input.onmousedown;
     file_input.onchange = function () {
         eventually_process_upload(this);
-    }
+    };
 }

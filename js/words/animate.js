@@ -1,5 +1,6 @@
 // animate.js
 // Temporary animation objects for HTML5 canvas.
+/* jshint esversion: 6 */
 
 import * as draw from "./draw.js";
 
@@ -77,7 +78,7 @@ SimpleAnimation.prototype.draw = function (ctx, frames_elapsed) {
         }
         return null;
     }
-}
+};
 
 /**
  * Creates an animation group that combines multiple simple animations.
@@ -125,7 +126,7 @@ AnimGroup.prototype.draw = function (ctx, frames_elapsed) {
         }
         return null;
     }
-}
+};
 
 /**
  * A MotionLine is an animation that indicates motion from one location
@@ -149,7 +150,7 @@ export function MotionLine(duration, on_end, from, to, style) {
     this.style = style || {};
     this.style.color = this.style.color || "#fff";
     this.style.line_width = this.style.line_width || 1;
-};
+}
 MotionLine.prototype = Object.create(SimpleAnimation.prototype);
 MotionLine.prototype.constructor = MotionLine;
 
@@ -171,7 +172,7 @@ MotionLine.prototype.draw_at = function (ctx, progress, frame) {
     ctx.moveTo(this.from[0], this.from[1]);
     ctx.lineTo(this.to[0], this.to[1]);
     ctx.stroke();
-}
+};
 
 /**
  * Draws all active animations. Returns undefined if all animations are

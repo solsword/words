@@ -1,3 +1,7 @@
+// stringify.js
+// Web worker for converting (big) objects to JSON strings.
+/* jshint esversion: 6 */
+
 /**
  * Message handling function which simply takes the message data object,
  * converts it to a string with JSON.stringify, posts a message

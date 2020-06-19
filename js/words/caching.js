@@ -1,5 +1,6 @@
 // caching.js
 // Offers dynamic caching to other modules.
+/* jshint esversion: 6 */
 
 // Objects to hold caches and their queues.
 var DOMAINS = {};
