@@ -1,6 +1,13 @@
 // locale.js
 // Locale-specific fixes & stuff.
 
+// Note: so that this can be accessed from both normal module code and
+// web workers, we are currently forced to implement it as a classic JS
+// script, not a module. When cross-browser support for loading modules
+// from web workers is available, this should be re-implemented as a
+// module. At that point, the extra script tag which loads it will no
+// longer be necessary.
+
 /**
  * A default string that can be used wherever a locale is needed.
  */
@@ -16,7 +23,7 @@ const DEFAULT_LOCALE = "en-US";
  *     uppercase equivalent according to the given locale, if it wasn't
  *     already uppercase.
  */
-export function upper(string, locale) {
+function lc_upper(string, locale) {
     return string.toLocaleUpperCase(locale);
 }
 
@@ -30,6 +37,16 @@ export function upper(string, locale) {
  *     lowercase equivalent according to the given locale, if it wasn't
  *     already lowercase.
  */
-export function lower(string, locale) {
+function lc_lower(string, locale) {
     return string.toLocaleLowerCase(locale);
+}
+
+
+// TODO: This hack lets us use syntax as if we had imported this as a
+// module, but it should be removed once we really can have this be a
+// module again.
+locale = {
+    'DEFAULT_LOCALE': DEFAULT_LOCALE,
+    'lc_upper': lc_upper,
+    'lc_lower': lc_lower,
 }

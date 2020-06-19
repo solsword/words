@@ -7,20 +7,20 @@ import * as dimensions from "./dimensions.js";
 /**
  * Whether to log warnings:
  */
-var WARNINGS = true;
+export var WARNINGS = true;
 
 /**
  * Grid size in canvas units (before viewport_scale)
  * This is the distance between grid cell centers.
  */
-var GRID_SIZE = 30;
+export var GRID_SIZE = 30;
 
 /**
  * Size constants based on GRID_SIZE
  */
-var GRID_TOP = GRID_SIZE/2;
-var GRID_BOTTOM = -GRID_SIZE/2;
-var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2);
+export var GRID_TOP = GRID_SIZE/2;
+export var GRID_BOTTOM = -GRID_SIZE/2;
+export var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2);
 // Note: distance from center to extreme point is also GRID_EDGE
 
 /**
@@ -28,7 +28,7 @@ var GRID_EDGE = 2 * (Math.tan(Math.PI/6) * GRID_SIZE/2);
  * vertex, as x/y coordinate pairs relative to the center of the grid
  * cell.
  */
-var VERTICES = [
+export var VERTICES = [
     [-GRID_EDGE/2, GRID_TOP],
     [GRID_EDGE/2, GRID_TOP],
     [GRID_EDGE, 0],
@@ -41,7 +41,7 @@ var VERTICES = [
  * x/y offsets to each neighbor of a grid cell, clockwise starting from
  * the neighbor directly above.
  */
-var NEIGHBORS = [
+export var NEIGHBORS = [
     [0, 1],
     [1, 1],
     [1, 0],
@@ -53,19 +53,19 @@ var NEIGHBORS = [
 /**
  * Directions as indices into the NEIGHBORS array:
  */
-var N_DIRECTIONS = 6;
-var N = 0;
-var NE = 1;
-var SE = 2;
-var S = 3;
-var SW = 4;
-var NW = 5;
+export var N_DIRECTIONS = 6;
+export var N = 0;
+export var NE = 1;
+export var SE = 2;
+export var S = 3;
+export var SW = 4;
+export var NW = 5;
 
 /**
  * x/y offsets to each neighbor of a supergrid cell, clockwise starting
  * from the neighbor to the left.
  */
-var SG_NEIGHBORS = [
+export var SG_NEIGHBORS = [
     [-1, 0],
     [-1, 1],
     [0, 1],
@@ -77,21 +77,21 @@ var SG_NEIGHBORS = [
 /**
  * Supergrid directions as indices into the SG_NEIGHBORS array.
  */
-var SG_W = 0;
-var SG_NW = 1;
-var SG_NE = 2;
-var SG_E = 3;
-var SG_SE = 4;
-var SG_SW = 5;
+export var SG_W = 0;
+export var SG_NW = 1;
+export var SG_NE = 2;
+export var SG_E = 3;
+export var SG_SE = 4;
+export var SG_SW = 5;
 
 /**
  * The size of a supertile in grid cells (center->center distance).
  */
-var SUPERTILE_SIZE = 7;
+export var SUPERTILE_SIZE = 7;
 /**
  * The number of grid tiles in a supertile.
  */
-var SUPERTILE_TILES = 37;
+export var SUPERTILE_TILES = 37;
 
 /**
  * Converts a supertile inner grid position into a supertile glyphs
@@ -266,41 +266,41 @@ export function sgap__sidx(sgap) {
 /**
  * Hex index & linear index of the center of a supergrid tile:
  */
-var SG_CENTER = [3, 3]; 
-var SG_CENTER_IDX = igp__index(SG_CENTER);
+export var SG_CENTER = [3, 3]; 
+export var SG_CENTER_IDX = igp__index(SG_CENTER);
 
 /**
  * Number of canonical sockets per supergrid tile, and number of total
  * sockets including non-canonical shared sockets.
  */
-var ASSIGNMENT_SOCKETS = 3;
-var COMBINED_SOCKETS = 6;
+export var ASSIGNMENT_SOCKETS = 3;
+export var COMBINED_SOCKETS = 6;
 
 /**
  * Size in glyphs of an assignment socket:
  */
-var SOCKET_SIZE = 12;
+export var SOCKET_SIZE = 12;
 
 /**
  * How big are ultragrid units? Each ultratile is a square region of
  * supertiles with sides this long.
  */
-var ULTRAGRID_SIZE = 12;
+export var ULTRAGRID_SIZE = 12;
 
 /**
  * Ultragrid size constants.
  */
-var ULTRATILE_ROW_SOCKETS = ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS;
+export var ULTRATILE_ROW_SOCKETS = ULTRAGRID_SIZE * ASSIGNMENT_SOCKETS;
 
 /**
  * Number of supertiles in an ultragrid tile.
  */
-var ULTRATILE_SUPERTILES = ULTRAGRID_SIZE * ULTRAGRID_SIZE;
+export var ULTRATILE_SUPERTILES = ULTRAGRID_SIZE * ULTRAGRID_SIZE;
 
 /**
  * Number of those that are in the interior.
  */
-var ULTRATILE_INTERIOR_SUPERTILES = (
+export var ULTRATILE_INTERIOR_SUPERTILES = (
     (ULTRAGRID_SIZE - 2)
     * (ULTRAGRID_SIZE - 2)
 );
@@ -308,23 +308,23 @@ var ULTRATILE_INTERIOR_SUPERTILES = (
 /**
  * One row of supertiles in an ultratile minus the ends.
  */
-var ULTRATILE_INTERIOR_SUPERTILES_ROW = ULTRAGRID_SIZE - 2;
+export var ULTRATILE_INTERIOR_SUPERTILES_ROW = ULTRAGRID_SIZE - 2;
 
 /**
  * Number of supertiles before the first interior supertile:
  */
-var ULTRATILE_SUPERTILES_PRE_INTERIOR = ULTRAGRID_SIZE + 2;
+export var ULTRATILE_SUPERTILES_PRE_INTERIOR = ULTRAGRID_SIZE + 2;
 
 /**
  * Number of assignment sockets in an ultratile:
  */
-var ULTRATILE_SOCKETS = ULTRATILE_SUPERTILES * ASSIGNMENT_SOCKETS;
+export var ULTRATILE_SOCKETS = ULTRATILE_SUPERTILES * ASSIGNMENT_SOCKETS;
 
 /**
  * Same, minus the top and left edge supertiles (which share canonical
  * sockets with other ultratiles).
  */
-var ULTRATILE_INTERIOR_SOCKETS = (
+export var ULTRATILE_INTERIOR_SOCKETS = (
     (ULTRAGRID_SIZE - 1)
     * (ULTRAGRID_SIZE - 1)
     * ASSIGNMENT_SOCKETS
@@ -333,17 +333,21 @@ var ULTRATILE_INTERIOR_SOCKETS = (
 /**
  * One row of sockets in the interior.
  */
-var ULTRATILE_INTERIOR_SOCKETS_ROW = (ULTRAGRID_SIZE - 1) *ASSIGNMENT_SOCKETS;
+export var ULTRATILE_INTERIOR_SOCKETS_ROW = (
+    (ULTRAGRID_SIZE - 1) * ASSIGNMENT_SOCKETS
+);
 
 /**
  * Number of positions before the first non-edge position
  */
-var ULTRATILE_SOCKETS_PRE_INTERIOR = (ULTRAGRID_SIZE + 1) *ASSIGNMENT_SOCKETS;
+export var ULTRATILE_SOCKETS_PRE_INTERIOR = (
+    (ULTRAGRID_SIZE + 1) * ASSIGNMENT_SOCKETS
+);
 
 /**
  * Same as above but excluding a two-supertile border
  */
-var ULTRATILE_CORE_SOCKETS = (
+export var ULTRATILE_CORE_SOCKETS = (
     (ULTRAGRID_SIZE - 4)
     * (ULTRAGRID_SIZE - 4)
     * ASSIGNMENT_SOCKETS
@@ -352,12 +356,14 @@ var ULTRATILE_CORE_SOCKETS = (
 /**
  * One row of sockets in the core
  */
-var ULTRATILE_CORE_SOCKETS_ROW = (ULTRAGRID_SIZE - 4) * ASSIGNMENT_SOCKETS;
+export var ULTRATILE_CORE_SOCKETS_ROW = (
+    (ULTRAGRID_SIZE - 4) * ASSIGNMENT_SOCKETS
+);
 
 /**
  * As ULTRATILE_SOCKETS_PRE_INTERIOR but for core tiles (two-away from edges)
  */
-var ULTRATILE_SOCKETS_PRE_CORE = (
+export var ULTRATILE_SOCKETS_PRE_CORE = (
     ((ULTRAGRID_SIZE * 2) + 2)
     * ASSIGNMENT_SOCKETS
 );
@@ -367,12 +373,12 @@ var ULTRATILE_SOCKETS_PRE_CORE = (
  * accommodate even a relatively large corpus (vocabulary, not count).
  * The units are ultragrid tiles.
  */
-var ASSIGNMENT_REGION_SIDE = 1024;
+export var ASSIGNMENT_REGION_SIDE = 1024;
 
 /**
  * Number of ultratiles in an assignment region.
  */
-var ASSIGNMENT_REGION_ULTRATILES = (
+export var ASSIGNMENT_REGION_ULTRATILES = (
     ASSIGNMENT_REGION_SIDE
     * ASSIGNMENT_REGION_SIDE
 );
@@ -380,7 +386,7 @@ var ASSIGNMENT_REGION_ULTRATILES = (
 /**
  * Total number of supertiles in an assignment region.
  */
-var ASSIGNMENT_REGION_TOTAL_SUPERTILES = (
+export var ASSIGNMENT_REGION_TOTAL_SUPERTILES = (
     ASSIGNMENT_REGION_ULTRATILES
     * ULTRATILE_SUPERTILES
 );
@@ -389,7 +395,7 @@ var ASSIGNMENT_REGION_TOTAL_SUPERTILES = (
  * Total sockets in an assignment region.
  *   1024 * 1024 * 12 * 12 * 4 ~= 600,000,000
  */
-var ASSIGNMENT_REGION_TOTAL_SOCKETS = (
+export var ASSIGNMENT_REGION_TOTAL_SOCKETS = (
     ASSIGNMENT_REGION_SIDE
     * ASSIGNMENT_REGION_SIDE
     * ULTRATILE_SOCKETS
@@ -422,10 +428,10 @@ export function rotate(direction, amount) {
  *     will take you on a path that represents a rotated version of the
  *     original path.
  */
-function rotate_directions(directions, amount) {
+export function rotate_directions(directions, amount) {
     var result = [];
-    for (var i = 0; i < path.length; ++i) {
-        result.push(rotate(path[i], amount));
+    for (var i = 0; i < directions.length; ++i) {
+        result.push(rotate(directions[i], amount));
     }
     return result;
 }
@@ -513,7 +519,7 @@ export function grid_pos(wp) {
             // far enough left to be an edge case:
             var from_right = GRID_SIZE*1.5 - cellx;
             var above_center = celly - GRID_SIZE/2;
-            slope_from_corner = above_center / from_right;
+            let slope_from_corner = above_center / from_right;
             if (slope_from_corner > Math.tan(Math.PI/3)) {
                 // The upper-right exception: x+1 and y+1
                 col += 1;
@@ -1366,7 +1372,7 @@ export function is_canonical(socket) {
  * An array that stores 37 2-element x/y inner grid position coordinate
  * pairs: one pair for each valid inner grid position within a supertile.
  */
-var ALL_SUPERTILE_POSITIONS = [];
+export var ALL_SUPERTILE_POSITIONS = [];
 for (let x = 0; x < 7; ++x) {
     for (let y = 0; y < 7; ++y) {
         if (is_valid_subindex([x, y])) {
@@ -1607,7 +1613,7 @@ export function sgap__utai(sgap) {
     socket = sgap[2];
 
     // Check positioning:
-    if (!is_valid_sgindex(sgap)) {
+    if (!is_valid_utp(sgap)) {
         return undefined;
     }
 

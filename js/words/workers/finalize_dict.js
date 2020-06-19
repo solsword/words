@@ -1,8 +1,19 @@
-import * as locale from "../locale.js";
-import * as utils from "../utils.js";
+// Because cross-browser support for importing modules from within
+// workers is not available yet, we'll use importScripts as a hack...
+// Thank goodness neither of these modules themselves imports anything
+// else, or we'd be back to square 1 T_T.
+// Hopefully you who is reading this right now a few years from when it
+// was written are about to remove it!
+importScripts("../locale.js")
 
-export const INDEX_DEPTH_LIMIT = 7;
-export const INDEX_BIN_SIZE = 64;
+// TODO: This is what we should do once we can import modules from within
+// web workers across (at least a few) browsers:
+/*
+import * as locale from "../locale.js";
+*/
+
+const INDEX_DEPTH_LIMIT = 7;
+const INDEX_BIN_SIZE = 64;
 
 /**
  * Creates an index on the position-th glyphs from each of the given
@@ -47,7 +58,7 @@ export const INDEX_BIN_SIZE = 64;
  *     out between different glyph prefixes (i.e., another recursive
  *     layer of the same thing).
  */
-export function create_index(entries, indices, position) {
+function create_index(entries, indices, position) {
     var result = { "_count_": indices.length };
     var nkeys = 0;
     indices.forEach(function (idx) {
@@ -125,7 +136,7 @@ export function create_index(entries, indices, position) {
  *         the entries in the domain is created using create_index.
  *
  */
-export function finalize_dict(dom) {
+function finalize_dict(dom) {
     // Default properties:
     if (!dom.hasOwnProperty("ordered")) { dom.ordered = true; }
     if (!dom.hasOwnProperty("cased")) { dom.cased = false; }
@@ -157,8 +168,8 @@ export function finalize_dict(dom) {
 
             if (!dom.cased) {
                 // normalize to upper-case
-                entry[0] = locale.upper(entry[0], dom.locale);
-                entry[1] = locale.upper(entry[1], dom.locale);
+                entry[0] = locale.lc_upper(entry[0], dom.locale);
+                entry[1] = locale.lc_upper(entry[1], dom.locale);
             }
 
             var gl = entry[0]; // glyphs list
@@ -172,7 +183,7 @@ export function finalize_dict(dom) {
 
                 // This because glyph counts are used for generation:
                 if (!dom.cased) {
-                    gl[j] = locale.upper(gl[j], dom.locale);
+                    gl[j] = locale.lc_upper(gl[j], dom.locale);
                 }
 
                 var g = gl[j]; // this glyph
@@ -270,7 +281,10 @@ export function finalize_dict(dom) {
     // Build an index if needed:
     if (!dom.hasOwnProperty("index")) {
         // Create an array of indices:
-        var indices = utils.range(dom.entries.length);
+        var indices = [];
+        for (let i = 0; i < dom.entries.length; ++i) {
+            indices.push(i);
+        }
         // Build the index:
         dom.index = create_index(dom.entries, indices, 0);
     }
@@ -289,7 +303,7 @@ export function finalize_dict(dom) {
  *     a domain name at index 0 and a rough domain object at index 1 (see
  *     finalize_dict).
  */
-export function msg_handler(msg) {
+function msg_handler(msg) {
     var fin = finalize_dict(msg.data[1]);
     postMessage([msg.data[0], fin]);
     close(); // this worker is done.

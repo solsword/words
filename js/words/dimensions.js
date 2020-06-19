@@ -2,7 +2,7 @@
 // Dimension handling code.
 
 import * as anarchy from "../anarchy.js";
-import * as util from "./util.js";
+import * as utils from "./utils.js";
 
 /**
  * Number of possible connections from each plane:

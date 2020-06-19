@@ -2,8 +2,10 @@
 // Menu system for HTML5 canvas.
 
 import * as draw from "./draw.js";
-import * as locale from "./locale.js";
 import * as colors from "./colors.js";
+
+// TODO: Import this when that becomes possible (see locale.js).
+// import * as locale from "./locale.js";
 
 var MENUS = [];
 
@@ -112,7 +114,7 @@ export function flow_text(ctx, text, max_width) {
             return [ test_line.slice(0, fit+1) + "-" ].concat(rest);
         } else {
             // Next word doesn't fit (and it's not the first on its line):
-            rest = flow_text(
+            let rest = flow_text(
                 ctx,
                 words.slice(idx).join(" "),
                 max_width
@@ -180,7 +182,7 @@ export function auto_text_layout(ctx, text, line_height, width) {
             }
         }
 
-        mw = MEDIUM_TEXT_WIDTH * CANVAS_SIZE[0];
+        let mw = MEDIUM_TEXT_WIDTH * CANVAS_SIZE[0];
         var medium = flow_text(ctx, text, mw);
         th = medium.length * lh;
         if (th / mw <= MEDIUM_MAX_RATIO && th < CANVAS_SIZE[1]) {
@@ -1638,7 +1640,7 @@ export function LinksMenu(ctx, pos, shape, style, items, base_url, prefix) {
                 if (rxy[0] <= w && the_list.base_url) { // trigger the link
                     let target = the_list.base_url.replace(
                         "<item>",
-                        locale.lower(it)
+                        locale.lc_lower(it)
                     );
                     window.open(target);
                 }

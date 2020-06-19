@@ -5,7 +5,7 @@
  *
  * @param A message object whose data should be a JSON-able object.
  */
-export function handle_message(msg) {
+function handle_message(msg) {
   let obj = msg.data;
   let str = JSON.stringify(obj);
   postMessage(str);

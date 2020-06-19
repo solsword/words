@@ -2,7 +2,6 @@
 // Temporary animation objects for HTML5 canvas.
 
 import * as draw from "./draw.js";
-import * as locale from "./locale.js";
 
 var ACTIVE = [];
 var HORIZONS = [];

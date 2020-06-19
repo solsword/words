@@ -5,7 +5,7 @@ import * as utils from "./utils.js";
 import * as grid from "./grid.js";
 import * as generate from "./generate.js";
 import * as dimensions from "./dimensions.js";
-import * as objects from "./objects.js";
+import * as active from "./active.js";
 
 /**
  * An object to hold generated supertile info.
@@ -361,7 +361,7 @@ export function unlock_path(dimension, path) {
         "path": path.slice(),
         "sources": {},
         "energies": {},
-        "objects": {},
+        "active_elements": {},
         "adjacent": [],
     };
     let duplicate = false;
@@ -406,14 +406,16 @@ export function unlock_path(dimension, path) {
  *      "path": An array of grid positions (see grid.js).
  *      "sources": An object whose keys are color object glyphs and whose
  *          values are 'true'. Should be empty (this function fills it in
- *          with the set of all color objects which are part of or
+ *          with the set of all energy elements which are part of or
  *          adjacent to the path being added).
- *      "colors": An object whose keys are color glyphs and whose values
- *          are 'true'. May be empty; this function does not update it.
- *      "objects": An object whose keys are grid position keys (see
- *          grid.coords_key) and whose values are 'true'. Records the
- *          location of each object tile that's within or adjacent to
- *          this unlocked entry. Should be empty; will be filled in.
+ *      "energies": An object whose keys are energy glyphs and whose values
+ *          are 'true'. May be empty; this function does not update it
+ *          (see recalculate_unlocked_energies).
+ *      "active_elements": An object whose keys are grid position keys
+ *          (see grid.coords_key) and whose values are 'true'. Records
+ *          the location of each active element tile that's within or
+ *          adjacent to this unlocked entry. Should be empty; will be
+ *          filled in.
  *      "adjacent": An array that holds references to each unlocked entry
  *          which either overlaps or touches this one. Should be empty;
  *          will be filled in.
@@ -426,7 +428,7 @@ function add_unlocked(entry) {
         gpmap[gpk] = true;
         let h_tile = tile_at(entry.dimension, gp);
         if (h_tile.domain == "__active__") {
-            if (objects.is_color(h_tile.glyph)) {
+            if (active.is_energy(h_tile.glyph)) {
                 entry.sources[h_tile.glyph] = true;
             }
             entry.active_elements[gpk] = true;
@@ -437,7 +439,7 @@ function add_unlocked(entry) {
             gpmap[nbk] = true;
             let nb_tile = tile_at(entry.dimension, nb);
             if (nb_tile.domain == "__active__") {
-                if (objects.is_color(nb_tile.glyph)) {
+                if (active.is_energy(nb_tile.glyph)) {
                     entry.sources[nb_tile.glyph] = true;
                 }
                 entry.active_elements[nbk] = true;
@@ -697,12 +699,12 @@ export function active_energy(dimension, gpos) {
  */
 export function list_tiles(dimension, edges) {
     // Compute grid coordinates:
-    tl = grid.grid_pos([ edges[0], edges[1] ]);
-    br = grid.grid_pos([ edges[2], edges[3] ]);
+    let tl = grid.grid_pos([ edges[0], edges[1] ]);
+    let br = grid.grid_pos([ edges[2], edges[3] ]);
 
     // Compute centers of containing cells:
-    tlc = grid.world_pos(tl);
-    brc = grid.world_pos(br);
+    let tlc = grid.world_pos(tl);
+    let brc = grid.world_pos(br);
 
     // Test whether we need to expand the range:
     if (tlc[0] - edges[0] >= grid.GRID_EDGE/2) {

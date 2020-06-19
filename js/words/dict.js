@@ -3,8 +3,10 @@
 // 'dictionaries' do not include definitions.
 
 import * as utils from "./utils.js";
-import * as locale from "./locale.js";
 import * as grid from "./grid.js";
+
+// TODO: Import this when that becomes possible (see locale.js).
+// import * as locale from "./locale.js";
 
 /**
  * Whether or not to issue console warnings.
@@ -14,9 +16,9 @@ var WARNINGS = true;
 /**
  * Loaded domains, in-flight domains, and failed domains.
  */
-var DOMAINS = {};
-var LOADING = {};
-var FAILED = {};
+export var DOMAINS = {};
+export var LOADING = {};
+export var FAILED = {};
 
 /**
  * The number of bins in the domain frequency sumtable. Each bin corresponds
@@ -776,7 +778,7 @@ export function find_word_in_domain(glyphs, domain) {
 
     // For uncased domains, convert the glyph sequence to upper case:
     if (!dom.cased) {
-        glyphs = locale.upper(glyphs, dom.locale);
+        glyphs = locale.lc_upper(glyphs, dom.locale);
     }
 
     var original = glyphs;
@@ -810,7 +812,7 @@ export function find_word_in_domain(glyphs, domain) {
             var against = test_entry[0];
             // TODO: Permit any ordering in domain files for unordered domains?
             if (!dom.cased) {
-                against = locale.upper(against, dom.locale);
+                against = locale.lc_upper(against, dom.locale);
             }
             if (against == original) {
                 result.push([idx, ...test_entry]);
@@ -823,7 +825,7 @@ export function find_word_in_domain(glyphs, domain) {
                 var test_entry = dom.entries[idx];
                 var against = test_entry[0];
                 if (!dom.cased) {
-                    against = locale.upper(against, dom.locale);
+                    against = locale.lc_upper(against, dom.locale);
                 }
                 if (against == original) {
                     result.push([idx, ...test_entry]);
@@ -873,8 +875,8 @@ export function unrolled_word(n, domain) {
         // index:
         let offset = domain.high_frequency_entries;
         for (var i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
-            // The i-th bin represents words that appear DOMAIN_FREQUENCY_BINS - i
-            // times in our domain:
+            // The i-th bin represents words that appear
+            // DOMAIN_FREQUENCY_BINS - i times in our domain:
             let count = DOMAIN_FREQUENCY_BINS - i;
             if (n < domain.count_sums[i]) { // it's in this bin
                 let inside = n - domain.count_sums[i-1];
@@ -918,9 +920,9 @@ export function unrolled_word(n, domain) {
 export function unrolled_short_word(n, domain) {
     n %= domain.short_count_sums[DOMAIN_FREQUENCY_BINS - 1];
     if (n < domain.short_count_sums[0]) {
-        // In this case, we're within the realm of the most-frequent words, which
-        // are each appear more than DOMAIN_FREQUENCY_BINS times. We need to
-        // iterate to find our target.
+        // In this case, we're within the realm of the most-frequent
+        // words, which are each appear more than DOMAIN_FREQUENCY_BINS
+        // times. We need to iterate to find our target.
         for (var i = 0; i < domain.short_high_frequency_entries; ++i) {
             var e = domain.entries[domain.normlength[i]];
             n -= e[2];
@@ -933,8 +935,8 @@ export function unrolled_short_word(n, domain) {
         // short-words-binned-by-frequency realm.
         var offset = domain.short_high_frequency_entries;
         for (var i = 1; i < DOMAIN_FREQUENCY_BINS; ++i) {
-            // The i-th bin represents words that appear DOMAIN_FREQUENCY_BINS - i
-            // times in our domain:
+            // The i-th bin represents words that appear
+            // DOMAIN_FREQUENCY_BINS - i times in our domain:
             var count = DOMAIN_FREQUENCY_BINS - i;
             if (n < domain.short_count_sums[i]) { // it's in this bin
                 var inside = n - domain.short_count_sums[i-1];

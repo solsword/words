@@ -274,7 +274,7 @@ for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
  */
 export function domains_list(domain_or_combo) {
     if (DOMAIN_COMBOS.hasOwnProperty(domain_or_combo)) {
-        result = [];
+        let result = [];
         DOMAIN_COMBOS[domain_or_combo].forEach(function (d) {
             domains_list(d).forEach(function (rd) {
                 result.push(rd);
@@ -1191,7 +1191,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
                 let dd = anarchy.cohort_shuffle(d, grid.N_DIRECTIONS, nb_seed);
                 let nb = grid.sg_neighbor(sgp, dd);
-                if (grid.is_valid_sgindex(nb)) {
+                if (grid.is_valid_utp(nb)) {
                     let ni = grid.sgp__index(nb);
                     let sgap = [sgp[0], sgp[1], dd];
                     let utai = grid.sgap__utai(sgap);
@@ -1284,7 +1284,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             // Iterate through neighbors in fixed order:
             for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
                 let nb = grid.sg_neighbor(sgp, d);
-                if (grid.is_valid_sgindex(nb)) {
+                if (grid.is_valid_utp(nb)) {
                     let ni = grid.sgp__index(nb);
                     if (supertile_offsets[ni] == 0) {
                         taken_neighbors += 1;
@@ -1398,6 +1398,7 @@ export function ultratile_context(domain_name, ugp, seed) {
                     return undefined;
                 }
 
+                let here;
                 if (blocked.length > 0) {
                     here = blocked.shift(); // steal the expansion point!
                     i -= 1; // redo this iteration next
@@ -1627,7 +1628,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             for (let socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
                 let can = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
                 let alt = grid.supergrid_alternate([sgp[0], sgp[1], socket]);
-                if (grid.is_valid_sgindex(can) && grid.is_valid_sgindex(alt)) {
+                if (grid.is_valid_utp(can) && grid.is_valid_utp(alt)) {
                     let alt_idx = grid.sgp__index(alt);
                     let loc = grid.sgap__sidx(can);
                     locs.push(loc);

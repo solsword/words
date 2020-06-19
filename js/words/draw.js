@@ -774,7 +774,7 @@ function draw_hex_rim(ctx) {
     ctx.lineWidth = THIN_LINE;
 
     ctx.beginPath();
-    once = true;
+    let once = true;
     grid.VERTICES.forEach(function (vertex) {
         if (once) {
             ctx.moveTo(vertex[0], vertex[1]);
@@ -1832,8 +1832,8 @@ export function draw_loading(ctx, keys, loading) {
             (LOADING_BAR_WIDTH - 4) * count_progress,
             (LOADING_BAR_HEIGHT - 5) / 2
         );
-        txt = key
-            let m = ctx.measureText(txt);
+        let txt = key;
+        let m = ctx.measureText(txt);
         while (m.width >= LOADING_BAR_WIDTH - 4) {
             txt = txt.slice(0, txt.length-2) + "…";
             m = ctx.measureText(txt);

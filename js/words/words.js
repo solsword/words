@@ -158,6 +158,11 @@ var RESIZE_TIMEOUT = 20;
 var DO_REDRAW = undefined;
 
 /**
+ * The current global canvas reference and associated drawing context.
+ */
+export var CANVAS, CTX;
+
+/**
  * Which animation frame we're on. Note that this cycles back to 0 at
  * some point.
  */
@@ -202,6 +207,8 @@ var WORDS_SIDEBAR = null;
 var ABOUT_TOGGLE = null;
 var ABOUT_DIALOG = null;
 var HOME_BUTTON = null;
+var ZOOM_IN_BUTTON = null;
+var ZOOM_OUT_BUTTON = null;
 var CLEAR_SELECTION_BUTTON = null;
 var RESET_ENERGY_BUTTON = null;
 var CURRENT_GLYPHS_BUTTON = null;
@@ -444,7 +451,13 @@ export var COMMANDS = {
         for (let w of "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()") {
             find_word(
                 CURRENT_DIMENSION,
-                [dimensions.natural_domain(CURRENT_DIMENSION), undefined, [w], w, 1],
+                [
+                    dimensions.natural_domain(CURRENT_DIMENSION),
+                    undefined,
+                    [w],
+                    w,
+                    1
+                ],
                 []
             );
         }
@@ -732,8 +745,8 @@ export function update_current_glyphs() {
                 let g = content.tile_at(CURRENT_DIMENSION, gp)["glyph"];
                 if (g == undefined) { // should never happen in theory:
                     console.warn(
-                        "InternalError: update_current_glyphs found undefined glyph at: "
-                        + gp
+                        "InternalError: update_current_glyphs found"
+                      + " undefined glyph at: " + gp
                     );
                     g = "?";
                 }
@@ -894,8 +907,14 @@ function handle_primary_up(ctx, e) {
                     if (csw.length == 1) {
                         CURRENT_SWIPES = CURRENT_SWIPES.slice(0, cancel_from);
                     } else {
-                        CURRENT_SWIPES = CURRENT_SWIPES.slice(0, cancel_from + 1);
-                        CURRENT_SWIPES[cancel_from] = csw.slice(0, cancel_index);
+                        CURRENT_SWIPES = CURRENT_SWIPES.slice(
+                            0,
+                            cancel_from + 1
+                        );
+                        CURRENT_SWIPES[cancel_from] = csw.slice(
+                            0,
+                            cancel_index
+                        );
                     }
                 }
             } else {
@@ -1036,7 +1055,9 @@ function handle_movement(ctx, e) {
                     if (latest_swipe.length > 0) {
                         LAST_POSITION = latest_swipe[latest_swipe.length - 1];
                     } else if (combined_swipe.length > 1) {
-                        LAST_POSITION = combined_swipe[combined_swipe.length - 2];
+                        LAST_POSITION = combined_swipe[
+                            combined_swipe.length - 2
+                        ];
                     }
                     DO_REDRAW = 0;
                 }
@@ -1117,7 +1138,7 @@ export function start_game() {
     if (Number.isNaN(eseed)) {
         eseed = 10983;
     }
-    starting_dimension = {
+    let starting_dimension = {
         "kind": "full",
         "layout": "reasonable",
         "domain": edom,
@@ -1490,7 +1511,7 @@ export function draw_frame(now) {
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
 
     // Tiles
-    visible_tiles = draw.visible_tile_list(CURRENT_DIMENSION, CTX);
+    let visible_tiles = draw.visible_tile_list(CURRENT_DIMENSION, CTX);
     if (!draw.draw_tiles(CURRENT_DIMENSION, CTX, visible_tiles)) {
         if (DO_REDRAW != undefined) {
             DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
@@ -1524,7 +1545,10 @@ export function draw_frame(now) {
             draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
 
             let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
-            if (poke_redraw_after == undefined || poke_redraw_after > frames_left) {
+            if (
+                poke_redraw_after == undefined
+             || poke_redraw_after > frames_left
+            ) {
                 poke_redraw_after = frames_left;
             }
             if (ticks >= POKE_DELAY) {
@@ -1756,7 +1780,7 @@ export function handle_uploaded_domain(name, text) {
         function (progress) {
             if (progress == 1) {
                 loading.innerText = (
-                    "Done counting; done building index; transferring result... "
+                    "Done counting; done indexing; transferring result... "
                 );
             } else {
                 loading.innerText = (
