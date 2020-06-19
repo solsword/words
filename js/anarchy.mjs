@@ -1,9 +1,9 @@
-// anarchy.js
-// Reversible chaos library.
+// anarchy.mjs
+// Reversible chaos library (ES6 module version).
 
 // Note: anarchy.js operates using 32-bit integer values to remain
 // dependency-free. This breaks full compatibility with the C library, which
-// uses 64-bit integers for obvious reason. Javascript does not support
+// uses 64-bit integers for obvious reasons. Javascript does not support
 // 64-bit integers at this time (Number.MAX_SAFE_INTEGER is 2^53-1), and in
 // particular, bitwise operations only work on 32-bit integers.
 export var ID_BITS = 32;
@@ -60,7 +60,6 @@ export function rev_swirl(x, distance) {
     // Inverse circular shift (see above).
     distance = posmod(distance, Math.floor(3 * ID_BITS / 4));
     var m = mask(distance);
-    var m = mask(distance);
     var fall_off = x & (m << (ID_BITS - distance));
     var shift_by = (ID_BITS - distance);
     return (
@@ -81,7 +80,7 @@ export function fold(x, where) {
 }
 // fold is its own inverse.
 
-var FLOP_MASK = 0xf0f0f0f0;
+export var FLOP_MASK = 0xf0f0f0f0;
 
 export function flop(x) {
     // Flops each 1/2 byte with the adjacent 1/2 byte.
@@ -136,7 +135,7 @@ export function prng(x, seed) {
 
     // value scrambling:
     x ^= seed;
-    x = fold(x, seed + 3); // prime
+    x = fold(x, seed + 17); // prime
     x = flop(x);
     x = swirl(x, seed + 37); // prime
     x = fold(x, seed + 89); // prime
@@ -157,7 +156,7 @@ export function rev_prng(x, seed) {
     x = fold(x, seed + 89); // prime
     x = rev_swirl(x, seed + 37); // prime
     x = flop(x);
-    x = fold(x, seed + 3); // prime
+    x = fold(x, seed + 17); // prime
     x ^= seed;
     return x >>> 0;
 }
@@ -166,56 +165,65 @@ export function lfsr(x) {
     // Implements a max-cycle-length 32-bit linear-feedback-shift-register.
     // See: https://en.wikipedia.org/wiki/Linear-feedback_shift_register
     // Note that this is NOT reversible!
-    var lsb = x & 1;
-    var r = x >>> 1;
-    if (lsb) {
-        r ^= 0x80200003; // 32, 22, 2, 1
+    // Note: Do not use this as an irreversible PRNG; it's a terrible one!
+    // Note: Zero is a fixed point of this function: do not use it as
+    // your seed!
+    let lsb = x & 1;
+    return (x >>> 1) ^ (0x80200003 * lsb); // 32, 22, 2, 1
+}
+
+export function udist(seed) {
+    // Generates a random number between 0 and 1 given a seed value.
+    let st = seed >>> 0;
+    let sc = (st ^ (st << 16)) >>> 0;
+    let ux = prng(prng(prng(sc, 53), sc), st);
+    return (ux % 2147483659) / 2147483659; // prime near 2^31
+}
+
+export function pgdist(seed) {
+    // Generates and averages three random numbers between 0 and 1 to give a
+    // pseudo-gaussian-distributed random number (still strictly on [0, 1) )
+    let t = 0;
+    for (let i = 0; i < 3; ++i) {
+        t += udist(seed + 9182793183*i);
     }
-    return r;
+    return t/3;
 }
 
-export function udist(x) {
-    // Generates a random number in [0, 1) given a seed value.
-    var ux = lfsr(x >>> 0);
-    var sc = (ux ^ (ux << 16)) >>> 0;
-    return (sc % 2147483659) / 2147483659; // prime near 2^31
+export function flip(p, seed) {
+    // Flips a coin with probability p of being True. Using the same seed
+    // always give the same result.
+    return udist(seed) < p;
 }
 
-export function pgdist(x) {
-    // Pseudo-gaussian distribution over [0, 1).
-    let u1 = udist(x);
-    x = lfsr(x >>> 0);
-    let u2 = udist(x);
-    x = lfsr(x >>> 0);
-    let u3 = udist(x);
-    return (u1 + u2 + u3) / 3;
-}
-
-export function idist(x, start, end) {
+export function idist(seed, start, end) {
     // Even distribution over the given integer range, including the lower end
     // but excluding the higher end (even if the lower end is given second).
     // Distribution bias is about one part in (range/2^31).
-    return Math.floor(udist(x) * (end - start)) + start;
+    return Math.floor(udist(seed) * (end - start)) + start;
 }
 
-export function pgidist(x, start, end) {
-    // Pseudo-gaussian distribution over the given integer range, including the
-    // lower end but excluding the higher end (even if the lower end is given
-    // second). Distribution bias is about one part in (range/2^31).
-    let i1 = idist(x, start, end);
-    x = lfsr(x >>> 0);
-    let i2 = idist(x, start, end);
-    x = lfsr(x >>> 0);
-    let i3 = idist(x, start, end);
-    return Math.floor((i1 + i2 + i3) / 3);
-}
-
-export function expdist(x) {
-    // Generates a number from an exponential distribution with mean 0.5 given
-    // a seed. See:
+export function expdist(seed, lambda) {
+    // Generates a number from an exponential distribution on [0,∞) with mean
+    // 1/lambda given a seed. Higher values of lambda make the
+    // distribution more sharply exponential; values between 0.5 and 1.5
+    // exhibit reasonable variation. See:
     // https://math.stackexchange.com/questions/28004/random-exponential-like-distribution
-    var u = udist(x);
-    return -Math.log(1 - u)/0.5;
+    // and
+    // https://en.wikipedia.org/wiki/Exponential_distribution
+    var u = udist(seed);
+    return -Math.log(u)/lambda;
+}
+
+export function trexpdist(seed, lambda) {
+    // Generates a number from a truncated exponential distribution on
+    // [0, 1], given a particular seed. As with expdist, the lambda
+    // parameter controls the shape of the distribution, and a 0.5–1.5
+    // range is usually reasonable.
+    // For why this method works, see:
+    // https://math.stackexchange.com/questions/28004/random-exponential-like-distribution
+    var e = expdist(seed, lambda);
+    return e - Math.floor(e);
 }
 
 export function cohort(outer, cohort_size) {
@@ -376,7 +384,7 @@ export function rev_cohort_mix(inner, cohort_size, seed) {
             Math.floor(cohort_size / 2),
             seed + 464185
         );
-        return 2 * target + 1;
+        return (2 * target + 1) >>> 0;
     } else {
         target = rev_cohort_spin(
             Math.floor(even / 2),
@@ -387,8 +395,8 @@ export function rev_cohort_mix(inner, cohort_size, seed) {
     }
 }
 
-export var MIN_REGION_SIZE = 2;
-export var MAX_REGION_COUNT = 16;
+var MIN_REGION_SIZE = 2;
+var MAX_REGION_COUNT = 16;
 
 export function cohort_spread(inner, cohort_size, seed) {
     // Spreads items out between a random number of different regions within
@@ -532,12 +540,11 @@ export function distribution_spilt_point(
     var first_half = Math.floor(n_segments / 2);
 
     // compute min/max split points according to roughness:
-    var half = Math.floor(total / 2);
-    var split_min = Math.floor(half - half * roughness);
-    var split_max = Math.floor(half + (total - half) * roughness);
+    var nat = Math.floor(total * (first_half / n_segments));
+    var split_min = Math.floor(nat - nat * roughness);
+    var split_max = Math.floor(nat + (total - nat) * roughness);
 
     // adjust for capacity limits:
-    // TODO: This in a more aggressive way to avoid pileups?
     if ((total - split_min) > segment_capacity * (n_segments - first_half)) {
         split_min = total - (segment_capacity * (n_segments - first_half));
     }
@@ -547,12 +554,12 @@ export function distribution_spilt_point(
     }
 
     // compute a random split point:
-    var split = half;
+    var split = nat;
     if (split_min >= split_max) {
         split = split_min;
     } else {
         split = split_min + posmod(
-            prng(total ^ prng(seed)),
+            prng(total, seed),
             (split_max - split_min)
         )
     }
@@ -584,7 +591,7 @@ export function distribution_portion(
     }
 
     // compute split point:
-    let split = distribution_spilt_point(
+    split = distribution_spilt_point(
         total,
         n_segments,
         segment_capacity,
@@ -635,7 +642,7 @@ export function distribution_prior_sum(
     var first_half = Math.floor(n_segments / 2);
 
     // compute split point:
-    let split = distribution_spilt_point(
+    split = distribution_spilt_point(
         total,
         n_segments,
         segment_capacity,
@@ -706,61 +713,6 @@ export function distribution_segment(
             index - split[0],
             total - split[0],
             n_segments - split[1],
-            segment_capacity,
-            roughness,
-            seed
-        );
-    }
-}
-
-export function distribution_gap_segment(
-    gap_index,
-    total,
-    n_segments,
-    segment_capacity,
-    roughness,
-    seed
-) {
-    // Computes the segment number in which a certain item appears (NOT one of
-    // the 'total' items distributed between segments, but instead one of the
-    // empty spaces in those segments; see distribution_portion above).
-    // Requires work proportional to the log of the number of segments.
-
-    // base case
-    if (n_segments == 1) {
-        return 0; // we are in the only segment there is
-    }
-
-    // compute split point:
-    split = distribution_spilt_point(
-        total,
-        n_segments,
-        segment_capacity,
-        roughness,
-        seed
-    );
-
-    let items_split_point = split[0];
-    let segments_split_point = split[1];
-
-    // gaps in the first half:
-    let fh_gaps = segments_split_point * segment_capacity - items_split_point;
-
-    // call ourselves recursively:
-    if (gap_index < fh_gaps) {
-        return distribution_gap_segment(
-            gap_index,
-            items_split_point,
-            segments_split_point,
-            segment_capacity,
-            roughness,
-            seed
-        );
-    } else {
-        return distribution_gap_segment(
-            gap_index - fh_gaps,
-            total - items_split_point,
-            n_segments - segments_split_point,
             segment_capacity,
             roughness,
             seed

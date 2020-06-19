@@ -1,7 +1,7 @@
 // draw.js
 // Drawing code for words game.
 
-import * as anarchy from "../anarchy.js";
+import * as anarchy from "../anarchy.mjs";
 import * as grid from "./grid.js";
 import * as content from "./content.js";
 import * as colors from "./colors.js";

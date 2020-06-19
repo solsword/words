@@ -1,7 +1,7 @@
 // grid.js
 // Hex grid code.
 
-import * as anarchy from "../anarchy.js";
+import * as anarchy from "../anarchy.mjs";
 import * as dimensions from "./dimensions.js";
 
 /**

@@ -1,7 +1,7 @@
 // dimensions.js
 // Dimension handling code.
 
-import * as anarchy from "../anarchy.js";
+import * as anarchy from "../anarchy.mjs";
 import * as utils from "./utils.js";
 
 /**

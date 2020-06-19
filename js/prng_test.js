@@ -1,4 +1,4 @@
-import * as anarchy from "./anarchy.js"
+import * as anarchy from "./anarchy.mjs"
 
 function update_canvas_size(canavs, ctx) {
   // Updates the canvas size.

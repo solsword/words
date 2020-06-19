@@ -2,7 +2,7 @@
 // Code for keeping track of active elements, their types, their effects,
 // etc.
 
-import * as anarchy from "../anarchy.js";
+import * as anarchy from "../anarchy.mjs";
 import * as colors from "./colors.js";
 
 export var ELEMENT_TYPES = [

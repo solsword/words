@@ -1,7 +1,7 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
 
-import * as anarchy from "../anarchy.js";
+import * as anarchy from "../anarchy.mjs";
 import * as dict from "./dict.js";
 import * as grid from "./grid.js";
 import * as dimensions from "./dimensions.js";
