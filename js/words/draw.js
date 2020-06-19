@@ -1,6 +1,9 @@
 // draw.js
 // Drawing code for words game.
 /* jshint esversion: 6 */
+/* global console */
+
+"use strict";
 
 import * as anarchy from "../anarchy.mjs";
 import * as grid from "./grid.js";
@@ -340,7 +343,7 @@ function define_edge(ctx, e_shape, side, r, cr) {
     e_shape = anarchy.posmod(e_shape, 17);
     // Variables for our case statements:
     let mx, my, m1x, m1y, m2x, m2y, px, py, p1x, p1y, p2x, p2y, p3x, p3y;
-    let dist, ir, angle, radius;
+    let dist, idist, ir, angle, radius;
     let isx, isy, iex, iey;
     let sixth, rad;
     // Draw the edge
@@ -909,12 +912,12 @@ export function draw_tile(ctx, tile) {
             }
 
             for (let i = 0; i < grid.VERTICES.length; ++i) {
-                tv = grid.VERTICES[i].slice();
+                let tv = grid.VERTICES[i].slice();
                 tv[0] *= 0.9;
                 tv[1] *= 0.9;
 
                 let ni = (i + 1) % grid.VERTICES.length;
-                nv = grid.VERTICES[ni].slice();
+                let nv = grid.VERTICES[ni].slice();
                 nv[0] *= 0.9;
                 nv[1] *= 0.9;
 

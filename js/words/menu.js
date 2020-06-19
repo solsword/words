@@ -1,12 +1,17 @@
 // menu.js
 // Menu system for HTML5 canvas.
 /* jshint esversion: 6, maxerr: 10000 */
+/* global console, window */
 
+"use strict";
+
+import * as grid from "./grid.js";
 import * as draw from "./draw.js";
 import * as colors from "./colors.js";
 
 // TODO: Import this when that becomes possible (see locale.js).
 // import * as locale from "./locale.js";
+/* global locale */
 
 var MENUS = [];
 
@@ -88,7 +93,7 @@ export function flow_text(ctx, text, max_width) {
             // TODO: Better hyphenation; even line-local justification, etc.
             // TODO: Don't hyphenate things like numbers?!?
             var fit = 0;
-            for (i = test_line.length-2; i > -1; i -= 1) {
+            for (let i = test_line.length-2; i > -1; i -= 1) {
                 let sw = draw.measure_text(
                     ctx,
                     test_line.slice(0,i) + "-"
@@ -107,7 +112,7 @@ export function flow_text(ctx, text, max_width) {
                 // Put each character on its own line:
                 return text.split('');
             }
-            rest = flow_text(
+            let rest = flow_text(
                 ctx,
                 test_line.slice(fit+1) + words.slice(idx).join(" "),
                 max_width
@@ -205,7 +210,7 @@ export function auto_text_layout(ctx, text, line_height, width) {
             }
         }
 
-        ww = WIDE_TEXT_WIDTH * CANVAS_SIZE[0];
+        let ww = WIDE_TEXT_WIDTH * CANVAS_SIZE[0];
         let wide = flow_text(ctx, text, mw);
         th = wide.length * lh;
         // No other alternatives even if this is too tall

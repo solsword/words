@@ -1,6 +1,9 @@
 // dimensions.js
 // Dimension handling code.
 /* jshint esversion: 6 */
+/* global console */
+
+"use strict";
 
 import * as anarchy from "../anarchy.mjs";
 import * as utils from "./utils.js";
@@ -184,7 +187,7 @@ export function key__dim(k) {
     words.push(thisword);
     result["domain"] = domain;
     result["seed"] = Number.parseInt(seed);
-    if (this.kind == "custom") {
+    if (kind == "custom") {
         result["words"] = words;
     }
     return result;

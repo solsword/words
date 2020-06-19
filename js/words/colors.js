@@ -1,6 +1,9 @@
 // colors.js
 // Color schemes for words game.
 /* jshint esversion: 6 */
+/* global document */
+
+"use strict";
 
 /**
  * The various color schemes.
@@ -238,9 +241,9 @@ export function palette() {
  *     H between 0 and 2π.
  */
 export function RGB__HSV(rgb) {
-    let r = RGB[0];
-    let g = RGB[1];
-    let b = RGB[2];
+    let r = rgb[0];
+    let g = rgb[1];
+    let b = rgb[2];
 
     let min = Math.min(r, g, b);
     let max = Math.max(r, g, b);

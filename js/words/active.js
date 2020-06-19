@@ -2,6 +2,9 @@
 // Code for keeping track of active elements, their types, their effects,
 // etc.
 /* jshint esversion: 6 */
+/* global console */
+
+"use strict";
 
 import * as anarchy from "../anarchy.mjs";
 import * as colors from "./colors.js";
@@ -28,11 +31,21 @@ export var LINK_TYPES = ["🔗", "🌀", "🚪" ];
 
 /**
  * The basic types of energy.
+ *
+ *  红 = red
+ *  黄 = yellow
+ *  蓝 = blue;
  */
 export var BASIC_ENERGIES = "红黄蓝";
 
 /**
  * The hybrid energy types.
+ *
+ *  橙 = orange
+ *  紫 = purple
+ *  绿 = green
+ *  白 = white
+ *
  */
 export var HYBRID_ENERGIES = "橙紫绿白";
 
@@ -112,6 +125,14 @@ var ENERGY_ADD = {
 
     "蓝橙": "白",
     "橙蓝": "白",
+
+    // combining 2x energies
+    "橙紫": "白",
+    "紫橙": "白",
+    "绿橙": "白",
+    "橙绿": "白",
+    "紫绿": "白",
+    "绿紫": "白",
 
     // adding empty
     "空红": "红",
@@ -244,6 +265,8 @@ export function combined_energy(energies) {
         let cmb = result + energy;
         if (ENERGY_ADD.hasOwnProperty(cmb)) {
             result = ENERGY_ADD[cmb];
+        } else {
+            console.error("Uhandled energy combination: '" + cmb + "'");
         }
     }
     return result;
@@ -296,6 +319,7 @@ export function has_energy(energy_glyph) {
  * color (an RGB hex color string).
  */
 export function energy_color(energy_glyph, energized) {
+    let fetch;
     if (energized) {
         fetch = subcat => colors.scheme_color("bright", subcat);
     } else {

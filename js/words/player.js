@@ -3,6 +3,8 @@
 // and loaded.
 /* jshint esversion: 6 */
 
+"use strict";
+
 /**
  * All current players by ID
  */

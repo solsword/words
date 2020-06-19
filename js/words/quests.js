@@ -1,7 +1,11 @@
 // quests.js
 // Quests functionality.
 /* jshint esversion: 6 */
+/* global console */
 
+"use strict";
+
+import * as grid from "./grid.js";
 import * as draw from "./draw.js";
 import * as content from "./content.js";
 import * as dimensions from "./dimensions.js";
@@ -83,7 +87,11 @@ export function unlocked_encircled(dimension) {
 
     // Compute bounding box of unlocked region
     let bounds = [undefined, undefined, undefined, undefined];
-    for (var pos of joint) {
+    for (let k of Object.keys(unlk)) {
+        let pos = grid.key__coords(k);
+        if (pos == undefined) {
+            continue;
+        }
         if (bounds[0] == undefined || pos[0] < bounds[0]) {
             bounds[0] = pos[0];
         }
@@ -117,7 +125,7 @@ export function unlocked_encircled(dimension) {
 
     // Queue starts containing all edge tiles.
     let queue = [];
-    for (var k of Object.keys(edges)) {
+    for (let k of Object.keys(edges)) {
         queue.push(grid.key__coords(k));
     }
 
@@ -808,9 +816,9 @@ HuntQuest.prototype.summary_string = function() {
 /**
  * @return A string to represent a target or bonus hint.
  *
- * @param hint The hint string to be represented.
+ * @param target The hint string to be represented.
  */
-HuntQuest.prototype.ex_string = function (hint) {
+HuntQuest.prototype.ex_string = function (target) {
     // TODO: Incorporate actual word found?
     return target;
 };

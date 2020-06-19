@@ -2,12 +2,17 @@
 // Manages domains and their associated dictionaries. For now, the
 // 'dictionaries' do not include definitions.
 /* jshint esversion: 6 */
+/* global console, window */
+
+"use strict";
 
 import * as utils from "./utils.js";
 import * as grid from "./grid.js";
+import * as anarchy from "../anarchy.mjs";
 
 // TODO: Import this when that becomes possible (see locale.js).
 // import * as locale from "./locale.js";
+/* global locale */
 
 /**
  * Whether or not to issue console warnings.
@@ -223,7 +228,7 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
-    var worker = new Worker(FINALIZE_URL, {'type': 'module'});
+    var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
     worker.onmessage = function (msg) {
         // Gets a name + finalized domain from the worker and adds the domain.
         if (msg.data == "worker_ready") { // initial ready message
@@ -261,7 +266,7 @@ export function polish_and_callback(
  *     callback parameter to access the resulting JSON string.
  */
 export function stringify_and_callback(object, callback) {
-    let worker = new Worker(STRINGIFY_URL, {'type': 'module'});
+    let worker = new window.Worker(STRINGIFY_URL, {'type': 'module'});
     worker.onmessage = function (msg) {
         if (msg.data == "worker_ready") { // initial ready message
             worker.postMessage(object); // hand over object to stringify
@@ -342,7 +347,7 @@ export function load_dictionary(domain, is_simple) {
  *     asynchronously when the HTTP request it makes is complete.
  */
 export function load_json_or_list(name) {
-    var xobj = new XMLHttpRequest();
+    var xobj = new window.XMLHttpRequest();
     xobj.overrideMimeType("application/json");
     var url = window.location.href;
     var path = url.substr(0, url.lastIndexOf('/'));
@@ -500,6 +505,7 @@ export function create_rough_domain_from_word_list(name, list_text) {
     while (words[i][0] == '#') {
         i += 1;
     }
+    let directives;
     if (i > 0) {
         directives = words.slice(0,i);
         words = words.slice(i);
@@ -648,11 +654,11 @@ export function create_rough_domain_from_word_list(name, list_text) {
     };
 
     for (let d of directives) {
-        dbits = d.slice(1).split(":");
-        key = dbits[0].trim();
-        val = dbits[1].trim();
+        let dbits = d.slice(1).split(":");
+        let key = dbits[0].trim();
+        let val = dbits[1].trim();
         if (key == "colors") {
-            var colors = val.split(",");
+            let colors = val.split(",");
             rough["colors"] = [];
             for (let c of colors) {
                 rough["colors"].push(c.trim());
@@ -679,7 +685,7 @@ export function create_rough_domain_from_word_list(name, list_text) {
  *     access (/js/words/domains/<name>.lst).
  */
 export function load_simple_word_list(name) {
-    var xobj = new XMLHttpRequest();
+    var xobj = new window.XMLHttpRequest();
     xobj.overrideMimeType("text/plain");
     var url = window.location.href;
     var path = url.substr(0, url.lastIndexOf('/'));

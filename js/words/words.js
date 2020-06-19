@@ -1,6 +1,9 @@
 // words.js
 // Word game.
 /* jshint esversion: 6 */
+/* global console, window, document */
+
+"use strict";
 
 import * as draw from "./draw.js";
 import * as content from "./content.js";
@@ -871,14 +874,14 @@ function handle_primary_up(ctx, e) {
             let next = undefined;
             if (cancel_index == 0) {
                 if (cancel_from > 0) {
-                    psw = CURRENT_SWIPES[cancel_from-1];
+                    let psw = CURRENT_SWIPES[cancel_from-1];
                     prior = psw[psw.length-1];
                 }
             } else {
                 prior = csw[cancel_index-1];
             }
             if (cancel_index == csw.length - 1) {
-                nsw = CURRENT_SWIPES[cancel_from+1];
+                let nsw = CURRENT_SWIPES[cancel_from+1];
                 if (nsw != undefined) {
                     next = nsw[0];
                 }
@@ -1223,10 +1226,10 @@ export function start_game() {
     var timer_id = undefined;
     window.addEventListener("resize", function() {
         if (timer_id != undefined) {
-            clearTimeout(timer_id);
+            window.clearTimeout(timer_id);
             timer_id = undefined;
         }
-        timer_id = setTimeout(
+        timer_id = window.setTimeout(
             function () {
                 timer_id = undefined;
                 update_canvas_size();
@@ -1653,10 +1656,10 @@ export function test_grid() {
     var timer_id = undefined;
     window.addEventListener("resize", function() {
         if (timer_id != undefined) {
-            clearTimeout(timer_id);
+            window.clearTimeout(timer_id);
             timer_id = undefined;
         }
-        timer_id = setTimeout(
+        timer_id = window.setTimeout(
             function () {
                 timer_id = undefined;
                 update_canvas_size();
@@ -1726,11 +1729,11 @@ export function animate_grid_test(now) {
 export function eventually_process_upload(element) {
     var files = element.files;
     if (files === null || files === undefined || files.length < 1) {
-        setTimeout(eventually_process_upload, 50, element);
+        window.setTimeout(eventually_process_upload, 50, element);
     } else {
         var first = files[0];
         var firstname = first.name;
-        var fr = new FileReader();
+        var fr = new window.FileReader();
         fr.onload = function (e) {
             var file_text = e.target.result;
             handle_uploaded_domain(firstname.split(".")[0], file_text);
@@ -1800,7 +1803,7 @@ export function handle_uploaded_domain(name, text) {
  * @param output A polished domain object for that domain.
  */
 function done_processing(name, output) {
-    var loading = document.getElementById("loading");
+    let loading = document.getElementById("loading");
     loading.innerText = (
         "Done counting; done building index; building JSON string..."
     );
@@ -1820,20 +1823,21 @@ function done_processing(name, output) {
  * @param str A string containing JSON data.
  */
 export function offer_string(name, str) {
+    let loading = document.getElementById("loading");
     loading.innerText = "Done loading. Receive output below.";
 
-    var output_bin = document.getElementById("output_bin");
+    let output_bin = document.getElementById("output_bin");
     output_bin.removeAttribute("disabled");
     output_bin.innerText = str;
     output_bin.onclick = function () { this.select(); };
     output_bin.ontouchend = output_bin.onclick;
 
-    var download_button = document.getElementById("download_button");
+    let download_button = document.getElementById("download_button");
     download_button.removeAttribute("disabled");
     download_button.onmousedown = function () {
-        var blob = new Blob([str], {type: "text/json;charset=utf-8"});
-        var ourl = URL.createObjectURL(blob);
-        var link = document.getElementById("download_link");
+        let blob = new window.Blob([str], {type: "text/json;charset=utf-8"});
+        let ourl = window.URL.createObjectURL(blob);
+        let link = document.getElementById("download_link");
         link.setAttribute("href", ourl);
         link.setAttribute("download", name + ".json");
     };
@@ -1845,7 +1849,7 @@ export function offer_string(name, str) {
  * Sets up the file upload input to kick off the polishing process.
  */
 export function build_domains() {
-    var file_input = document.getElementById("words_list");
+    let file_input = document.getElementById("words_list");
 
     file_input.onmousedown = function () { this.setAttribute("value", ""); };
     file_input.ontouchstart = file_input.onmousedown;

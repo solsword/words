@@ -2,6 +2,8 @@
 // Miscellaneous general utilities.
 /* jshint esversion: 6 */
 
+"use strict";
+
 /**
  * Generates an array containing the N numbers 0 .. N-1.
  *

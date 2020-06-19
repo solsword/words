@@ -2,6 +2,8 @@
 // Custom icon drawing code.
 /* jshint esversion: 6 */
 
+"use strict";
+
 
 /**
  * Constants that define the size of an icon in pixels.

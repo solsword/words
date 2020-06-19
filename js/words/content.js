@@ -1,6 +1,9 @@
 // content.js
 // Manages grid + generate code to create, store, and deliver content.
 /* jshint esversion: 6 */
+/* global window */
+
+"use strict";
 
 import * as utils from "./utils.js";
 import * as grid from "./grid.js";
@@ -191,7 +194,7 @@ export function eventually_generate_supertile(dimension, sgp, accumulated) {
     if (st != undefined) {
         cache_supertile(sgk, st);
     } else {
-        setTimeout(
+        window.setTimeout(
             eventually_generate_supertile,
             GEN_BACKOFF,
             dimension,
@@ -219,7 +222,7 @@ export function fetch_supertile(dimension, gp) {
         if (!QUEUED[sgk]) {
             // async generate:
             QUEUED[sgk] = true;
-            setTimeout(
+            window.setTimeout(
                 eventually_generate_supertile,
                 0,
                 dimension,
@@ -398,14 +401,14 @@ export function unlock_path(dimension, path) {
 
 /**
  * Adds an entry to the unlocked list, updating adjacency lists and
- * computing color sources for the new entry. Note: colors will need to
- * be recalculated after the new entry is added, and this function
+ * computing energy sources for the new entry. Note: energies will need
+ * to be recalculated after the new entry is added, and this function
  * doesn't do that.
  *
  * @param entry An unlocked-list entry. It must have the following keys:
  *      "dimension": The dimension this entry belongs to.
  *      "path": An array of grid positions (see grid.js).
- *      "sources": An object whose keys are color object glyphs and whose
+ *      "sources": An object whose keys are energy glyphs and whose
  *          values are 'true'. Should be empty (this function fills it in
  *          with the set of all energy elements which are part of or
  *          adjacent to the path being added).
@@ -462,7 +465,7 @@ function add_unlocked(entry) {
 }
 
 /**
- * Recursively propagates the given specific color within
+ * Recursively propagates the given specific energy within
  * the adjacency graph of the unlocked list. Updates both the
  * energy maps of each entry encountered, and the ENERGY_MAP
  * per-position information.
@@ -514,9 +517,9 @@ function propagate_energy(entry, energy) {
  * of all active elements.
  */
 export function recalculate_unlocked_energies() {
-    // Remove old colors info for all dimensions:
+    // Remove old energy info for all dimensions:
     ENERGY_MAP = {};
-    // Remove old color info:
+    // Remove old energy info:
     for (let entry of UNLOCKED) {
         entry.energies = {};
     }
@@ -548,7 +551,7 @@ export function recalculate_unlocked_energies() {
 
 /**
  * Removes the given entry from the unlocked list and from all adjacency
- * lists within other entries of the unlocked list. Note: colors will
+ * lists within other entries of the unlocked list. Note: energies will
  * need to be propagated after removing the entry, and this function
  * doesn't do that. This function also doesn't reset the adjacent list of
  * the entry being removed.

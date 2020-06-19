@@ -2,6 +2,8 @@
 // Temporary animation objects for HTML5 canvas.
 /* jshint esversion: 6 */
 
+"use strict";
+
 import * as draw from "./draw.js";
 
 var ACTIVE = [];

@@ -1,6 +1,9 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
 /* jshint esversion: 6, maxerr: 10000 */
+/* global console */
+
+"use strict";
 
 import * as anarchy from "../anarchy.mjs";
 import * as dict from "./dict.js";
@@ -487,7 +490,7 @@ export function sample_glyph(seed, context, unicounts, bicounts, tricounts) {
  *     original and altered weights.
  */
 export function distort_probabilities(probabilities, bias) {
-    result = {};
+    let result = {};
     var newsum = 0;
     var exp = 1;
     if (bias < 0) {
@@ -1184,7 +1187,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             );
             let col = 1 + ii % grid.ULTRATILE_INTERIOR_SUPERTILES_ROW;
             let sgp = [row, col];
-            let full_idx = grid.sgp__index(sgp);
+            let full_index = grid.sgp__index(sgp);
             seen[full_index] = true;
             let nb_seed = r;
             r = anarchy.cohort_shuffle(r);
@@ -1235,7 +1238,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             );
             let col = 1 + ii % grid.ULTRATILE_INTERIOR_SUPERTILES_ROW;
             let sgp = [row, col];
-            let full_idx = grid.sgp__index(sgp);
+            let full_index = grid.sgp__index(sgp);
             incl_count += 1;
             if (incl_count > ol_incl_here) {
                 break;
@@ -1248,7 +1251,7 @@ export function ultratile_context(domain_name, ugp, seed) {
                     dimensions.MULTIPLANAR_CONNECTIONS + 1
                 );
                 r = anarchy.lfsr(r);
-                supertile_offsets[full_idx] = mpi;
+                supertile_offsets[full_index] = mpi;
             }
         }
 
@@ -1280,7 +1283,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             );
             let col = 1 + ii % grid.ULTRATILE_INTERIOR_SUPERTILES_ROW;
             let sgp = [row, col];
-            let full_idx = grid.sgp__index(sgp);
+            let full_index = grid.sgp__index(sgp);
             let taken_neighbors = 0;
             // Iterate through neighbors in fixed order:
             for (let d = 0; d < grid.N_DIRECTIONS; ++d) {
@@ -1299,7 +1302,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             }
             if (connections + taken_neighbors <= ol_connections) {
                 // Claim this supertile as an overlength supertile
-                supertile_offsets[full_idx] = 0;
+                supertile_offsets[full_index] = 0;
                 connections += taken_neighbors;
                 count += 1;
                 // Set relevant socket offsets to undefined:
@@ -1839,7 +1842,7 @@ export function punctuated_assignment_lookup(dimension, arp, world_seed) {
     var mpsums = utcontext.asg_nat_sums;
 
     var internal_idx = asg_idx - nat_prior;
-    var prior_row = max_smaller(internal_idx, mpsums);
+    var prior_row = anarchy.max_smaller(internal_idx, mpsums);
     var before = 0;
     if (prior_row > -1) {
         before = mpsums[prior_row];
@@ -1999,7 +2002,7 @@ export function punctuated_overlength_lookup(dimension, arp, world_seed) {
     var mpsums = utcontext.ol_nat_sums;
 
     var internal_idx = asg_idx - nat_prior;
-    var prior_row = max_smaller(internal_idx, mpsums);
+    var prior_row = anarchy.max_smaller(internal_idx, mpsums);
     var before = 0;
     if (prior_row > -1) {
         before = mpsums[prior_row];
@@ -3878,7 +3881,7 @@ export function combined_bicounts(domains) {
  */
 export function combined_tricounts(domains) {
     var result = {};
-    last = [];
+    let last = [];
     domains.forEach(function (d) {
         var dom = dict.lookup_domain(d);
         if (dom.hasOwnProperty("trigram_counts")) {

@@ -1,6 +1,9 @@
 // grid.js
 // Hex grid code.
 /* jshint esversion: 6 */
+/* global console */
+
+"use strict";
 
 import * as anarchy from "../anarchy.mjs";
 import * as dimensions from "./dimensions.js";
@@ -553,7 +556,7 @@ export function coords__key(gp) {
  */
 export function key__coords(gk) {
     if (gk == "undefined") { return undefined; }
-    bits = gk.split(',');
+    let bits = gk.split(',');
     return bits.map(b => parseInt(b));
 }
 
@@ -1579,13 +1582,13 @@ export function arp__sgap(arp) {
     let asg_number = arp[2];
 
     let asg_idx = asg_number % ASSIGNMENT_SOCKETS;
-    let apg_xy = Math.floor(asg_number / ASSIGNMENT_SOCKETS);
-    let y = asg_xy % (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE);
-    let x = Math.floor(asg_xy / (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE));
+    let asg_xy = Math.floor(asg_number / ASSIGNMENT_SOCKETS);
+    let y = asg_xy % (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
+    let x = Math.floor(asg_xy / (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE));
 
     return [
-        asg_x * (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE) + x,
-        asg_y * (ASSIGNMENT_REGION_SIDE * grid.ULTRAGRID_SIZE) + y,
+        asg_x * (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE) + x,
+        asg_y * (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE) + y,
         asg_idx
     ];
 }

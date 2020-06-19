@@ -2,6 +2,8 @@
 // Locale-specific fixes & stuff.
 /* jshint esversion: 6 */
 
+"use strict";
+
 // Note: so that this can be accessed from both normal module code and
 // web workers, we are currently forced to implement it as a classic JS
 // script, not a module. When cross-browser support for loading modules
@@ -46,7 +48,7 @@ function lc_lower(string, locale) {
 // TODO: This hack lets us use syntax as if we had imported this as a
 // module, but it should be removed once we really can have this be a
 // module again.
-locale = {
+var locale = {
     'DEFAULT_LOCALE': DEFAULT_LOCALE,
     'lc_upper': lc_upper,
     'lc_lower': lc_lower,

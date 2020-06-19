@@ -1,6 +1,9 @@
 // caching.js
 // Offers dynamic caching to other modules.
 /* jshint esversion: 6 */
+/* global console, window */
+
+"use strict";
 
 // Objects to hold caches and their queues.
 var DOMAINS = {};
@@ -109,7 +112,7 @@ export function complete_computation(domain, args, accumulated) {
     var result = dom[1].apply(null, args);
     var cache = CACHES[domain];
     if (result == undefined) {
-        setTimeout(
+        window.setTimeout(
             complete_computation,
             UNDEF_BACKOFF,
             domain,
@@ -187,7 +190,7 @@ export function cached_value(domain, args) {
             return null;
         } else { // queue this computation
             queue[key] = true;
-            setTimeout(
+            window.setTimeout(
                 complete_computation,
                 0,
                 domain,
@@ -231,7 +234,7 @@ export function with_cached_value(domain, args, continuation, c_arg) {
             CHECKING[domain] = {};
         }
         if (CHECKING[domain].hasOwnProperty(key)) {
-            setTimeout(
+            window.setTimeout(
                 with_cached_value,
                 CHECK_BACKOFF,
                 domain,
@@ -241,7 +244,7 @@ export function with_cached_value(domain, args, continuation, c_arg) {
             );
         } else {
             CHECKING[domain][key] = true;
-            setTimeout(
+            window.setTimeout(
                 with_cached_value,
                 CHECK_INITIAL_BACKOFF,
                 domain,
