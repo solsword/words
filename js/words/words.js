@@ -437,7 +437,7 @@ export var COMMANDS = {
     "Backspace": function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         if (CURRENT_SWIPES.length > 0) {
-            last_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
+            let last_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
             last_swipe.pop();
             if (last_swipe.length == 0) {
                 CURRENT_SWIPES.pop();
@@ -506,7 +506,6 @@ export function clear_selection(destination, style) {
             var vp = draw.view_pos(CTX, wp);
             lines.push(
                 new animate.MotionLine(
-                    CTX,
                     animate.INSTANT,
                     undefined,
                     vp,
@@ -516,13 +515,11 @@ export function clear_selection(destination, style) {
             );
         }
         SEL_CLEAR_ANIM = new animate.AnimGroup(
-            CTX,
-            animate.INSTANT, 
+            lines,
             function () {
                 CURRENT_SWIPES = [];
                 CURRENT_GLYPHS_BUTTON.set_glyphs([]);
             },
-            lines
         );
         animate.activate_animation(SEL_CLEAR_ANIM);
         DO_REDRAW = 0;
@@ -565,7 +562,6 @@ export function clear_energy(destination, style) {
                 var vp = draw.view_pos(CTX, wp);
                 lines.push(
                     new animate.MotionLine(
-                        CTX,
                         animate.INSTANT,
                         undefined,
                         vp,
@@ -576,12 +572,8 @@ export function clear_energy(destination, style) {
             }
         );
         EN_CLEAR_ANIM = new animate.AnimGroup(
-            CTX,
-            animate.INSTANT, 
-            function () {
-                content.reset_energy();
-            },
-            lines
+            lines,
+            function () { content.reset_energy(); }
         );
         animate.activate_animation(EN_CLEAR_ANIM);
         DO_REDRAW = 0;

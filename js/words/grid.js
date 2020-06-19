@@ -1031,7 +1031,7 @@ export function ugp__sgp(ugp) {
  */
 export function extract_subtile(supertile, igp) {
     var result = {};
-    var idx = igp__index(rgp);
+    var idx = igp__index(igp);
     result["glyph"] = supertile.glyphs[idx];
     result["colors"] = supertile.colors[idx].slice();
     result["domain"] = supertile.domains[idx];
@@ -1548,7 +1548,7 @@ export function sgap__arp(sgap) {
     let asg_y = cp[1] / (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
     let x = cp[0] % (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
     let y = cp[1] % (ASSIGNMENT_REGION_SIDE * ULTRAGRID_SIZE);
-    asg_idx = cp[2];
+    let asg_idx = cp[2];
     return [
         asg_x,
         asg_y,

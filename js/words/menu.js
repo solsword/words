@@ -242,7 +242,7 @@ export function draw_text(ctx, pos, text_layout) {
     var x = pos[0];
     var y = pos[1] + text_layout.line_height;
     for (var i = 0; i < text_layout.lines.length; ++i) {
-        line = text_layout.lines[i];
+        let line = text_layout.lines[i];
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
         ctx.fillText(line, x, y);
@@ -2077,7 +2077,7 @@ export function add_menu(menu) {
  */
 export function remove_menu(menu) {
     var t = null;
-    for (i = 0; i < MENUS.length; i += 1) {
+    for (let i = 0; i < MENUS.length; i += 1) {
         if (MENUS[i] == menu) {
             t = i;
             break;

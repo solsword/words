@@ -327,7 +327,7 @@ export function is_unlocked(dimension, gp) {
  *     any of the grid positions in the given grid position map.
  */
 export function unlocked_entries_that_overlap(dimension, gpmap) {
-    result = [];
+    let result = [];
     for (let i = 0; i < UNLOCKED.length; ++i) {
         let entry = UNLOCKED[i];
         if (dimensions.same(entry.dimension, dimension)) {
@@ -469,17 +469,17 @@ function add_unlocked(entry) {
  * @param entry An unlocked list entry to start from. See add_unlocked.
  * @param energy An energy glyph to propagate (see active.js).
  */
-function propagate_energy(entry, color) {
-    if (entry.colors[color]) {
-        // base case: this color has already been added here;
+function propagate_energy(entry, energy) {
+    if (entry.energies[energy]) {
+        // base case: this energy has already been added here;
         // do no recurse.
         return;
     } else {
-        // recursive case: add the color and recurse to all
+        // recursive case: add the energy and recurse to all
         // adjacent entries.
-        entry.colors[color] = true;
+        entry.energies[energy] = true;
 
-        // Get or create color map for this dimension:
+        // Get or create energy map for this dimension:
         let dk = dimensions.dim__key(entry.dimension);
         if (!ENERGY_MAP.hasOwnProperty(dk)) {
             ENERGY_MAP[dk] = {};
@@ -490,19 +490,19 @@ function propagate_energy(entry, color) {
         for (let gpos of entry.path) {
             let gpk = grid.coords__key(gpos);
 
-            // Fetch or create color map:
+            // Fetch or create energy map:
             if (!dmap.hasOwnProperty(gpk)) {
                 dmap[gpk] = {};
             }
-            let cmap = dmap[gpk];
+            let emap = dmap[gpk];
 
-            // Add this color to the color map for this position:
-            cmap[color] = true;
+            // Add this energy to the energy map for this position:
+            emap[energy] = true;
         }
 
         // Recurse on adjacent swipes:
         for (let adj of entry.adjacent) {
-            propagate_energy(adj, color);
+            propagate_energy(adj, energy);
         }
     }
 }

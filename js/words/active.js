@@ -268,8 +268,8 @@ export function energy_contains(combined_energy, energy_aspect) {
         return true;
     }
 
-    comb_comp = ENERGY_COMPOSITIONS[combined_energy];
-    asp_comp = ENERGY_COMPOSITIONS[energy_aspect];
+    let comb_comp = ENERGY_COMPOSITIONS[combined_energy];
+    let asp_comp = ENERGY_COMPOSITIONS[energy_aspect];
     for (let e of asp_comp) {
         if (comb_comp.indexOf(e) < 0) {
             return false;

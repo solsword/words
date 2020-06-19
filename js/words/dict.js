@@ -765,14 +765,14 @@ export function find_word_in_domain(glyphs, domain) {
 
     // For unordered domains, sort glyphs so that indexing will work
     if (!dom.ordered) {
-        if (!Array.prototype.isArray(glyphs)) {
+        if (!Array.isArray(glyphs)) {
             glyphs = glyphs.split("");
         }
         glyphs = glyphs.slice();
         glyphs.sort();
     }
     // Turn the array into a string:
-    if (Array.prototype.isArray(glyphs)) {
+    if (Array.isArray(glyphs)) {
         glyphs = glyphs.join("");
     }
 

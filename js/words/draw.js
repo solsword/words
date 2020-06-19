@@ -1150,10 +1150,10 @@ export function draw_leaf(ctx, seed) {
  * @param eglyph
  */
 export function draw_active_element(ctx, glyph, eglyph, energized) {
-    ctx.fillStyle = active.active_color(glyph, energized);
-    ctx.strokeStyle = active.active_color(glyph, energized);
+    ctx.fillStyle = active.element_color(glyph, energized);
+    ctx.strokeStyle = active.element_color(glyph, energized);
 
-    if (active.is_color(glyph)) {
+    if (active.is_energy(glyph)) {
         draw_energy_symbol(ctx, glyph);
     } else if (active.is_connector(glyph)) {
         draw_connector_symbol(ctx, glyph, eglyph, energized);
@@ -1429,10 +1429,11 @@ export function draw_connector_symbol(ctx, glyph, eglyph, energized) {
         // Portal to a pocket dimension
         // Draw three triangle corners for three nested rotated
         // (or aligned) triangles
-        let elem_color = active.active_color(glyph, energized);
+        let elem_color = active.element_color(glyph, energized);
 
         // Corner colors:
-        let c1 = c2 = c3 = elem_color;
+        let c1, c2, c3;
+        c1 = c2 = c3 = elem_color;
         if (active.energy_contains(eglyph, "红")) {
             c1 = active.energy_color("红", energized);
         }
@@ -1655,7 +1656,7 @@ export function draw_swipe(ctx, gplist, method, color) {
             );
         }
         // line to the last point:
-        wpos = grid.world_pos(gplist[gplist.length - 1]);
+        let wpos = grid.world_pos(gplist[gplist.length - 1]);
         vpos = view_pos(ctx, wpos);
         ctx.lineTo(vpos[0], vpos[1]);
         ctx.stroke();
@@ -1679,7 +1680,7 @@ export function draw_highlight(ctx, gpos, color) {
     ctx.strokeStyle = color;
 
     ctx.beginPath();
-    once = true;
+    let once = true;
     grid.VERTICES.forEach(function (vertex) {
         // copy the vertex
         vertex = vertex.slice();
@@ -1722,7 +1723,7 @@ export function draw_energy_highlight(ctx, gpos, eglyph) {
     ctx.strokeStyle = active.energy_color(eglyph, true);
 
     ctx.beginPath();
-    once = true;
+    let once = true;
     for (let vertex of grid.VERTICES) {
         // copy the vertex
         vertex = vertex.slice();
