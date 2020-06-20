@@ -740,7 +740,7 @@ export function update_current_glyphs() {
             let g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
             if (g == undefined) { // should never happen in theory:
                 console.warn(
-                    "InternalError: update_current_glyphs found"
+                    "Internal Error: update_current_glyphs found"
                   + " undefined glyph at: " + gp
                 );
                 g = "?";

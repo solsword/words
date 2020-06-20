@@ -1369,6 +1369,12 @@ export function ultratile_context(domain_name, ugp, seed) {
                 1,
                 dimensions.MULTIPLANAR_CONNECTIONS + 1
             );
+            if (isNaN(impi[i])) {
+                throw (
+                    "Internal Error: inclusion multiplanar index is NaN: "
+                  + r + ", " + dimensions.MULTIPLANAR_CONNECTIONS + 1
+                );
+            }
             r = anarchy.lfsr(r);
 
             // seed is on the queue:
@@ -1396,9 +1402,8 @@ export function ultratile_context(domain_name, ugp, seed) {
                 }
                 let loc = queues[i].shift();
                 if (isNaN(loc)) {
-                    console.warn("NAN");
-                    console.warn(queues);
-                    return undefined;
+                    console.warn("Queus that produced NaN loc:", queues);
+                    throw "Internal Error: loc is NaN from queue: " + i;
                 }
 
                 let here;
@@ -1541,7 +1546,7 @@ export function ultratile_context(domain_name, ugp, seed) {
         } else {
             let res = active.random_element(r);
             if (res == undefined) {
-                console.warn("Undef random element from seed " + r);
+                throw "Inernal Error: Undefined random element from seed " + r;
             }
             r = anarchy.lfsr(r);
             elem_queue.push(res);
@@ -1556,7 +1561,7 @@ export function ultratile_context(domain_name, ugp, seed) {
     ) {
         let eng = active.random_energy(r);
         if (eng == undefined) {
-            console.warn("Undef random color from seed " + r);
+            throw "Internal Error: Undefined random energy from seed " + r;
         }
         r = anarchy.lfsr(r);
         elem_queue.push(eng);
@@ -1754,6 +1759,9 @@ export function punctuated_assignment_index(ugap, utcontext, world_seed) {
 
     // get mutiplanar offset
     var mp_offset = mptable[lin];
+    if (isNaN(mp_offset) && mp_offset != undefined) {
+        throw "Internal Error: multiplanar offset is NaN!";
+    }
     if (mp_offset == undefined) {
         // This socket is unassigned.
         return undefined;
@@ -2059,9 +2067,7 @@ export function word_at(domains, index) {
             index -= d.entries.length;
         }
     }
-    console.warn("Internal Error: word_at index is out of range!");
-    console.warn([domains, index]);
-    return undefined;
+    throw "Internal Error: word_at index is out of range:\n" + [domains, index];
 }
 
 /**
@@ -2085,9 +2091,10 @@ export function first_match_in(domains, glyphs) {
             return matches[0].slice(1);
         }
     }
-    console.warn("Internal Error: first_match_in failed to find match!");
-    console.warn([domains, glyphs]);
-    return undefined;
+    throw (
+        "Internal Error: first_match_in failed to find match:"
+      + [domains, glyphs]
+    );
 }
 
 /**
@@ -2339,11 +2346,10 @@ export function generate_supertile(dimension, sgp, world_seed) {
             world_seed
         );
     } else {
-        console.warn(
+        throw (
             "Internal Error: unknown dimension type '"
             + dimensions.kind(dimension) + "'"
         );
-        return undefined;
     }
 }
 
@@ -2554,8 +2560,18 @@ export function embed_socketed_words(supertile) {
         let mpo = asg[3];
         let l_seed = sghash(seed, asg);
 
+        if (isNaN(mpo)) {
+            console.warn("Asg result:", asg);
+            throw "Internal Error: multiplanar offset is NaN.";
+        }
+
         let mdim = dimensions.neighboring_dimension(dimension, mpo);
         let domain = dimensions.natural_domain(mdim);
+
+        if (domain == undefined) {
+            console.warn("Dimension with undefined natural domain:", mdim);
+            throw "Internal Error: Dimension has no natural domain!";
+        }
 
         // Ensure domain(s) are loaded:
         let dl = domains_list(domain);

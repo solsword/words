@@ -62,20 +62,23 @@ var STRINGIFY_URL = "js/words/workers/stringify.js";
  *     will be returned.
  */
 export function lookup_domain(name) {
+    if (name == undefined) {
+        throw "Internal Error: Undefined name in lookup_domain.";
+    }
     if (DOMAINS.hasOwnProperty(name)) {
         return DOMAINS[name];
     } else if (FAILED.hasOwnProperty(name)) {
-        console.warn("Internal Error: Unknown domain '" + name + "'");
-        console.warn("Known domains are:");
+        let emsg = "Internal Error: Unknown domain '" + name + "'";
+        emsg += "\nKnown domains are:";
         for (let d of Object.keys(DOMAINS)) {
-            console.warn("  " + d);
+            emsg += "\n  " + d;
         }
-        console.warn("...still-loading domains:");
+        emsg += "\n...still-loading domains:";
         for (let d of Object.keys(LOADING)) {
-            console.warn("  " + d);
+            emsg += "\n  " + d;
         }
-        console.warn("---");
-        return undefined;
+        emsg += "\n---";
+        throw emsg;
     } else if (!LOADING.hasOwnProperty(name)) {
         load_dictionary(name);
         return undefined;
@@ -317,16 +320,17 @@ export function add_domain(name, polished_obj) {
  *     that doesn't work.
  */
 export function load_dictionary(domain, is_simple) {
+    if (domain == undefined) {
+        throw "Internal Error: Undefined domain in load_dictionary.";
+    }
     if (DOMAINS.hasOwnProperty(domain) || LOADING.hasOwnProperty(domain)) {
         return;
     }
     LOADING[domain] = [false, 0, 0]; // http-done, count-prog, index prog
-    if (is_simple == undefined) {
+    if (is_simple == undefined || !is_simple) {
         load_json_or_list(domain);
-    } else if (is_simple) {
-        load_simple_word_list(domain);
     } else {
-        load_json_or_list(domain);
+        load_simple_word_list(domain);
     }
 }
 
@@ -684,6 +688,10 @@ export function create_rough_domain_from_word_list(name, list_text) {
  *     access (/js/words/domains/<name>.lst).
  */
 export function load_simple_word_list(name) {
+    if (name == undefined) {
+        throw "Internal Error: Undefined name in load_simple_word_list!";
+    }
+
     var xobj = new window.XMLHttpRequest();
     xobj.overrideMimeType("text/plain");
     var url = window.location.href;
@@ -698,15 +706,13 @@ export function load_simple_word_list(name) {
             || (xobj.status == 0 && dpath.startsWith("file://"))
         );
         if (!successful) {
-            console.warn(
-                "Internal Error: Failed to fetch domain '" + name + "'"
-            );
-            console.warn("  Response code: " + xobj.status);
-            console.warn(
-                "  Response content:\n" + xobj.responseText.slice(0,80)
-            );
+            if (LOADING.hasOwnProperty(name)) { delete LOADING[name]; }
             FAILED[name] = true;
-            return undefined;
+            throw (
+                "Internal Error: Failed to fetch domain '" + name + "'"
+              + "\n  Response code: " + xobj.status
+              + "\n  Response content:\n" + xobj.responseText.slice(0,80)
+            );
         }
         LOADING[name][0] = true;
         var rough = create_rough_domain_from_word_list(name, xobj.responseText);
@@ -715,7 +721,10 @@ export function load_simple_word_list(name) {
     try {
         xobj.send(null);
     } catch (e) {
+        if (LOADING.hasOwnProperty(name)) { delete LOADING[name]; }
         FAILED[name] = true;
+        console.error(e);
+        throw "Internal Error: XMLHttpRequest failed for domain '" + name + "'";
     }
 }
 
@@ -762,8 +771,7 @@ export function find_word_in_domain(glyphs, domain) {
     if ("" + dom === dom) {
         dom = lookup_domain(dom);
         if (dom == undefined) {
-            console.warn("Internal Error: unknown domain '" + domain + "'");
-            return [];
+            throw "Internal Error: unknown domain '" + domain + "'";
         }
     }
 

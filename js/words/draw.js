@@ -918,7 +918,7 @@ export function draw_tile(ctx, tile) {
                 ];
             } else {
                 // Should be impossible
-                console.warn(
+                throw (
                     "Internal Error: invalid colors length: "
                     + tcolors.length
                 );

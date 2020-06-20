@@ -10,13 +10,13 @@ import * as utils from "./utils.js";
 /**
  * Number of possible connections from each plane:
  */
-var MULTIPLANAR_CONNECTIONS = 64;
+export var MULTIPLANAR_CONNECTIONS = 64;
 
 /**
  * A list of all available domains.
  * TODO: Better here (we'd like this to be more dynamic maybe?)!
  */
-var MULTIPLANAR_DOMAINS = [
+export var MULTIPLANAR_DOMAINS = [
     "English",
     "成语",
     "عربى",
@@ -30,7 +30,7 @@ var MULTIPLANAR_DOMAINS = [
  * The different kinds of dimensions. Includes full IDs and one-letter
  * abbreviations for use in cache-key-building.
  */
-var DIMENSION_KINDS = {
+export var DIMENSION_KINDS = {
     "F": "full",
     "full": "F",
     "P": "pocket",
@@ -43,7 +43,7 @@ var DIMENSION_KINDS = {
  * The different possible layout values for each kind of dimension,
  * along with their one-letter abbreviations.
  */
-var DIMENSION_LAYOUTS = {
+export var DIMENSION_LAYOUTS = {
     "full": {
         "S": "simple",
         "simple": "S",
@@ -80,7 +80,7 @@ var DIMENSION_LAYOUTS = {
  * The different possible flavor values for each kind of dimension.
  * Includes full terms and abbreviations.
  */
-var DIMENSION_FLAVORS = {
+export var DIMENSION_FLAVORS = {
     "pocket": {
         "B": "bare",
         "bare": "B",
@@ -328,7 +328,7 @@ export function neighboring_dimension(dimension, offset) {
         "kind": kind(dimension),
         "layout": layout(dimension),
         "domain": MULTIPLANAR_DOMAINS[
-            anarchy.posmod((i + offset), MULTIPLANAR_DOMAINS.length)
+            anarchy.posmod(i + offset, MULTIPLANAR_DOMAINS.length)
         ],
         // TODO: Seed pairing
         "seed": seed(dimension),
@@ -347,7 +347,7 @@ export function shape_for(domain) {
     let seed = 19803129;
     let x = MULTIPLANAR_DOMAINS.indexOf(domain);
     x ^= 1092830198;
-    for (var i = 0; i < 4; ++i) {
+    for (let i = 0; i < 4; ++i) {
         x = anarchy.lfsr(x);
     }
     var t_shape = x >>> 0;

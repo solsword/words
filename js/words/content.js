@@ -1,6 +1,6 @@
 // content.js
 // Manages grid + generate code to create, store, and deliver content.
-/* global window */
+/* global window, console */
 
 "use strict";
 
@@ -60,7 +60,7 @@ var SEED = 173;
  * How long to wait before re-attempting supertile generation
  * (milliseconds):
  */
-export var GEN_BACKOFF = 50;
+export var GEN_BACKOFF = 200;
 
 /**
  * How long since the most-recent request for a tile before we
@@ -181,20 +181,41 @@ export function supertile_key(dimension, sgp) {
  *     setTimeout reentry to measure time elapsed during the request.
  */
 export function eventually_generate_supertile(dimension, sgp, accumulated) {
-    var sgk = supertile_key(dimension, sgp);
+    let sgk = supertile_key(dimension, sgp);
     if (accumulated > GEN_GIVEUP) {
         delete QUEUED[sgk]; // allow re-queue
         return;
     }
-    var st = generate.generate_supertile(
-        dimension,
-        [sgp[0], sgp[1]],
-        SEED
-    );
+    let st;
+    try {
+        st = generate.generate_supertile(
+            dimension,
+            [sgp[0], sgp[1]],
+            SEED
+        );
+    } catch (e) {
+        console.warn(
+            "Failed to generate supertile in dimension '"
+          + dimensions.natural_domain(dimension).name
+          + "#" + dimensions.seed(dimension)
+          + "(" + dimensions.kind(dimension) + ")'"
+          + " at [" + sgp[0] + ", " + sgp[1] + "]"
+        );
+        console.error(e);
+        console.warn(sgk, QUEUED);
+        return;
+        // In this case the request is not tried again, but we don't
+        // clear the queue...
+    }
     if (st != undefined) {
+        if (st.dimension == undefined) {
+            console.warn("Bad supertile:", st);
+            throw "Internal Error: Supertile dimension is undefined.";
+        }
+        // This will clear the queue entry...
         cache_supertile(sgk, st);
     } else {
-        window.setTimeout(
+        QUEUED[sgk] = window.setTimeout(
             eventually_generate_supertile,
             GEN_BACKOFF,
             dimension,
@@ -219,10 +240,9 @@ export function fetch_supertile(dimension, gp) {
     if (SUPERTILES.hasOwnProperty(sgk)) {
         return SUPERTILES[sgk][0];
     } else {
-        if (!QUEUED[sgk]) {
+        if (!QUEUED.hasOwnProperty(sgk)) {
             // async generate:
-            QUEUED[sgk] = true;
-            window.setTimeout(
+            QUEUED[sgk] = window.setTimeout(
                 eventually_generate_supertile,
                 0,
                 dimension,
