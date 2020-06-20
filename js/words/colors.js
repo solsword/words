@@ -1,6 +1,5 @@
 // colors.js
 // Color schemes for words game.
-/* jshint esversion: 6 */
 /* global document */
 
 "use strict";

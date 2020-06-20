@@ -1,6 +1,5 @@
 // content.js
 // Manages grid + generate code to create, store, and deliver content.
-/* jshint esversion: 6 */
 /* global window */
 
 "use strict";

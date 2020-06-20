@@ -1,6 +1,5 @@
 // caching.js
 // Offers dynamic caching to other modules.
-/* jshint esversion: 6 */
 /* global console, window */
 
 "use strict";

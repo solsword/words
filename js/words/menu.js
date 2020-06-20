@@ -1,6 +1,5 @@
 // menu.js
 // Menu system for HTML5 canvas.
-/* jshint esversion: 6, maxerr: 10000 */
 /* global console, window */
 
 "use strict";

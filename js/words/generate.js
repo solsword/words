@@ -1,6 +1,5 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
-/* jshint esversion: 6, maxerr: 10000 */
 /* global console */
 
 "use strict";

@@ -1,6 +1,5 @@
 // quests.js
 // Quests functionality.
-/* jshint esversion: 6 */
 /* global console */
 
 "use strict";

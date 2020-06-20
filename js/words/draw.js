@@ -1,6 +1,5 @@
 // draw.js
 // Drawing code for words game.
-/* jshint esversion: 6 */
 /* global console */
 
 "use strict";

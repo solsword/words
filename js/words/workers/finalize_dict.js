@@ -1,7 +1,6 @@
 // finalize_dict.js
 // Web worker for building glyph count info and indexes to add to domains
 // before they're ready for use.
-/* jshint esversion: 6 */
 
 // Because cross-browser support for importing modules from within
 // workers is not available yet, we'll use importScripts as a hack...

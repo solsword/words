@@ -1,6 +1,5 @@
 // words.js
 // Word game.
-/* jshint esversion: 6 */
 /* global console, window, document */
 
 "use strict";

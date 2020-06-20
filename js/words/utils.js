@@ -1,6 +1,5 @@
 // utils.js
 // Miscellaneous general utilities.
-/* jshint esversion: 6 */
 
 "use strict";
 

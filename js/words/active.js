@@ -1,7 +1,6 @@
 // active.js
 // Code for keeping track of active elements, their types, their effects,
 // etc.
-/* jshint esversion: 6 */
 /* global console */
 
 "use strict";

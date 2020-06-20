@@ -1,7 +1,6 @@
 // dict.js
 // Manages domains and their associated dictionaries. For now, the
 // 'dictionaries' do not include definitions.
-/* jshint esversion: 6 */
 /* global console, window */
 
 "use strict";

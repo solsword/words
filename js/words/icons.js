@@ -1,6 +1,5 @@
 // icons.js
 // Custom icon drawing code.
-/* jshint esversion: 6 */
 
 "use strict";
 

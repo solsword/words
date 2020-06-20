@@ -1,6 +1,5 @@
 // locale.js
 // Locale-specific fixes & stuff.
-/* jshint esversion: 6 */
 
 "use strict";
 

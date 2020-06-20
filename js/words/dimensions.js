@@ -1,6 +1,5 @@
 // dimensions.js
 // Dimension handling code.
-/* jshint esversion: 6 */
 /* global console */
 
 "use strict";
