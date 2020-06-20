@@ -1636,16 +1636,27 @@ export function test_grid() {
     }
     DO_REDRAW = 0;
 
+    let test_dimension = {
+        "kind": "custom",
+        "layout": "dense",
+        "flavor": "bare",
+        "domain": "English",
+        "seed": 10985,
+        "words": [ "THIS", "IS", "NOT", "GOING", "TO", "BE", "USED" ]
+    };
+
+    CURRENT_DIMENSION = test_dimension;
+
     // set up test data:
     // TODO: Keybinding to swap seeds?
     GRID_TEST_DATA = [
-        generate.generate_test_supertile([0, 0], 28012),
-        generate.generate_test_supertile([1, 0], 28012),
-        generate.generate_test_supertile([-1, 0], 28012),
-        generate.generate_test_supertile([0, 1], 28012),
-        generate.generate_test_supertile([-1, 1], 28012),
-        generate.generate_test_supertile([0, -1], 28012),
-        generate.generate_test_supertile([1, -1], 28012),
+        generate.generate_test_supertile(test_dimension, [0, 0], 28012),
+        generate.generate_test_supertile(test_dimension, [1, 0], 28012),
+        generate.generate_test_supertile(test_dimension, [-1, 0], 28012),
+        generate.generate_test_supertile(test_dimension, [0, 1], 28012),
+        generate.generate_test_supertile(test_dimension, [-1, 1], 28012),
+        generate.generate_test_supertile(test_dimension, [0, -1], 28012),
+        generate.generate_test_supertile(test_dimension, [1, -1], 28012),
     ];
 
     // kick off animation

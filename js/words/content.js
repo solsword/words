@@ -114,6 +114,7 @@ export function tile_at(dimension, gp) {
             "colors": [],
             "is_inclusion": false,
             "domain": undefined,
+            "shape": [0, 0, 0, 0],
             "glyph": undefined
         };
     }

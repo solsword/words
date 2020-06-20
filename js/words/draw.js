@@ -10,6 +10,7 @@ import * as grid from "./grid.js";
 import * as content from "./content.js";
 import * as colors from "./colors.js";
 import * as active from "./active.js";
+import * as dimensions from "./dimensions.js";
 
 /**
  * Loading bar sizes
@@ -297,6 +298,15 @@ export function draw_tiles(dimension, ctx, tiles) {
  *     generate.generate_full_supertile).
  */
 export function draw_supertile(ctx, supertile) {
+    // Font setup
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top"; // middle leaves room for descenders?
+    ctx.font = Math.floor(FONT_SIZE) + "px " + FONT_FACE;
+
+    if (supertile.dimension == undefined) {
+        console.warn("Supertile with undefined dimension:", supertile);
+    }
+
     let base_pos = grid.sgp__gp(supertile.pos);
     for (let x = 0; x < grid.SUPERTILE_SIZE; ++x) {
         for (let y = 0; y < grid.SUPERTILE_SIZE; ++y) {
@@ -304,10 +314,14 @@ export function draw_supertile(ctx, supertile) {
                 let idx = x + y * grid.SUPERTILE_SIZE;
                 let gp = [ base_pos[0] + x, base_pos[1] + y ];
                 let tile = {
+                    "dimension": supertile.dimension,
                     "pos": gp,
+                    "spos": supertile.pos.slice(),
                     "colors": supertile.colors[idx],
-                    "glyph": supertile.glyphs[idx],
+                    "is_inclusion": false,
                     "domain": supertile.domains[idx],
+                    "shape": dimensions.shape_for(supertile.domain),
+                    "glyph": supertile.glyphs[idx],
                 };
 
                 draw_tile(ctx, tile);
@@ -905,7 +919,7 @@ export function draw_tile(ctx, tile) {
                 ];
             } else {
                 // Should be impossible
-                console.log(
+                console.warn(
                     "Internal Error: invalid colors length: "
                     + tcolors.length
                 );
@@ -930,7 +944,7 @@ export function draw_tile(ctx, tile) {
             }
         }
 
-        // Inner circle
+        // Inner pad
         let r = grid.GRID_EDGE * 0.58;
         if (unlocked) {
             ctx.fillStyle = colors.scheme_color("tile", "unlocked-pad");
@@ -1295,7 +1309,7 @@ export function draw_energy_symbol(ctx, glyph) {
         ctx.rotate(-rot);
         ctx.translate(-offx, 0);
     } else {
-        console.log("Unknown color glyph: '" + glyph + "'.");
+        console.warn("Unknown color glyph: '" + glyph + "'.");
     }
 }
 
@@ -1506,9 +1520,9 @@ export function draw_connector_symbol(ctx, glyph, eglyph, energized) {
         }
         draw_square_corners(ctx, fs*0.3);
     } else {
-        console.log("Unknown connector glyph: '" + glyph + "'.");
-        console.log(active.is_connector(glyph));
-        console.log(glyph.charCodeAt(0));
+        console.warn("Unknown connector glyph: '" + glyph + "'.");
+        console.warn(active.is_connector(glyph));
+        console.warn(glyph.charCodeAt(0));
     }
     ctx.stroke();
 }

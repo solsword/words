@@ -3906,6 +3906,7 @@ export function combined_tricounts(domains) {
 /**
  * Generates a test supertile, using the given position and seed.
  *
+ * @param dimension The dimension object for the supertile to live in.
  * @param sgp A 2-element x/y supergrid coordinate array.
  * @param seed An integer seed that determines the result.
  *
@@ -3913,12 +3914,12 @@ export function combined_tricounts(domains) {
  *     generate_full_supertile. The domains array and the words array are
  *     empty, and the dimension is undefined.
  */
-export function generate_test_supertile(sgp, seed) {
+export function generate_test_supertile(dimension, sgp, seed) {
     var r = seed;
     var result = {
         "pos": sgp.slice(),
         "world_seeed": seed,
-        "dimension": undefined,
+        "dimension": dimension,
         "glyphs": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
         "colors": Array(grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE),
         "domains": [],
@@ -3928,29 +3929,30 @@ export function generate_test_supertile(sgp, seed) {
     for (var i = 0; i < grid.SUPERTILE_SIZE * grid.SUPERTILE_SIZE; ++i) {
         result.glyphs[i] = undefined;
         result.colors[i] = [];
+        result.domains[i] = dimensions.natural_domain(dimension);
     }
 
     // Pick a word for each socket and embed it (or the relevant part of it).
     for (let socket = 0; socket < grid.COMBINED_SOCKETS; socket += 1) {
         let sgap = grid.canonical_sgapos([sgp[0], sgp[1], socket]);
-        let cs = sgap[2];
+        let canonical_socket = sgap[2];
         let ugp = grid.sgp__ugp(sgap); // socket index is ignored
 
         let l_seed = sghash(seed, sgap);
-        let r = anarchy.lfsr(l_seed);
+        let r = anarchy.prng(canonical_socket, l_seed);
 
         let glyphs = [
-            ["0a", "0b", "0c", "0d", "0e", "0f", "0g", "0h"],
-            ["1a", "1b", "1c", "1d", "1e", "1f", "1g", "1h"],
-            ["2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"],
-            ["3a", "3b", "3c", "3d", "3e", "3f", "3g", "3h"],
-            ["4a", "4b", "4c", "4d", "4e", "4f", "4g", "4h"],
-            ["5a", "5b", "5c", "5d", "5e", "5f", "5g", "5h"],
-            ["6a", "6b", "6c", "6d", "6e", "6f", "6g", "6h"],
-            ["7a", "7b", "7c", "7d", "7e", "7f", "7g", "7h"],
-            ["8a", "8b", "8c", "8d", "8e", "8f", "8g", "8h"],
-            ["9a", "9b", "9c", "9d", "9e", "9f", "9g", "9h"],
-        ][cs];
+            ["A", "B", "C", "D", "E", "F", "G", "H"],
+            ["I", "J", "K", "L", "M", "N", "O", "P"],
+            ["Q", "R", "S", "T", "U", "V", "W", "X"],
+            ["Y", "Z", "a", "b", "c", "d", "e", "f"],
+            ["g", "h", "i", "j", "k", "l", "m", "n"],
+            ["o", "p", "q", "r", "s", "t", "u", "v"],
+            ["w", "x", "y", "z", "α", "β", "ξ", "δ"],
+            ["ε", "φ", "γ", "θ", "ι", "ϊ", "κ", "λ"],
+            ["μ", "ν", "ο", "π", "ψ", "ρ", "σ", "τ"],
+            ["υ", "ϋ", "ω", "χ", "η", "ζ", "0", "1"],
+        ][canonical_socket];
         var tile_colors = [
             ["bl"],
             ["yl"],
@@ -3959,7 +3961,7 @@ export function generate_test_supertile(sgp, seed) {
             ["lb"],
             ["lg"],
             ["gr"],
-        ][cs];
+        ][canonical_socket];
 
         // Note: long words are chopped for test tiles
         var maxlen = grid.SOCKET_SIZE;
