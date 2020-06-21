@@ -212,12 +212,14 @@ function finalize_dict(dom) {
 
                 // Count bigrams/trigrams:
                 if (dom.ordered) {
+                    let b2;
                     if (j < gl.length - 1) {
-                        let b2 = gl[j+1];
+                        b2 = gl[j+1];
+                        let bg_entry;
                         if (dom.bigram_counts.hasOwnProperty(g)) {
-                            let bg_entry = dom.bigram_counts[g];
+                            bg_entry = dom.bigram_counts[g];
                         } else {
-                            let bg_entry = {};
+                            bg_entry = {};
                             dom.bigram_counts[g] = bg_entry;
                         }
                         if (bg_entry.hasOwnProperty(b2)) {
@@ -229,10 +231,11 @@ function finalize_dict(dom) {
                     }
                     if (j < gl.length - 2) {
                         let t3 = gl[j+2];
+                        let tr_entry;
                         if (dom.trigram_counts.hasOwnProperty(g)) {
-                            let tr_entry = dom.trigram_counts[g];
+                            tr_entry = dom.trigram_counts[g];
                         } else {
-                            let tr_entry = {};
+                            tr_entry = {};
                             dom.trigram_counts[g] = tr_entry;
                         }
                         if (tr_entry.hasOwnProperty(b2)) {
@@ -252,17 +255,19 @@ function finalize_dict(dom) {
                 } else { // unordered: count all pairs
                     for (let k = j+1; k < gl.length; ++k) {
                         let o = gl[k];
+                        let pair;
                         if (g < o) {
-                            let pair = [g, o];
+                            pair = [g, o];
                         } else {
-                            let pair = [o, g];
+                            pair = [o, g];
                         }
                         // Enter in canonical order:
+                        let pr_entry;
                         if (dom.pair_counts.hasOwnProperty(pair[0])) {
-                            let pr_entry = dom.pair_counts[pair[0]];
+                            pr_entry = dom.pair_counts[pair[0]];
                             dom.pair_counts[pair[0]] += w;
                         } else {
-                            let pr_entry = {};
+                            pr_entry = {};
                             dom.pair_counts[pair[0]] = pr_entry;
                         }
                         if (pr_entry.hasOwnProperty(pair[1])) {
@@ -273,10 +278,10 @@ function finalize_dict(dom) {
                         dom.total_pair_count += w;
                         // Enter reversed:
                         if (dom.pair_counts.hasOwnProperty(pair[1])) {
-                            let pr_entry = dom.pair_counts[pair[1]];
+                            pr_entry = dom.pair_counts[pair[1]];
                             dom.pair_counts[pair[1]] += w;
                         } else {
-                            let pr_entry = {};
+                            pr_entry = {};
                             dom.pair_counts[pair[1]] = pr_entry;
                         }
                         if (pr_entry.hasOwnProperty(pair[0])) {

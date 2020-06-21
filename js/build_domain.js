@@ -1,3 +1,3 @@
-import * as words from "./words/words.js"
+import * as builder from "./words/builder.js";
 
-words.build_domains();
+builder.build_domains();

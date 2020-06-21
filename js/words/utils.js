@@ -179,3 +179,21 @@ export function string__array(str) {
     }
     return result;
 }
+
+/**
+ * Flattens an array of arrays (just once).
+ *
+ * @param deep An array containing arrays in each slot.
+ *
+ * @return A new array which is the concatenation of each of the arrays
+ *     that's an element in the outer array. Arrays inside of those
+ *     arrays are not themselves flattened.
+ */
+export function combine_arrays(deep) {
+    var result = [];
+    var n = deep.length;
+    for (var i = 0; i < n; ++i) {
+        result.push.apply(result, deep[i]);
+    }
+    return result;
+}

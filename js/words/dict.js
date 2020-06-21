@@ -416,7 +416,7 @@ export function load_json_or_list_from_data(
     try {
         rough = JSON.parse(data);
     } catch (error) {
-        rough = create_rough_domain_from_word_list(data);
+        rough = create_rough_domain_from_word_list(name, data);
     }
     polish_and_callback(
         name,
