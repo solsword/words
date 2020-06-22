@@ -131,7 +131,7 @@ export function name_of(domain) {
  *     entries: An array of domain entries, which are 3-element arrays
  *         that include (by index):
  *         0: Either a string or a list of strings specifying the glyphs
- *             for a word, 
+ *             for a word,
  *         1: A string specifying the canonical appearance of that word.
  *         2: An integer indicating the frequency of that entry within
  *            the corpus used to construct the domain.
@@ -230,7 +230,9 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
-    var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
+    // var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
+    //TODO Use this when we can
+      var worker = new window.Worker(FINALIZE_URL);
     worker.onmessage = function (msg) {
         // Gets a name + finalized domain from the worker and adds the domain.
         if (msg.data == "worker_ready") { // initial ready message
@@ -268,7 +270,9 @@ export function polish_and_callback(
  *     callback parameter to access the resulting JSON string.
  */
 export function stringify_and_callback(object, callback) {
-    let worker = new window.Worker(STRINGIFY_URL, {'type': 'module'});
+    // let worker = new window.Worker(STRINGIFY_URL, {'type': 'module'});
+    //Todo Use when needed
+        let worker = new window.Worker(STRINGIFY_URL);
     worker.onmessage = function (msg) {
         if (msg.data == "worker_ready") { // initial ready message
             worker.postMessage(object); // hand over object to stringify
@@ -735,7 +739,7 @@ export function load_simple_word_list(name) {
  *
  * @param glyphs Either a string or an array of single-glyph strings
  *     specifying the glyph sequence to look for.
- * @param domains An array of domain objects to look for matches in. 
+ * @param domains An array of domain objects to look for matches in.
  */
 export function check_word(glyphs, domains) {
     var matches = [];

@@ -1,3 +1,5 @@
+"use strict";
+
 function eventually_process_word_list(element) {
   var files = element.files;
   if (files === null || files === undefined || files.length < 1) {

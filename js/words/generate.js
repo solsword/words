@@ -162,9 +162,9 @@ var DOMAIN_COMBOS = {
  *
  * ```
  *                2
- *            1    
+ *            1
  *        0       3
- *            4    
+ *            4
  *                5
  * ```
  */
@@ -273,7 +273,7 @@ for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
  *
  * @param domain_or_combo A string naming either a domain or a combo.
  *
- * @return An array of all domains in the given group or combo.
+ * @return An array of the names of all domains in the given group or combo.
  */
 export function domains_list(domain_or_combo) {
     if (DOMAIN_COMBOS.hasOwnProperty(domain_or_combo)) {
@@ -1706,7 +1706,7 @@ export function ultratile_context(domain_name, ugp, seed) {
 }
 // register ultratile_context as a caching domain:
 caching.register_domain(
-    "ultratile_context", 
+    "ultratile_context",
     function (ds, ugp, seed) {
         return ds + ":" + ugp[0] + "," + ugp[1] + ":" + seed;
     },
@@ -1732,7 +1732,7 @@ caching.register_domain(
  *     ultratile.
  * @param world_seed An integer world seed that helps determine the
  *     result.
- *  
+ *
  * @return A 4-element array containing:
  *     x, y - assignment grid position
  *     n - assignment index
@@ -1996,7 +1996,7 @@ export function punctuated_overlength_lookup(dimension, arp, world_seed) {
     // fetch utcontext or fail:
     let utseed = ultratile_seed(ugp, dimension, world_seed);
     var utcontext = caching.cached_value(
-        "ultratile_context", 
+        "ultratile_context",
         [ domain_name, [ ugp[0], ugp[1] ], utseed ]
     );
     if (utcontext == null) {
@@ -3299,7 +3299,7 @@ export function random_unused(layout, seed) {
             draw = 2*section + draw % section;
         }
         // convert our spiral index into a grid position and thence a key
-        let gp = grid.si__gp(draw);
+        let gp = grid.si__igp(draw);
         let k = grid.coords__key(gp);
         // check if it's occupied, if not that's our result
         if (set.hasOwnProperty(k)) {
@@ -3390,7 +3390,7 @@ export function attempt_to_add_glyph_sequence(
                     continue;
                 }
             } else {
-                // An open spot 
+                // An open spot
                 fresh.push(np);
             }
         }
@@ -3456,7 +3456,7 @@ export function generate_pocket_layout(dimension) {
 
 // Register generate_pocket_layout as a caching domain
 caching.register_domain(
-    "pocket_layout", 
+    "pocket_layout",
     dimension => "" + dimension,
     generate_pocket_layout,
     POCKET_LAYOUT_CACHE_SIZE
@@ -3534,7 +3534,7 @@ export function generate_pocket_supertile(dimension, sgp, world_seed) {
             touched = true;
             let idx = grid.igp__index(sub_gp);
             result.glyphs[idx] = g;
-            result.domains[idx] = domain; 
+            result.domains[idx] = domain;
         }
     }
     if (!touched && flavor != "round") {
@@ -3738,6 +3738,7 @@ export function merge_glyph_tricounts(gs1, gs2) {
         } else {
             result[g] = {};
             for (let gg of Object.keys(gs2[g])) {
+                result[g][gg] = {}
                 for (let ggg of Object.keys(gs2[g][gg])) {
                     result[g][gg][gg] = gs2[g][gg][ggg] / gs2_total;
                 }

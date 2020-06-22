@@ -8,28 +8,25 @@
     <link rel="stylesheet" type="text/css" href="css/font/asap/asap.css"/>
     <link rel="stylesheet" type="text/css" href="css/main.css"/>
 
-		<!-- scripts (via require; see js/main.js) -->
-    <script data-main="js/setup_quiz" src="js/bower_components/requirejs/require.js"></script>
+		<script type="text/javascript" src="js/words/locale.js"></script>
+    <script type="module" src="js/setup_quiz.js"></script>
   </head>
 <body>
   <div style="padding: 8pt;">
+	Pick a domain:
+		<select id="language">
+			<option value="عربى">   عربى </option>
+			<option value="成语"> 成语 </option>
+			<option value="English" selected>English</option>
+			<option value="ひらがな">ひらがな</option>
+			<option value="türk">türk</option>
+		</select>
+		<br> 
   Words list:
   <input id="words_list" type="file" /><br/>
   <span id="loading">Wait for a link to appear below, and copy/paste or click it.</span>
   </div>
   <a id="quiz_link"></a>
-
-	<select id="language">
-		<option value="None" selected>-- Select --</option>
-		<option value="عربى">Arabic</option>
-		<option value="成语">Chinese</option>
-		<option value="اللغة_العربية_الفصح">Classic Arabic</option>
-		<option value="English">English</option>
-		<option value="かんたんなひらがな">Japanese</option>
-		<option value="türk">Turkish</option>
-	</select>
-
-	<button type="button" onclick="GetSelectedValue()">Get Selected Value</button>
 
 </body>
 </html>
