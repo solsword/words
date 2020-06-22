@@ -1,10 +1,3 @@
-requirejs.config({
-  baseURL: "js/",
-});
+import * as words from "./words/words.js"
 
-requirejs(
-  ["words/words"],
-  function(words) {
-    words.test_grid()
-  }
-);
+words.test_grid()
