@@ -734,3 +734,8 @@ define(["./utils", "./locale", "./grid"], function(utils, locale, grid) {
     "nth_short_word": nth_short_word,
   };
 });
+
+function add_letter(){
+  var letterArray = new array(3);
+
+}
