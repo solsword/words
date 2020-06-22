@@ -37,7 +37,8 @@ export var MODES = [
  * The current game mode.
  * TODO: Toggle this!
  */
-export var MODE = "free";
+// export var MODE = "free";
+export var MODE = "quiz";
 
 /**
  * Is the user currently in the middle of dragging out a swipe path?
@@ -216,6 +217,8 @@ export var ZOOM_OUT_BUTTON = null;
 export var CLEAR_SELECTION_BUTTON = null;
 export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
+export var ABOUT_QUIZ_TOGGLE = null;
+export var ABOUT_QUIZ_DIALOG = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -384,7 +387,7 @@ export function warp_to(coordinates, dimension) {
     let wpos = grid.world_pos(coordinates);
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];
-    if (MODE != "free") {
+    if (MODE != "free" && MODE != "quiz") {
         let x = coordinates[0];
         let y = coordinates[1];
         let nearby = [
@@ -618,7 +621,7 @@ export function test_selection() {
     if (matches.length > 0) {
         // Found a match:
         let connected = false;
-        if (MODE == "free") {
+        if (MODE == "free" || MODE == "quiz") {
             connected = true;
         } else {
             combined_swipe.forEach(function (gp) {
@@ -921,7 +924,7 @@ function handle_primary_up(ctx, e) {
             let wp = draw.world_pos(ctx, vpos);
             let gp = grid.grid_pos(wp);
             let valid = false;
-            if (MODE == "free") {
+            if (MODE == "free" || MODE == "quiz") {
                 valid = false;
             } else {
                 for (let d = 0; d < 6; ++d) {
@@ -1150,6 +1153,17 @@ export function init(starting_dimension) {
         )
     );
 
+    if(MODE == "quiz"){
+        add_quest(
+            new quests.HuntQuest(
+                starting_dimension.words,
+                ["A__"],
+                undefined,
+                undefined
+            )
+        );
+    }
+
     // kick off animation
     window.requestAnimationFrame(draw_frame);
 
@@ -1249,6 +1263,29 @@ export function init(starting_dimension) {
         function () { menu.remove_menu(ABOUT_DIALOG); }
     );
     menu.add_menu(ABOUT_TOGGLE);
+
+    ABOUT_QUIZ_DIALOG = new menu.Dialog(
+        CTX,
+        undefined,
+        undefined,
+        {}, 
+        (
+            "In quiz mode, try to find all the words that you uploaded."
+        ),
+        [ { "text": "OK", "action": function () { ABOUT_QUIZ_TOGGLE.off_(); } } ]
+    );
+
+    ABOUT_QUIZ_TOGGLE = new menu.ToggleMenu(
+        CTX,
+        { "right": 100, "bottom": 10 },
+        { "width": 40, "height": 40 },
+        {},
+        "...",
+        function () { menu.add_menu(ABOUT_QUIZ_DIALOG); },
+        function () { menu.remove_menu(ABOUT_QUIZ_DIALOG); }
+    );
+    menu.add_menu(ABOUT_QUIZ_TOGGLE);
+
 
     HOME_BUTTON = new menu.ButtonMenu(
         CTX,

@@ -463,7 +463,8 @@ export function BaseMenu(ctx, pos, shape, style) {
     this.style.border_width = this.style.border_width || 1;
     this.style.font_size = this.style.font_size || MENU_FONT_SIZE;
     this.style.font_face = this.style.font_face || draw.FONT_FACE;
-    this.style.line_height = this.style.line_height || draw.FONT_SIZE;
+    // this.style.line_height = this.style.line_height || draw.FONT_SIZE;
+    this.style.line_height = 28;
     this.style.button_border_width = this.style.button_border_width || 1;
     this.style.button_text_outline_width = (
         this.style.button_text_outline_width || 0
