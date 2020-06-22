@@ -310,7 +310,7 @@ function(
       );
       SEL_CLEAR_ANIM = new animate.AnimGroup(
         CTX,
-        animate.INSTANT, 
+        animate.INSTANT,
         function () {
           CURRENT_SWIPES = [];
           CURRENT_GLYPHS_BUTTON.set_glyphs([]);
@@ -361,7 +361,7 @@ function(
       );
       EN_CLEAR_ANIM = new animate.AnimGroup(
         CTX,
-        animate.INSTANT, 
+        animate.INSTANT,
         function () {
           content.reset_energy();
         },
@@ -588,7 +588,7 @@ function(
 
       if (cancel_from != undefined) {
         // We double-tapped a swiped glyph to cancel it
-        
+
         // Find adjacent grid positions from swipe
         let csw = CURRENT_SWIPES[cancel_from];
         let csl = csw.length;
@@ -825,12 +825,25 @@ function(
     if (Number.isNaN(eseed)) {
       eseed = 10983;
     }
-    starting_dimension = {
-      "kind": "full",
-      "layout": "reasonable",
-      "domain": edom,
-      "seed": eseed,
-    };
+
+    let ewords = env["words"];
+    ewords = unescape(ewords);
+    console.log(ewords);
+
+    // if (!ewords || !dimensions.MULTIPLANAR_DOMAINS.includes(ewords)) {
+    //   //edom = "成语";
+    //   edom = "English";
+    // }
+    // let eseed = Number.parseInt(env["seed"]);
+    // if (Number.isNaN(eseed)) {
+    //   eseed = 10983;
+    // }
+    // starting_dimension = {
+    //   "kind": "full",
+    //   "layout": "reasonable",
+    //   "domain": edom,
+    //   "seed": eseed,
+    // };
 
     /*/ *
     var CURRENT_DIMENSION = {
@@ -840,12 +853,14 @@ function(
       "domain": "English",
       "seed": 10985
     }
-    var CURRENT_DIMENSION = {
+
+    // */
+    starting_dimension = {
       "kind": "custom",
       "layout": "dense",
       "flavor": "bare",
-      "domain": "English",
-      "seed": 10985
+      "domain": edom,
+      "seed": 10985,
       "words": [
         "ABACUS",
         "BENEVOLENCE",
@@ -874,9 +889,10 @@ function(
         "YUCCA",
         "ZYGOTE",
       ]
-      // TODO: how to make sure words are in the domain?!?
     };
-    // */
+      // TODO: how to make sure words are in the domain?!?
+
+
 
     // set up canvas context
     CANVAS = document.getElementById("canvas");
@@ -942,7 +958,7 @@ function(
       CTX,
       { "right": 10, "top": 240 },
       { "width": 40, "height": 40 },
-      undefined, 
+      undefined,
       "!",
       function () {
         WORDS_SIDEBAR.off();
@@ -970,7 +986,7 @@ function(
       CTX,
       { "right": 10, "top": 330 },
       { "width": 40, "height": 40 },
-      undefined, 
+      undefined,
       //"找到",
       "🗎",
       function () {
@@ -1494,11 +1510,18 @@ function(
     if(words[0] == ""){
       words.shift();
     }
+
+    // console.log(words)
+
+    var value_selected = document.getElementById("language");
+    var result = value_selected.options[value_selected.selectedIndex].value;
+
     let wordsURL = words.join(";");
     wordsURL = escape(wordsURL);
     let link = document.getElementById("quiz_link");
-    link.href = encodeURI("index.html#words=" + wordsURL);
-    link.innerText = link.href; 
+    link.href = encodeURI("index.html#words=" + wordsURL + ",domain=" + result);
+    link.innerText = link.href;
+
   }
 
   function setup_quiz() {

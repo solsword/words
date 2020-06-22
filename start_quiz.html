@@ -2,6 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
     <title>Words</title>
 
     <link rel="stylesheet" type="text/css" href="css/font/asap/asap.css"/>
@@ -17,5 +18,18 @@
   <span id="loading">Wait for a link to appear below, and copy/paste or click it.</span>
   </div>
   <a id="quiz_link"></a>
+
+	<select id="language">
+		<option value="None" selected>-- Select --</option>
+		<option value="عربى">Arabic</option>
+		<option value="成语">Chinese</option>
+		<option value="اللغة_العربية_الفصح">Classic Arabic</option>
+		<option value="English">English</option>
+		<option value="かんたんなひらがな">Japanese</option>
+		<option value="türk">Turkish</option>
+	</select>
+
+	<button type="button" onclick="GetSelectedValue()">Get Selected Value</button>
+
 </body>
 </html>
