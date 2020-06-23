@@ -230,7 +230,7 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
-    var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
+    var worker = new window.Worker(FINALIZE_URL);
     worker.onmessage = function (msg) {
         // Gets a name + finalized domain from the worker and adds the domain.
         if (msg.data == "worker_ready") { // initial ready message
@@ -268,7 +268,7 @@ export function polish_and_callback(
  *     callback parameter to access the resulting JSON string.
  */
 export function stringify_and_callback(object, callback) {
-    let worker = new window.Worker(STRINGIFY_URL, {'type': 'module'});
+    let worker = new window.Worker(STRINGIFY_URL);
     worker.onmessage = function (msg) {
         if (msg.data == "worker_ready") { // initial ready message
             worker.postMessage(object); // hand over object to stringify

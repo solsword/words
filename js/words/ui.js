@@ -1183,7 +1183,7 @@ export function init(starting_dimension) {
         CTX,
         { "right": 10, "top": 240 },
         { "width": 40, "height": 40 },
-        undefined, 
+        undefined,
         "!",
         function () {
             WORDS_SIDEBAR.off();
@@ -1210,7 +1210,7 @@ export function init(starting_dimension) {
         CTX,
         { "right": 10, "top": 330 },
         { "width": 40, "height": 40 },
-        undefined, 
+        undefined,
         //"找到",
         "🗎",
         function () {
@@ -1227,7 +1227,7 @@ export function init(starting_dimension) {
         CTX,
         undefined,
         undefined,
-        {}, 
+        {},
         (
             "This is Words 成语, version 0.1. Select 成语 and press"
           + " SPACE. Find as many as you can! You can scroll to see more."
