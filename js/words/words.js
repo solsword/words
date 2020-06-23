@@ -138,7 +138,6 @@ function determine_wordlist(dom_name, raw_wordlist, continuation) {
             continue
         }
         // unloaded domains
-        console.log(name,dom)
         if (only_locale == undefined) {
             only_locale = dom.locale;
         }
@@ -154,8 +153,6 @@ function determine_wordlist(dom_name, raw_wordlist, continuation) {
     }
 
     let processed = unescape(raw_wordlist);
-    console.log(processed);
-
 
     if (! is_case_sensitive) {
         processed = lc_upper(processed,only_locale)

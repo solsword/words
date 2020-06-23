@@ -219,6 +219,8 @@ export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
 export var ABOUT_QUIZ_TOGGLE = null;
 export var ABOUT_QUIZ_DIALOG = null;
+export var EXIT_TOGGLE = null;
+export var EXIT_DIALOG = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -618,6 +620,9 @@ export function test_selection() {
         }
     });
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
+    // if (matches.length < 0 && MODE == "quiz"){
+    //    matches = check_word_in_list(CURRENT_GLYPHS_BUTTON.glyphs);
+    // }
     if (matches.length > 0) {
         // Found a match:
         let connected = false;
@@ -655,37 +660,58 @@ export function test_selection() {
 }
 
 /**
- * Determines the primary canvas coordinates for a mouse click/move or
+ * Returns a list of (domain_name, index, glyphs, word, frequency)
+ * quadruples that match the given glyphs in one of the given domains.
+ * The list will be empty if there are no matches.
+ *
+ * @param glyphs Either a string or an array of single-glyph strings
+ *     specifying the glyph sequence to look for.
+ * @param domains An array of domain objects to look for matches in.
+ */
+ /**
+function check_word_in_list(glyphs) {
+    var matches = [];
+    for (let word of CURRENT_DIMENSION.words) {
+      console.log(word);
+    }
+    return matches;
+}
+*/
+
+
+/**
+ * determines the primary canvas coordinates for a mouse click/move or
  * touch event.
  *
- * @param e A mouse or touch event object.
- * @return A 2-element array containing x/y canvas coordinates for the
- *     primary location of the given event. For multi-touch events, the
+ * @param e a mouse or touch event object.
+ * @return a 2-element array containing x/y canvas coordinates for the
+ *     primary location of the given event. for multi-touch events, the
  *     location of the first touch is used.
  */
 export function canvas_position_of_event(e) {
     if (e.touches) {
         e = e.touches[0];
     }
-    var client_x = e.clientX - CTX.bounds.left;
-    var client_y = e.clientY - CTX.bounds.top;
+    // capitalized ctx for global variable 
+    var client_x = e.clientx - ctx.bounds.left;
+    var client_y = e.clienty - ctx.bounds.top;
     return [
-        client_x * CTX.cwidth / CTX.bounds.width,
-        client_y * CTX.cheight / CTX.bounds.height
+        client_x * ctx.cwidth / ctx.bounds.width,
+        client_y * ctx.cheight / ctx.bounds.height
     ];
 }
 
 /**
- * Function for determining which kind of "click" an event is, including
+ * function for determining which kind of "click" an event is, including
  * touch events.
  *
- * @param e A touch or click event.
+ * @param e a touch or click event.
  *
- * @return A string; one of "primary", "secondary", "tertiary", or
- *     "auxiliary", based on the type of click. With a mouse, left-click
+ * @return a string; one of "primary", "secondary", "tertiary", or
+ *     "auxiliary", based on the type of click. with a mouse, left-click
  *     (for a right-handed setup) is primary, right-click is secondary,
  *     middle-click is tertiary, and anything else is auxiliary.
- *     For a touch event, a single touch is primary and any kind of
+ *     for a touch event, a single touch is primary and any kind of
  *     multi-touch is tertiary.
  */
 export function which_click(e) {
@@ -1285,6 +1311,33 @@ export function init(starting_dimension) {
         function () { menu.remove_menu(ABOUT_QUIZ_DIALOG); }
     );
     menu.add_menu(ABOUT_QUIZ_TOGGLE);
+
+    EXIT_DIALOG = new menu.Dialog(
+        CTX,
+        undefined,
+        undefined,
+        {}, 
+        (
+            "If you exit, your progress will be lost. Are you sure you"
+            + " want to exit?"
+        ),
+        [ 
+          { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } }, 
+          { "text": "YES", "action": function () { window.location.href = "https://www.w3schools.com"; } }
+        ]  
+    );
+
+    EXIT_TOGGLE = new menu.ToggleMenu(
+        CTX,
+        { "left": 10, "top": 100 },
+        { "width": 40, "height": 40 },
+        {},
+        "EXIT",
+        function () { menu.add_menu(EXIT_DIALOG); },
+        function () { menu.remove_menu(EXIT_DIALOG); }
+    );
+    menu.add_menu(EXIT_TOGGLE);
+
 
 
     HOME_BUTTON = new menu.ButtonMenu(
