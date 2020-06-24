@@ -9,6 +9,7 @@ import * as grid from "./grid.js";
 import * as generate from "./generate.js";
 import * as dimensions from "./dimensions.js";
 import * as active from "./active.js";
+import * as player from "./player.js";
 
 /**
  * An object to hold generated supertile info.
@@ -25,13 +26,9 @@ export var SUPERTILE_CACHE_SIZE = (
 );
 
 /**
- * The list of currently-unlocked words, and the limit for that list:
+ * The list of currently-unlocked words:
  */
 export var UNLOCKED = [];
-// TODO: Pick one
-//export var UNLOCK_LIMIT = 5;
-//export var UNLOCK_LIMIT = 1;
-export var UNLOCK_LIMIT = undefined;
 
 /**
  * A Map from dimension keys to maps from coords__key'd grid positions to
@@ -40,10 +37,9 @@ export var UNLOCK_LIMIT = undefined;
 export var ENERGY_MAP = {};
 
 /**
- * Same for single-tile pokes:
+ * Array containing all of the current single-tile pokes:
  */
 export var POKES = [];
-export var POKE_LIMIT = 1;
 
 /**
  * The list of currently energized tiles and the limit for that list:
@@ -219,7 +215,8 @@ export function eventually_generate_supertile(dimension, sgp, accumulated) {
             eventually_generate_supertile,
             GEN_BACKOFF,
             dimension,
-            sgp
+            sgp,
+            accumulated + GEN_BACKOFF
         );
     }
 }
@@ -370,19 +367,49 @@ export function unlocked_entries_that_overlap(dimension, gpmap) {
 }
 
 /**
- * Unlocks the given path of grid positions in the given dimension.
- * Depending on UNLOCK_LIMIT, may lock the oldest unlocked path. Also
- * updates energies for all unlocked paths and their adjacent active
- * elements.
+ * Finds the full unlocked entry which corresponds to the given path in
+ * the given dimension, if it exists.
  *
+ * @param dimension The dimension of the entry to search for.
+ * @param path The path of grid positions (an array of 2-element x/y
+ *     grid coordinate arrays) to look for.
+ *
+ * @return The unique unlocked-list entry that covers exactly the given
+ *     path in the given dimension, or undefined if there is no such
+ *     entry.
+ */
+export function find_unlocked(dimension, path) {
+    for (var i = 0; i < UNLOCKED.length; ++i) {
+        if (
+            utils.equivalent(
+                [UNLOCKED[i].dimension, UNLOCKED[i].path],
+                [dimension, path]
+            )
+        ) {
+            return UNLOCKED[i];
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Unlocks the given path of grid positions in the given dimension.
+ * Depending on the player's unlock limit, may lock the oldest unlocked
+ * path. Also updates energies for all unlocked paths and their adjacent
+ * active elements.
+ *
+ * TODO: respect free mode and don't expire unlocks in that mode?
+ *
+ * @param agent The player doing the unlocking.
  * @param dimension The dimension to work in.
  * @param path An array of grid positions (see grid.js) corresponding to
  *     the path that should be unlocked.
  */
-export function unlock_path(dimension, path) {
+export function unlock_path(agent, dimension, path) {
     var entry = {
         "dimension": dimension,
         "path": path.slice(),
+        "players": [ agent.id ],
         "sources": {},
         "energies": {},
         "active_elements": {},
@@ -405,14 +432,26 @@ export function unlock_path(dimension, path) {
         // bothering to do normal new-entry updates as they're
         // not needed:
         entry = UNLOCKED.splice(i, 1)[0];
+        // If *this* player wasn't a supporter of that entry yet, add
+        // them, and have them remember that:
+        if (entry.players.indexOf(agent.id) < 0) {
+            entry.players.push(agent.id);
+            player.add_unlocked(agent, entry.dimension, entry.path);
+        }
         UNLOCKED.push(entry);
     } else {
         // Add our new entry and update everything:
+        player.add_unlocked(agent, entry.dimension, entry.path);
         add_unlocked(entry);
     }
 
-    if (UNLOCKED.length > UNLOCK_LIMIT) {
-        remove_unlocked(UNLOCKED[0]);
+    // Check whether this player is withdrawing support from any entires
+    // because of their unlock_limit.
+    let expired = player.limit_unlocked(agent);
+    for (let exp of expired) {
+        expire_unlocked(agent, find_unlocked(exp[0], exp[1]));
+        // We ignore the result because we just added an entry so we want
+        // to recalculate energies in any case
     }
 
     // Finally, recompute unlocked energies:
@@ -570,6 +609,44 @@ export function recalculate_unlocked_energies() {
 }
 
 /**
+ * When a particular agent can no longer maintain a certain unlock entry,
+ * we can remove that entry from our unlocked list. But what if multiple
+ * agents are using that entry? In that case, the entry remains unlocked.
+ * This function handles that decision, and calls remove_unlocked only if
+ * necessary.
+ *
+ * Note: This function does not call recalculate_unlocked_energies, which
+ * is necessary in cases where it returns true.
+ *
+ * @param agent The player who can no longer maintain an entry.
+ * @param entry The full entry object which is not longer supported by
+ *     that player.
+ *
+ * @return True if the entry was removed, or false if it persists.
+ */
+export function expire_unlocked(agent, entry) {
+    let index = entry.players.indexOf(agent.id);
+    if (index < 0) {
+        console.warn(
+            (
+                "Attempted to expire support for an unlocked entry which"
+              + " wasn't supported by the given agent!"
+            ),
+            agent,
+            entry
+        );
+        return;
+    }
+    entry.players.splice(index);
+    if (entry.players.length == 0) {
+        remove_unlocked(entry);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+/**
  * Removes the given entry from the unlocked list and from all adjacency
  * lists within other entries of the unlocked list. Note: energies will
  * need to be propagated after removing the entry, and this function
@@ -579,10 +656,10 @@ export function recalculate_unlocked_energies() {
  * @param entry An unlocked list entry (see add_unlocked).
  */
 export function remove_unlocked(entry) {
-    for (let entry of UNLOCKED) {
-        let adj_idx = entry.adjacent.indexOf(entry);
+    for (let other of UNLOCKED) {
+        let adj_idx = other.adjacent.indexOf(entry);
         if (adj_idx >= 0) {
-            entry.adjacent.splice(adj_idx, 1);
+            other.adjacent.splice(adj_idx, 1);
         }
     }
     let unlk_idx = UNLOCKED.indexOf(entry);
@@ -590,27 +667,102 @@ export function remove_unlocked(entry) {
 }
 
 /**
- * Unlocks the given grid position in the given dimension. Depending on
- * POKE_LIMIT, may lock the oldest unlocked poke.
+ * Returns an entry from the POKES list which has the given dimension
+ * and position, if there is one, or undefined if there isn't one.
  *
+ * @param dimension The dimension of the poke to find.
+ * @param gp A 2-element grid position x/y array specifying the position
+ *     of the poke we're interested in.
+ *
+ * @return An entry from the POKES array, with "dimension", "pos", and
+ *     "players" properties.
+ */
+function find_poke(dimension, gp) {
+    for (let poke of POKES) {
+        if (
+            utils.equivalent(
+                [poke.dimension, poke.pos],
+                [dimension, gp]
+            )
+        ) {
+            return poke;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Unlocks the given grid position in the given dimension. Depending on
+ * the player's poke limit, may lock the oldest unlocked poke.
+ *
+ * @param agent The player unlocking the poke.
  * @param dimension The dimension to work in.
  * @param gp The grid position (see grid.js) to unlock.
  */
-export function unlock_poke(dimension, gp) {
-    var entry = { "dimension": dimension, "pos": gp.slice() };
-    for (var i = 0; i < POKES.length; ++i) {
-        if (utils.equivalent(POKES[i], entry)) {
+export function unlock_poke(agent, dimension, gp) {
+    var entry = {
+        "dimension": dimension,
+        "pos": gp.slice(),
+        "players": [ agent.id ]
+    };
+    let i; // we check this after the loop
+    for (i = 0; i < POKES.length; ++i) {
+        if (
+            utils.equivalent(
+                [POKES[i].dimension, POKES[i].pos],
+                [entry.dimension, entry.pos]
+            )
+        ) {
             break;
         }
     }
     if (i < POKES.length) {
-        POKES.splice(i, 1);
+        entry = POKES.splice(i, 1);
     }
 
     POKES.push(entry);
 
-    if (POKES.length > POKE_LIMIT) {
-        POKES.shift();
+    player.add_poke(agent, entry.dimension, entry.pos);
+
+    let expired = player.limit_pokes(agent);
+    for (let exp of expired) {
+        expire_poke(agent, find_poke(exp[0], exp[1]));
+        // We don't care about the result here
+    }
+}
+
+/**
+ * Expires the given player's support for the given entry in the POKES
+ * array. If that was the last player supporting that poke, then we
+ * remove the poke entirely.
+ *
+ * @param agent The player whose support we're withdrawing.
+ * @param entry The entry in the POKES list to withdraw support from.
+ *
+ * @return True if the given entry was removed from the POKES list, or
+ *     false if it remains (due to support from at least one other
+ *     player).
+ */
+export function expire_poke(agent, entry) {
+    let aidx = entry.players.indexOf(agent.id);
+    if (aidx < 0) {
+        console.warn(
+            (
+                "Attempted to expire support for a poke from a player who"
+              + " wasn't supporting that poke."
+            ),
+            agent,
+            entry
+        );
+        return;
+    }
+    entry.players.splice(aidx, 1);
+    if (entry.players.length == 0) {
+        let idx = POKES.indexOf(entry);
+        POKES.splice(idx, 1);
+        return true;
+    } else {
+        return false;
     }
 }
 
