@@ -454,9 +454,9 @@ export function sample_glyph(seed, context, unicounts, bicounts, tricounts) {
     }
     if (
         table == undefined
-        && context != undefined
-        && context.length >= 1
-        && bicounts != undefined
+     && context != undefined
+     && context.length >= 1
+     && bicounts != undefined
     ) {
         // try bicounts
         if (bicounts.hasOwnProperty(context[0])) {

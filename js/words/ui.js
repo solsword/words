@@ -401,7 +401,11 @@ export function warp_to(coordinates, dimension) {
             [x-1, y-1],
             [x, y-1],
         ];
-        content.unlock_path(CURRENT_DIMENSION, nearby);
+        content.unlock_path(
+            player.current_input_player(),
+            CURRENT_DIMENSION,
+            nearby
+        );
     }
     DO_REDRAW = 0;
 }
@@ -638,7 +642,11 @@ export function test_selection() {
         if (connected) {
             // Match is connected:
             // clear our swipes and glyphs and add to our words found
-            content.unlock_path(CURRENT_DIMENSION, combined_swipe);
+            content.unlock_path(
+                player.current_input_player(),
+                CURRENT_DIMENSION,
+                combined_swipe
+            );
             for (let m of matches) {
                 find_word(CURRENT_DIMENSION, m, combined_swipe);
             }
@@ -864,6 +872,10 @@ function handle_primary_up(ctx, e) {
     if (isdbl) {
         // This is a double-click or double-tap
 
+        // TODO: The first click of the double-click always selects the
+        // current letter, so the double-click is always treated as a
+        // cancel, and never as a poke! Fix that!
+
         // Find grid position
         let wp = draw.world_pos(ctx, vpos);
         let gp = grid.grid_pos(wp);
@@ -953,6 +965,7 @@ function handle_primary_up(ctx, e) {
             if (MODE == "free" || MODE == "quiz") {
                 valid = false;
             } else {
+                // TODO: Use reach here
                 for (let d = 0; d < 6; ++d) {
                     let np = grid.neighbor(gp, d);
                     if (content.is_unlocked(CURRENT_DIMENSION, np)) {
@@ -1224,7 +1237,7 @@ export function init(starting_dimension) {
         CTX,
         { "right": 10, "top": 240 },
         { "width": 40, "height": 40 },
-        undefined, 
+        undefined,
         "!",
         function () {
             WORDS_SIDEBAR.off();
@@ -1251,7 +1264,7 @@ export function init(starting_dimension) {
         CTX,
         { "right": 10, "top": 330 },
         { "width": 40, "height": 40 },
-        undefined, 
+        undefined,
         //"找到",
         "🗎",
         function () {
@@ -1268,7 +1281,7 @@ export function init(starting_dimension) {
         CTX,
         undefined,
         undefined,
-        {}, 
+        {},
         (
             "This is Words 成语, version 0.1. Select 成语 and press"
           + " SPACE. Find as many as you can! You can scroll to see more."
@@ -1295,7 +1308,7 @@ export function init(starting_dimension) {
         CTX,
         undefined,
         undefined,
-        {}, 
+        {},
         (
             "In quiz mode, try to find all the words that you uploaded."
         ),
@@ -1317,15 +1330,15 @@ export function init(starting_dimension) {
         CTX,
         undefined,
         undefined,
-        {}, 
+        {},
         (
             "If you exit, your progress will be lost. Are you sure you"
             + " want to exit?"
         ),
-        [ 
-          { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } }, 
+        [
+          { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } },
           { "text": "YES", "action": function () { window.location.href = "https://www.w3schools.com"; } }
-        ]  
+        ]
     );
 
     EXIT_TOGGLE = new menu.ToggleMenu(
