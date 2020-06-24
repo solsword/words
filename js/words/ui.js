@@ -692,12 +692,11 @@ export function canvas_position_of_event(e) {
     if (e.touches) {
         e = e.touches[0];
     }
-    // capitalized ctx for global variable 
-    var client_x = e.clientx - ctx.bounds.left;
-    var client_y = e.clienty - ctx.bounds.top;
+    var client_x = e.clientx - CTX.bounds.left;
+    var client_y = e.clienty - CTX.bounds.top;
     return [
-        client_x * ctx.cwidth / ctx.bounds.width,
-        client_y * ctx.cheight / ctx.bounds.height
+        client_x * CTX.cwidth / CTX.bounds.width,
+        client_y * CTX.cheight / CTX.bounds.height
     ];
 }
 
@@ -816,6 +815,7 @@ function handle_primary_down(ctx, e) {
             CURRENT_SWIPES.push([]);
         }
         SWIPING = true;
+        console.log("d");
     }
     DO_REDRAW = 0;
 }
@@ -1160,6 +1160,7 @@ export function setup_canvas() {
  * TODO: use a player to define starting location instead?
  */
 export function init(starting_dimension) {
+    console.log("a");
     // Set up the canvas
     setup_canvas();
 
@@ -1425,11 +1426,14 @@ export function init(starting_dimension) {
     );
     menu.add_menu(CURRENT_GLYPHS_BUTTON);
 
+    console.log("b");
+
     // set up event handlers
     document.onmousedown = function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         var which = which_click(e);
         if (which == "primary") {
+            console.log("c");
             handle_primary_down(CTX, e);
             PRESS_RECORDS[0] = PRESS_RECORDS[1];
             PRESS_RECORDS[1] = window.performance.now();
