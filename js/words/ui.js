@@ -624,9 +624,10 @@ export function test_selection() {
         }
     });
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
-    // if (matches.length < 0 && MODE == "quiz"){
-    //    matches = check_word_in_list(CURRENT_GLYPHS_BUTTON.glyphs);
-    // }
+    if (matches.length == 0 && MODE == "quiz"){
+       matches = check_word_in_list(CURRENT_GLYPHS_BUTTON.glyphs);
+    }
+
     if (matches.length > 0) {
         // Found a match:
         let connected = false;
@@ -675,16 +676,33 @@ export function test_selection() {
  * @param glyphs Either a string or an array of single-glyph strings
  *     specifying the glyph sequence to look for.
  * @param domains An array of domain objects to look for matches in.
+ * @return match A 5-element array containing:
+ *     0: The string name of the domain that the matched word belongs to.
+ *     1: The index of the entry for that word in its domain.
+ *     2: A string containing the glyph sequence that makes up that word.
+ *     3: A string containing the canonical form of the word.
+ *     4: An integer indicating the frequency of that word within its
+ *        domain.
+ *     (see dict.find_word_in_domain, which returns items 1-4)
  */
- /**
+
 function check_word_in_list(glyphs) {
     var matches = [];
+    // if (CURRENT_DIMENSION.words.includes(glyphs)) {}
     for (let word of CURRENT_DIMENSION.words) {
-      console.log(word);
+        if (glyphs.join("") == word) {
+        var match = [];
+        match[0] = "custom";
+        match[1] = undefined;
+        match[2] = glyphs;
+        match[3] = glyphs;
+        match[4] = undefined;
+        matches.push(match);
+        }
     }
     return matches;
 }
-*/
+
 
 
 /**
@@ -700,8 +718,11 @@ export function canvas_position_of_event(e) {
     if (e.touches) {
         e = e.touches[0];
     }
-    var client_x = e.clientx - CTX.bounds.left;
-    var client_y = e.clienty - CTX.bounds.top;
+    if (e.clientX == undefined || e.clientY == undefined) {
+        throw "Bad event position";
+    }
+    var client_x = e.clientX - CTX.bounds.left;
+    var client_y = e.clientY - CTX.bounds.top;
     return [
         client_x * CTX.cwidth / CTX.bounds.width,
         client_y * CTX.cheight / CTX.bounds.height
@@ -823,7 +844,6 @@ function handle_primary_down(ctx, e) {
             CURRENT_SWIPES.push([]);
         }
         SWIPING = true;
-        console.log("d");
     }
     DO_REDRAW = 0;
 }
@@ -1173,7 +1193,6 @@ export function setup_canvas() {
  * TODO: use a player to define starting location instead?
  */
 export function init(starting_dimension) {
-    console.log("a");
     // Set up the canvas
     setup_canvas();
 
@@ -1336,8 +1355,9 @@ export function init(starting_dimension) {
             + " want to exit?"
         ),
         [
-          { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } },
-          { "text": "YES", "action": function () { window.location.href = "https://www.w3schools.com"; } }
+        { "text": "YES", "action": function () { window.location.href = "/start_quiz.html"; } },
+          { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } }
+          // { "text": "YES", "action": function () { window.location.href = "/start_quiz.html"; } }
         ]
     );
 
@@ -1346,7 +1366,7 @@ export function init(starting_dimension) {
         { "left": 10, "top": 100 },
         { "width": 40, "height": 40 },
         {},
-        "EXIT",
+        "↶",
         function () { menu.add_menu(EXIT_DIALOG); },
         function () { menu.remove_menu(EXIT_DIALOG); }
     );
@@ -1439,14 +1459,12 @@ export function init(starting_dimension) {
     );
     menu.add_menu(CURRENT_GLYPHS_BUTTON);
 
-    console.log("b");
 
     // set up event handlers
     document.onmousedown = function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         var which = which_click(e);
         if (which == "primary") {
-            console.log("c");
             handle_primary_down(CTX, e);
             PRESS_RECORDS[0] = PRESS_RECORDS[1];
             PRESS_RECORDS[1] = window.performance.now();

@@ -212,7 +212,7 @@ export function unlocked_span(dimension) {
  * the given dimension.
  *
  * @param dimension The dimension object to check.
- * 
+ *
  * @return The number of unlocked tiles in the given dimension which have
  *     unlocked neighbors in one of the two possible y-shaped neighbor
  *     configurations.
@@ -551,7 +551,7 @@ NumericQuest.prototype.threshold_positions = function () {
  *     the target value.
  */
 NumericQuest.prototype.is_complete = function () {
-    return this.value >= this.target; 
+    return this.value >= this.target;
 };
 
 /**
@@ -559,7 +559,7 @@ NumericQuest.prototype.is_complete = function () {
  *     the bonus value.
  */
 NumericQuest.prototype.got_bonus = function () {
-    return this.value >= this.bonus; 
+    return this.value >= this.bonus;
 };
 
 /**
