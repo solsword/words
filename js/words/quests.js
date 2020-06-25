@@ -386,6 +386,11 @@ Quest.prototype.got_bonus = function() {
     return false;
 };
 
+Quest.prototype.claim_reward = function() {
+    // this.reward();
+    console.log("reward!");
+}
+
 /**
  * Handles taps on the quest UI element in a list of quests.
  *
@@ -394,7 +399,7 @@ Quest.prototype.got_bonus = function() {
  *     element.
  */
 Quest.prototype.tap = function(rxy) {
-    console.log("tap");
+    console.log("tap!");
     let x = rxy[0];
     let y = rxy[1];
     // console.log("x",y,"y",y, PADDING, icons.WIDTH, icons.HEIGHT);
@@ -414,6 +419,7 @@ Quest.prototype.tap = function(rxy) {
             // TODO: HERE
             console.log("QUEST");
             //staci and kat claim_reward
+            this.claim_reward();
         }
     } else {
         this.expanded = !this.expanded;
