@@ -1216,7 +1216,7 @@ export function init(starting_dimension) {
         add_quest(
             new quests.HuntQuest(
                 starting_dimension.words,
-                ["A__"],
+                [""],
                 undefined,
                 undefined
             )

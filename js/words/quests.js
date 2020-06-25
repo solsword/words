@@ -386,6 +386,11 @@ Quest.prototype.got_bonus = function() {
     return false;
 };
 
+Quest.prototype.claim_reward = function() {
+    // this.reward();
+    console.log("reward!");
+}
+
 /**
  * Handles taps on the quest UI element in a list of quests.
  *
@@ -394,6 +399,7 @@ Quest.prototype.got_bonus = function() {
  *     element.
  */
 Quest.prototype.tap = function(rxy) {
+    console.log("tap!");
     let x = rxy[0];
     let y = rxy[1];
     if (
