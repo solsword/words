@@ -371,7 +371,7 @@ Quest.prototype.find_word = function(dimension, match, path) {
  */
 Quest.prototype.is_complete = function() {
     console.error("Quest.is_complete isn't implemented.");
-    return false;
+    return true;
 };
 
 /**
@@ -394,13 +394,17 @@ Quest.prototype.got_bonus = function() {
  *     element.
  */
 Quest.prototype.tap = function(rxy) {
+    console.log("tap");
     let x = rxy[0];
     let y = rxy[1];
+    // console.log("x",y,"y",y, PADDING, icons.WIDTH, icons.HEIGHT);
     if (
         x >= PADDING
-        && x <= PADDING + icons.WIDTH
+        // && x <= PADDING + icons.WIDTH
+        && x >= PADDING + icons.WIDTH
         && y >= PADDING
-        && y <= PADDING + icons.HEIGHT
+        // && y <= PADDING + icons.HEIGHT
+        && y >= PADDING + icons.HEIGHT
     ) {
         let complete = this.is_complete();
         if (complete && this.got_bonus()) {
@@ -409,6 +413,7 @@ Quest.prototype.tap = function(rxy) {
         } else if (complete) {
             // TODO: HERE
             console.log("QUEST");
+            //staci and kat claim_reward
         }
     } else {
         this.expanded = !this.expanded;
