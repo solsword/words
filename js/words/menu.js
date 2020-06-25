@@ -55,7 +55,7 @@ export function set_canvas_size(sz) {
  * @return The average of the canvas width and height.
  */
 export function canvas_scale() {
-    return (CANVAS_SIZE[0] + CANVAS_SIZE[1])/2;
+    return (CANVAS_SIZE[0] + CANVAS_SIZE[1]) / 2;
 }
 
 /**
@@ -92,10 +92,10 @@ export function flow_text(ctx, text, max_width) {
             // TODO: Better hyphenation; even line-local justification, etc.
             // TODO: Don't hyphenate things like numbers?!?
             var fit = 0;
-            for (let i = test_line.length-2; i > -1; i -= 1) {
+            for (let i = test_line.length - 2; i > -1; i -= 1) {
                 let sw = draw.measure_text(
                     ctx,
-                    test_line.slice(0,i) + "-"
+                    test_line.slice(0, i) + "-"
                 ).width;
                 if (sw <= max_width) {
                     fit = i;
@@ -106,17 +106,17 @@ export function flow_text(ctx, text, max_width) {
                 // Not even a single character will fit!!
                 console.warn(
                     "Warning: Attempted to flow text but failed to fit a "
-                  + "single character on a line."
+                    + "single character on a line."
                 );
                 // Put each character on its own line:
                 return text.split('');
             }
             let rest = flow_text(
                 ctx,
-                test_line.slice(fit+1) + words.slice(idx).join(" "),
+                test_line.slice(fit + 1) + words.slice(idx).join(" "),
                 max_width
             );
-            return [ test_line.slice(0, fit+1) + "-" ].concat(rest);
+            return [test_line.slice(0, fit + 1) + "-"].concat(rest);
         } else {
             // Next word doesn't fit (and it's not the first on its line):
             let rest = flow_text(
@@ -124,11 +124,11 @@ export function flow_text(ctx, text, max_width) {
                 words.slice(idx).join(" "),
                 max_width
             );
-            return [ line ].concat(rest);
+            return [line].concat(rest);
         }
     }
     // If we fall out here, everything fit onto a single line:
-    return [ line ];
+    return [line];
 }
 
 /**
@@ -278,7 +278,7 @@ export function style_color(style, name) {
         let c = style.colors;
         if (c.hasOwnProperty(name)) {
             let cobj = c[name];
-            if (typeof(cobj) == "function") {
+            if (typeof (cobj) == "function") {
                 return cobj(style);
             } else {
                 return cobj;
@@ -322,9 +322,9 @@ export function draw_horizontal_buttons(
     var y = pos[1];
     var sw = swidth / buttons.length; // slot width
     var iw = sw * bwidth; // inner width
-    var ih = sheight - padding*2; // inner height
+    var ih = sheight - padding * 2; // inner height
     for (var i = 0; i < buttons.length; ++i) {
-        x = pos[0] + sw*i + (sw - iw)/2;
+        x = pos[0] + sw * i + (sw - iw) / 2;
         y = pos[1] + padding;
         if (selected == i) {
             ctx.fillStyle = style_color(style, "selected_button");
@@ -340,12 +340,12 @@ export function draw_horizontal_buttons(
         ctx.font_size = style.font_size;
         ctx.font_face = style.font_face;
         if (style.button_text_outline_width > 0) {
-            ctx.lineWidth = style.button_text_outline_width*2;
+            ctx.lineWidth = style.button_text_outline_width * 2;
             ctx.strokeStyle = style_color(style, "button_text_outline");
-            ctx.strokeText(buttons[i].text, x + iw/2, y + ih/2);
+            ctx.strokeText(buttons[i].text, x + iw / 2, y + ih / 2);
         }
         ctx.fillStyle = style_color(style, "button_text");
-        ctx.fillText(buttons[i].text, x + iw/2, y + ih/2);
+        ctx.fillText(buttons[i].text, x + iw / 2, y + ih / 2);
     }
 }
 
@@ -531,10 +531,10 @@ BaseMenu.prototype.concrete = function (x, max) {
     if (!isNaN(+x)) {
         return +x;
     }
-    if (typeof(x) == "function") {
+    if (typeof (x) == "function") {
         return x(this);
     }
-    let unit = x.slice(x.length-2);
+    let unit = x.slice(x.length - 2);
     let multiplier = 1;
     if (unit == "ex") {
         // TODO: Adjust this?
@@ -543,9 +543,9 @@ BaseMenu.prototype.concrete = function (x, max) {
         // TODO: Adjust this?
         multiplier = grid.FONT_SIZE;
     } else if (unit[1] == "%") {
-        return (+x.slice(0, x.length-1))/100 * max;
+        return (+x.slice(0, x.length - 1)) / 100 * max;
     } // else leave multiplier at 1
-    return multiplier * +(x.slice(0, x.length-2));
+    return multiplier * +(x.slice(0, x.length - 2));
 };
 
 /**
@@ -556,16 +556,16 @@ BaseMenu.prototype.concrete = function (x, max) {
  */
 BaseMenu.prototype.abspos = function () {
     // Compute current absolute position in canvas coordinates
-    let result = [ 0, 0 ];
+    let result = [0, 0];
     if (this.pos.hasOwnProperty("left") && this.pos.left != undefined) {
         result[0] = this.concrete(this.pos.left, this.ctx.cwidth);
     } else if (
         this.pos.hasOwnProperty("right")
-     && this.pos.right != undefined
+        && this.pos.right != undefined
     ) {
         if (
             this.shape.hasOwnProperty("width")
-         && this.shape.width != undefined
+            && this.shape.width != undefined
         ) {
             let w = (
                 this.concrete(this.shape.width, this.ctx.cwidth)
@@ -582,13 +582,13 @@ BaseMenu.prototype.abspos = function () {
     } else {
         if (
             this.shape.hasOwnProperty("width")
-         && this.shape.width != undefined
+            && this.shape.width != undefined
         ) {
             let w = (
                 this.concrete(this.shape.width, this.ctx.cwidth)
                 * this.ctx.viewport_scale
             );
-            result[0] = (this.ctx.cwidth - w)/2; // centered
+            result[0] = (this.ctx.cwidth - w) / 2; // centered
         } else {
             result[0] = DEFAULT_MARGIN * this.ctx.cwidth; // no info default
         }
@@ -624,7 +624,7 @@ BaseMenu.prototype.abspos = function () {
                 this.concrete(this.shape.height, this.ctx.cheight)
                 * this.ctx.viewport_scale
             );
-            result[1] = (this.ctx.cheight - h)/2; // centered
+            result[1] = (this.ctx.cheight - h) / 2; // centered
         } else {
             result[1] = DEFAULT_MARGIN * this.ctx.cheight; // no info default
         }
@@ -642,26 +642,26 @@ BaseMenu.prototype.absshape = function () {
     // Compute current absolute shape in canvas coordinates. Includes scaling
     // factor.
     var ap = this.abspos();
-    var result = [ 0, 0 ];
+    var result = [0, 0];
     if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
         result[0] = this.shape.width * this.ctx.viewport_scale;
     } else {
         if (this.pos.hasOwnProperty("right") && this.pos.right != undefined) {
             result[0] = (this.ctx.cwidth - this.pos.right) - ap[0];
         } else {
-            result[0] = this.ctx.cwidth - 2*ap[0]; // symmetric
+            result[0] = this.ctx.cwidth - 2 * ap[0]; // symmetric
         }
     }
     if (
         this.shape.hasOwnProperty("height")
-     && this.shape.height != undefined
+        && this.shape.height != undefined
     ) {
         result[1] = this.shape.height * this.ctx.viewport_scale;
     } else {
         if (this.pos.hasOwnProperty("bottom") && this.pos.bottom != undefined) {
             result[1] = (this.ctx.cheight - this.pos.bottom) - ap[1];
         } else {
-            result[1] = this.ctx.cheight - 2*ap[1]; // symmetric
+            result[1] = this.ctx.cheight - 2 * ap[1]; // symmetric
         }
     }
     return result;
@@ -677,7 +677,7 @@ BaseMenu.prototype.absshape = function () {
  */
 BaseMenu.prototype.rel_pos = function (pos) {
     var ap = this.abspos();
-    return [ pos[0] - ap[0], pos[1] - ap[1] ];
+    return [pos[0] - ap[0], pos[1] - ap[1]];
 };
 
 /**
@@ -689,7 +689,7 @@ BaseMenu.prototype.rel_pos = function (pos) {
 BaseMenu.prototype.center = function () {
     var ap = this.abspos();
     var as = this.absshape();
-    return [ ap[0] + as[0]/2, ap[1] + as[1]/2 ];
+    return [ap[0] + as[0] / 2, ap[1] + as[1] / 2];
 };
 
 /**
@@ -765,7 +765,7 @@ export function Dialog(ctx, pos, shape, style, text, buttons) {
     this.style.button_width = this.style.button_width || 0.7;
     var twidth = undefined;
     if (this.shape.hasOwnProperty("width") && this.shape.width != undefined) {
-        twidth = this.shape.width - this.style.padding*2;
+        twidth = this.shape.width - this.style.padding * 2;
     }
     this.set_font(ctx);
     this.text = auto_text_layout(
@@ -777,7 +777,7 @@ export function Dialog(ctx, pos, shape, style, text, buttons) {
     if (this.shape.width == undefined) {
         this.shape.width = (
             this.text.width
-            + 2*this.style.padding
+            + 2 * this.style.padding
         );
     }
     if (this.shape.height == undefined) {
@@ -841,13 +841,13 @@ Dialog.prototype.draw = function (ctx) {
     this.set_font(ctx);
     draw_text(
         ctx,
-        [ ap[0] + this.style.padding, ap[1] + this.style.padding ],
+        [ap[0] + this.style.padding, ap[1] + this.style.padding],
         this.text
     );
     // draw the buttons (w/ borders, highlight, and text)
     draw_horizontal_buttons(
         ctx,
-        [ ap[0], ap[1] + as[1] - this.style.buttons_height ],
+        [ap[0], ap[1] + as[1] - this.style.buttons_height],
         this.style,
         this.buttons,
         this.style.buttons_height * this.ctx.viewport_scale,
@@ -890,7 +890,7 @@ Dialog.prototype.removed = function () {
  * @param off_action A function to be called (with no parameters) when the
  *     toggle is flipped into the 'off' state.
  */
-export function ToggleMenu(ctx, pos, shape, style, text, on_action, off_action){
+export function ToggleMenu(ctx, pos, shape, style, text, on_action, off_action) {
     BaseMenu.call(this, ctx, pos, shape, style);
     this.style.orientation = this.style.orientation || "horizontal";
     if (!this.style.hasOwnProperty("colors")) {
@@ -1038,7 +1038,7 @@ ScrollBox.prototype.constructor = ScrollBox;
  *
  * @param new_items The new items to use.
  */
-ScrollBox.prototype.replace_items = function(new_items) {
+ScrollBox.prototype.replace_items = function (new_items) {
     this.items = new_items;
 };
 
@@ -1050,7 +1050,7 @@ ScrollBox.prototype.replace_items = function(new_items) {
  *
  * @return The height of the item.
  */
-ScrollBox.prototype.get_item_height = function(it) {
+ScrollBox.prototype.get_item_height = function (it) {
     if (this.delegate) {
         return this.delegate.height(it, this.ctx);
     } else {
@@ -1065,7 +1065,7 @@ ScrollBox.prototype.get_item_height = function(it) {
  *
  * @return the natural width of the item.
  */
-ScrollBox.prototype.get_item_width = function(it) {
+ScrollBox.prototype.get_item_width = function (it) {
     if (this.delegate) {
         return this.delegate.width(it, this.ctx);
     } else {
@@ -1084,7 +1084,7 @@ ScrollBox.prototype.get_item_width = function(it) {
  *
  * @return Returns the result of whatever draw function was invoked.
  */
-ScrollBox.prototype.draw_item = function(it, ctx, width) {
+ScrollBox.prototype.draw_item = function (it, ctx, width) {
     if (this.delegate) {
         return this.delegate.draw(it, ctx, width);
     } else {
@@ -1102,7 +1102,7 @@ ScrollBox.prototype.draw_item = function(it, ctx, width) {
  * @return Returns the return value of whatever handler function was
  *     invoked.
  */
-ScrollBox.prototype.tap_item = function(it, rxy) {
+ScrollBox.prototype.tap_item = function (it, rxy) {
     if (this.delegate) {
         return this.delegate.tap(it, rxy);
     } else {
@@ -1117,7 +1117,7 @@ ScrollBox.prototype.tap_item = function(it, rxy) {
  * @return The maximum width of all items in the scroll box, or the
  *     scroll box's fixed width if one is specified.
  */
-ScrollBox.prototype.item_max_width = function() {
+ScrollBox.prototype.item_max_width = function () {
     if (this.style.fixed_item_width) {
         return this.style.fixed_item_width;
     } else {
@@ -1135,7 +1135,7 @@ ScrollBox.prototype.item_max_width = function() {
 /**
  * @return The combined height of all items in the scroll box.
  */
-ScrollBox.prototype.item_total_height = function() {
+ScrollBox.prototype.item_total_height = function () {
     if (this.style.fixed_item_height) {
         return this.style.fixed_item_height * this.items.length;
     } else {
@@ -1184,7 +1184,7 @@ ScrollBox.prototype.sb_geom = function () {
  *     vertical scroll positions, and the minimum and maximum horizontal
  *     scroll positions.
  */
-ScrollBox.prototype.scroll_limits = function() {
+ScrollBox.prototype.scroll_limits = function () {
     let as = this.absshape();
     let w = as[0];
     let h = as[1];
@@ -1319,7 +1319,7 @@ ScrollBox.prototype.drag = function (path, hit) {
 
     if (
         this.scroll_drag == "vert"
-     || (this.press_last == undefined && x >= sb_vmin && x <= sb_vmax)
+        || (this.press_last == undefined && x >= sb_vmin && x <= sb_vmax)
     ) { // hit on the vertical scrollbar
         this.scroll_drag = "vert";
         this.scroll_position = [
@@ -1328,7 +1328,7 @@ ScrollBox.prototype.drag = function (path, hit) {
         ];
     } else if (
         this.scroll_drag == "horiz"
-     || (this.press_last == undefined && y >= sb_hmin & y <= sb_hmax)
+        || (this.press_last == undefined && y >= sb_hmin & y <= sb_hmax)
     ) { // hit on the horizontal scrollbar
         this.scroll_drag = "horiz";
         let asw = this.style.scrollbar_width * this.ctx.viewport_scale;
@@ -1377,7 +1377,7 @@ ScrollBox.prototype.swipe = function (path, st_hit, ed_hit) {
  * @return Whether or not further screen updates are needed due to
  *     animation of this menu. Always returns false.
  */
-ScrollBox.prototype.draw = function(ctx) {
+ScrollBox.prototype.draw = function (ctx) {
     // draw a box (w/ border)
     BaseMenu.prototype.draw.apply(this, [ctx]);
 
@@ -1423,19 +1423,19 @@ ScrollBox.prototype.draw = function(ctx) {
         // Draw little arrows if there's room
         let sb_h = sb_ed - sb_st;
         if (sb_h >= asw) {
-            let ao = asw/ARROW_SIZE_FRACTION;
+            let ao = asw / ARROW_SIZE_FRACTION;
             let left = ox + w - asw + ao;
-            let middle = ox + w - asw/2;
+            let middle = ox + w - asw / 2;
             let right = ox + w - ao;
             let tt = oy + sb_st + ao;
             let tb = oy + sb_st + asw - ao;
             let bt = oy + sb_ed - asw + ao;
             let bb = oy + sb_ed - ao;
-            if (sb_h < 2*asw) {
+            if (sb_h < 2 * asw) {
                 // adjust for smaller area:
                 let each = sb_h / 2;
                 let diff = asw - each;
-                let scale_diff = diff * (asw - 2*ao) / asw;
+                let scale_diff = diff * (asw - 2 * ao) / asw;
                 left += scale_diff;
                 right -= scale_diff;
                 tb -= scale_diff;
@@ -1486,19 +1486,19 @@ ScrollBox.prototype.draw = function(ctx) {
         // Draw little arrows if there's room
         let sb_w = sb_ed - sb_st;
         if (sb_w >= asw) {
-            let ao = asw/ARROW_SIZE_FRACTION;
+            let ao = asw / ARROW_SIZE_FRACTION;
             let top = oy + h - asw + ao;
-            let middle = oy + h - asw/2;
+            let middle = oy + h - asw / 2;
             let bot = oy + h - ao;
             let ll = ox + sb_st + ao;
             let lr = ox + sb_st + asw - ao;
             let rl = ox + sb_ed - asw + ao;
             let rr = ox + sb_ed - ao;
-            if (sb_w < 2*asw) {
+            if (sb_w < 2 * asw) {
                 // adjust for smaller area:
                 let each = sb_w / 2;
                 let diff = asw - each;
-                let scale_diff = diff * (asw - 2*ao) / asw;
+                let scale_diff = diff * (asw - 2 * ao) / asw;
                 top += scale_diff;
                 bot -= scale_diff;
                 lr -= scale_diff;
@@ -1577,7 +1577,7 @@ ScrollBox.prototype.draw = function(ctx) {
         let h = this.get_item_height(it);
         ctx.save();
         ctx.translate(ox + off_x, oy + off_y);
-        this.draw_item(it, ctx, w - asw - this.style.padding*2);
+        this.draw_item(it, ctx, w - asw - this.style.padding * 2);
         ctx.restore();
         off_y += h;
     }
@@ -1658,18 +1658,18 @@ export function LinksMenu(ctx, pos, shape, style, items, base_url, prefix) {
                 let pm = draw.measure_text(ctx, the_list.prefix);
                 let phm = pm.width * SMALL_MARGIN;
                 let pvm = pm.height * SMALL_MARGIN;
-                let pw = pm.width * (1 + 2*SMALL_MARGIN);
-                let ph = pm.height * (1 + 2*SMALL_MARGIN);
-                ctx.fillText(the_list.prefix, phm, ph/2);
+                let pw = pm.width * (1 + 2 * SMALL_MARGIN);
+                let ph = pm.height * (1 + 2 * SMALL_MARGIN);
+                ctx.fillText(the_list.prefix, phm, ph / 2);
                 ctx.strokeStyle = the_list.color("border");
                 ctx.rect(0, 0, pw, ph);
 
                 let im = draw.measure_text(ctx, it);
                 let ihm = im.width * SMALL_MARGIN;
                 let ivm = im.height * SMALL_MARGIN;
-                let iw = im.width * (1 + 2*SMALL_MARGIN);
-                let ih = im.height * (1 + 2*SMALL_MARGIN);
-                ctx.fillText(it, pw + ihm, ih/2);
+                let iw = im.width * (1 + 2 * SMALL_MARGIN);
+                let ih = im.height * (1 + 2 * SMALL_MARGIN);
+                ctx.fillText(it, pw + ihm, ih / 2);
                 ctx.strokeStyle = the_list.color("border");
                 ctx.rect(0, 0, iw, ih);
             },
@@ -1692,7 +1692,7 @@ LinksMenu.prototype.constructor = LinksMenu;
  *
  * @param new_base_url The new base URL to use.
  */
-LinksMenu.prototype.set_base_url = function(new_base_url) {
+LinksMenu.prototype.set_base_url = function (new_base_url) {
     this.base_url = new_base_url;
 };
 
@@ -1945,40 +1945,65 @@ GlyphsMenu.prototype.draw = function (ctx) {
  *
  * TODO: This menu type has not yet been fully implemented.
  */
-export function SlotsMenu(ctx, pos, shape, style, contents, action) {
-    if (shape.hasOwnProperty("slot_width") && shape.slot_width != undefined) {
-        shape.width = shape.slot_width * contents.length;
-    } else if (shape.hasOwnProperty("width") && shape.width != undefined) {
-        shape.slot_width = shape.width / contents.length;
-    } else {
-        shape.slot_width = 48;
-        shape.width = shape.slot_width * contents.length;
-    }
-    BaseMenu.call(this, ctx, pos, shape, style);
-    this.style.colors = this.style.colors || {};
-    this.style.colors.slot_background = this.color("background");
-    this.style.colors.slot_border = this.color("border");
-    this.style.slot_border_width = this.style.border_width;
-    this.contents = [];
-    for (let glyph of contents) {
-        if (glyph) {
-            this.contents.push("" + glyph);
-        } else {
-            this.contents.push(undefined);
-        }
-    }
-    this.adjust_width();
-}
-SlotsMenu.prototype = Object.create(BaseMenu.prototype);
-SlotsMenu.prototype.constructor = SlotsMenu;
+export function SlotsMenu(pos, shape, style, contents, action) {
+    //Creating an HTML elmt that creates a SlotsMenu
+    var slotsBox = document.createElement("details");
+    slotsBox.classList.add("menu");
+    slotsBox.setAttribute("style", style);
 
-/**
- * Adjusts the width of the menu according to the number of slots and the
- * slot_width specified as part of the menu shape.
- */
-SlotsMenu.prototype.adjust_width = function () {
-    this.shape.width = this.shape.slot_width * this.contents.legnth;
-};
+    //if the screen is too small for the slotmenu to show up
+    var expandBtn = document.createElement("summary");
+    expandBtn.innerHTML = "🎒";
+    slotsBox.appendChild(expandBtn);
+
+    //TODO more general solution!
+    //decide whether to expand
+    if (document.getElementById("canvas").height >= 400) {
+        slotsBox.setAttribute("open", "");
+    }
+
+    //adding slots & it's functions
+    let index = 0;
+
+    for (let glyph of contents) {
+        //add if statement to cap the number of contents allowed
+        if (index > 4) {
+            alert("Slot Menu is full!");
+        } else {
+            let slot = document.createElement("a");
+            slot.classList.add("slot");
+            if (glyph != undefined) {
+                slot.innerHTML = glyph;
+            }
+
+            //TODO: still clicks behind the menu
+            function clickFunction(e) {
+                //console.log(slot.style.backgroundColor);
+                if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
+                    slot.style.backgroundColor = "rgb(143, 144, 145)";
+                    //console.log("hi");
+                }
+                else {
+                    slot.style.backgroundColor = "rgb(77, 77, 77)";
+                }
+                //look up stop propagation
+                e.preventDefault();
+            }
+            //adding onclick function?
+            slot.addEventListener("click", clickFunction, true);
+            slotsBox.appendChild(slot);
+        }
+        index++;
+    }
+
+    // TODO: add glyph to CURRENT_SWIPES when being used
+    //Wrtie a separate function that adds glyphs into contents of Slots Menu?
+
+    //adding the element onto the page
+    document.body.appendChild(slotsBox);
+}
+
+
 
 /**
  * Adds a slot to this menu. Omit the glyph argument to add an empty
@@ -1987,10 +2012,10 @@ SlotsMenu.prototype.adjust_width = function () {
  * @param glyph The glyph to put in the new slot. Use undefined or omit
  *     this argument to add an empty slot.
  */
-SlotsMenu.prototype.add_slot = function (glyph) {
-    this.contents.push(glyph);
-    this.adjust_width();
-};
+// SlotsMenu.prototype.add_slot = function (glyph) {
+//     this.contents.push(glyph);
+//     //this.adjust_width();
+// };
 
 /**
  * Removes the last (rightmost) slot from the menu.
@@ -1998,12 +2023,12 @@ SlotsMenu.prototype.add_slot = function (glyph) {
  * @return The glyph that was in the slot which was removed, or undefined
  *     if it was empty.
  */
-SlotsMenu.prototype.remove_slot = function () {
-    // Removes the last (rightmost) slot
-    let result = this.contents.pop();
-    this.adjust_width();
-    return result;
-};
+// SlotsMenu.prototype.remove_slot = function () {
+//     // Removes the last (rightmost) slot
+//     let result = this.contents.pop();
+//     //this.adjust_width();
+//     return result;
+// };
 
 /**
  * Handles a tap/click on the menu.
@@ -2013,55 +2038,15 @@ SlotsMenu.prototype.remove_slot = function () {
  * @param hit A boolean indicating whether the click/tap happened within
  *     the menu or not.
  */
-SlotsMenu.prototype.tap = function (pos, hit) {
-    if (!hit) {
-        return;
-    }
-    var rp = this.rel_pos(pos);
+// SlotsMenu.prototype.tap = function (pos, hit) {
+//     if (!hit) {
+//         return;
+//     }
+//     var rp = this.rel_pos(pos);
 
-    rp[0] / this.shape.width;
-    // TODO: HERE
-};
-
-/**
- * Draws the slots menu.
- *
- * @param ctx The canvas context object to use for drawing.
- */
-SlotsMenu.prototype.draw = function (ctx) {
-    // Draw background:
-    BaseMenu.prototype.draw.apply(this, [ctx]);
-
-    // Get absolute position and shape:
-    var ap = this.abspos();
-    var as = this.absshape();
-
-    // slot width
-    var sw = as[0] / this.contents.length;
-
-    // Set drawing properties outside loop:
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    this.set_font(ctx);
-    ctx.fillStyle = this.color("background");
-    ctx.strokeStyle = this.color("border");
-    ctx.lineWidth = this.style.border_width;
-    // draw each slot
-    for (let i = 0; i < this.contents.length; ++i) {
-        var g = this.contents[i];
-        ctx.beginPath(); // break any remnant path data
-        // background
-        ctx.fillRect(ap[0] + sw*i, ap[1], sw, as[1]);
-        // border
-        ctx.strokeRect(ap[0] + sw*i, ap[1], sw, as[1]);
-        // glyph
-        if (g) {
-            ctx.fillText(g, ap[0] + sw*(i+0.5), ap[1] + as[1]*0.5);
-        }
-    }
-
-    return false;
-};
+//     rp[0] / this.shape.width;
+//     // TODO: HERE
+// };
 
 
 /**
@@ -2090,7 +2075,7 @@ export function remove_menu(menu) {
     }
     if (t != null) {
         call_if_available(menu, "removed", []);
-        MENUS = MENUS.slice(0,t).concat(MENUS.slice(t+1));
+        MENUS = MENUS.slice(0, t).concat(MENUS.slice(t + 1));
     }
 }
 
@@ -2234,7 +2219,7 @@ export function clear_context() {
  */
 export function mousedown(vpos) {
     // Iterate in reverse order; top menu is last.
-    for (var i = MENUS.length-1; i > -1; i -= 1) {
+    for (var i = MENUS.length - 1; i > -1; i -= 1) {
         var m = MENUS[i];
         if (hits_menu(vpos, m)) { // menu hit
             MYCLICK = true;
@@ -2295,7 +2280,7 @@ export function path_total_dist(path) {
     for (var i = 1; i < PATH.length; i += 1) {
         var dx = prev[0] - PATH[i][0];
         var dy = prev[1] - PATH[i][1];
-        dist += Math.sqrt(dx*dx + dy*dy);
+        dist += Math.sqrt(dx * dx + dy * dy);
         prev = PATH[i];
     }
     return dist;
@@ -2310,9 +2295,9 @@ export function path_total_dist(path) {
  *     points in the path.
  */
 export function path_straight_dist(path) {
-    var dx = PATH[PATH.length-1][0] - PATH[0][0];
-    var dy = PATH[PATH.length-1][1] - PATH[0][1];
-    return Math.sqrt(dx*dx + dy*dy);
+    var dx = PATH[PATH.length - 1][0] - PATH[0][0];
+    var dy = PATH[PATH.length - 1][1] - PATH[0][1];
+    return Math.sqrt(dx * dx + dy * dy);
 }
 
 /**
@@ -2324,8 +2309,8 @@ export function path_straight_dist(path) {
  *     from the first entry in the path to the last one.
  */
 export function path_straight_vector(path) {
-    var dx = PATH[PATH.length-1][0] - PATH[0][0];
-    var dy = PATH[PATH.length-1][1] - PATH[0][1];
+    var dx = PATH[PATH.length - 1][0] - PATH[0][0];
+    var dy = PATH[PATH.length - 1][1] - PATH[0][1];
     return [dx, dy];
 }
 
@@ -2341,10 +2326,10 @@ export function path_straight_vector(path) {
 export function mouseup(vpos) {
     if (!MYCLICK) { return false; }
 
-    var is_swipe = path_total_dist(PATH) > canvas_scale()*SWIPE_THRESHOLD;
+    var is_swipe = path_total_dist(PATH) > canvas_scale() * SWIPE_THRESHOLD;
 
     // Iterate in reverse order because top menu is last in list.
-    for (var i = MENUS.length-1; i > -1; i -= 1) {
+    for (var i = MENUS.length - 1; i > -1; i -= 1) {
         var m = MENUS[i];
         if (hits_menu(vpos, m)) { // menu hit
             if (m == TARGET) {
@@ -2388,7 +2373,7 @@ export function mouseup(vpos) {
  */
 export function draw_active(ctx) {
     var result = false;
-    MENUS.forEach( function (m) {
+    MENUS.forEach(function (m) {
         result = result || m.draw(ctx);
     });
     return result;

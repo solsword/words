@@ -22,5 +22,49 @@ body {
 	margin: 0; 
 	border:2pt solid #000;
   border-radius: 4pt;
-	background-color:#333;
+  background-color:#333;
+  z-index: 10;
+}
+
+.menu {
+  background-color: #057;
+  border: #0AF 1pt solid;
+  color: #0AF;
+  padding: 5pt;
+  margin: auto;
+  position: absolute;
+  z-index: 20;
+}
+
+details.menu {
+  list-style-type: none;
+}
+
+details.menu summary {
+  list-style-type: none;
+  display: none;
+}
+
+@media only screen and (max-width: 500px) {
+  details.menu.horizontal summary {
+    display: inline;
+  }
+}
+
+@media only screen and (max-height: 400px) {
+  details.menu.vertical summary {
+    display: inline;
+  }
+}
+
+.slot {
+  text-align: center;
+  font-size: 150%;
+  color: white;
+  background-color: rgb(143, 144, 145);
+  display: block;
+  border: 2px solid white;
+  padding: 5px 5px;
+  width: 40px;
+  height: 40px;
 }
