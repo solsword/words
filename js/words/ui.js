@@ -15,6 +15,7 @@ import * as animate from "./animate.js";
 import * as utils from "./utils.js";
 import * as quests from "./quests.js";
 import * as player from "./player.js";
+import * as anarchy from "../anarchy.mjs";
 
 /**
  * Different game modes.
@@ -221,6 +222,7 @@ export var ABOUT_QUIZ_TOGGLE = null;
 export var ABOUT_QUIZ_DIALOG = null;
 export var EXIT_TOGGLE = null;
 export var EXIT_DIALOG = null;
+export var REWARD_DIALOG = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -1218,10 +1220,44 @@ export function init(starting_dimension) {
                 starting_dimension.words,
                 [""],
                 undefined,
-                undefined
+                function () {
+                    menu.add_menu(REWARD_DIALOG)
+                }
             )
         );
-    }
+    };
+    REWARD_DIALOG = new menu.Dialog(
+        CTX,
+        undefined,
+        undefined,
+        {},
+        (
+            "Congratulations, you finished the challenge! Do you want to start"
+            + " a new game or reshuffle the current list?"
+        ),
+        [
+            { "text": "PLAY AGAIN", "action": function(){
+                let seed = anarchy.scramble_seed(starting_dimension.seed);
+                console.log(seed)
+                let hash = window.location.hash;
+                let env = {};
+                if (hash.length > 0) {
+                    let encodeditems = hash.slice(1);
+                    let decodeditems = decodeURIComponent(encodeditems);
+                    let hashitems = decodeditems.split(',');
+                    for (let hi of hashitems) {
+                        let parts = hi.split('=');
+                        if (parts.length == 2) {
+                            env[parts[0]] = parts[1];
+                        }
+                    }
+                }
+                env["seed"] = seed;
+                window.location.href = "index.html#"+ "words=" + env["words"] + ",domain=" + env["domain"] + ",seed=" + env["seed"]}},
+                { "text": "NEW GAME", "action": function () { window.location.href = "/start_quiz.html"; } }
+            ]
+        );
+
 
     // kick off animation
     window.requestAnimationFrame(draw_frame);

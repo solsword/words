@@ -371,7 +371,7 @@ Quest.prototype.find_word = function(dimension, match, path) {
  */
 Quest.prototype.is_complete = function() {
     console.error("Quest.is_complete isn't implemented.");
-    return true;
+    return false;
 };
 
 /**
@@ -387,7 +387,7 @@ Quest.prototype.got_bonus = function() {
 };
 
 Quest.prototype.claim_reward = function() {
-    // this.reward();
+    this.reward();
     console.log("reward!");
 }
 
