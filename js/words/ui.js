@@ -475,7 +475,7 @@ export var COMMANDS = {
                 []
             );
         }
-    }
+    },
     "a": function () {
         add_glyph(
             glyph,vpos) }
@@ -741,9 +741,6 @@ export function update_current_glyphs() {
             if (g == mastered_glyph) { // should never happen in theory:
                 ////
             }
-            glyphs.push(g);
-        }
-
 
             if (g == undefined) { // should never happen in theory:
                 console.warn(
