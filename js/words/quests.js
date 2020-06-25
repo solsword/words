@@ -772,6 +772,7 @@ HuntQuest.prototype.find_word = function(dimension, match) {
             this.found[b] = true;
         }
     }
+    console.log(Object.keys(this.found).length);
 };
 
 /**

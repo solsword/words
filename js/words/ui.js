@@ -1203,6 +1203,7 @@ export function init(starting_dimension) {
     // TODO: Add starting place?
     warp_to([0, 0], starting_dimension);
 
+    /*
     // Grant starting quest
     // TODO: Better/different here?
     add_quest(
@@ -1213,6 +1214,7 @@ export function init(starting_dimension) {
             undefined // reward
         )
     );
+    */
 
     if(MODE == "quiz"){
         add_quest(
@@ -1387,8 +1389,9 @@ export function init(starting_dimension) {
         undefined,
         {},
         (
-            "If you exit, your progress will be lost. Are you sure you"
-            + " want to exit?"
+            "If you exit, your progress will be lost. You are " 
+            + (Object.keys(QUESTS[0].found).length/QUESTS[0].targets.length)*100 + "% done."
+            + " Are you sure you want to exit?"
         ),
         [
         { "text": "YES", "action": function () { window.location.href = "/start_quiz.html"; } },
