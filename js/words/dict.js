@@ -131,7 +131,7 @@ export function name_of(domain) {
  *     entries: An array of domain entries, which are 3-element arrays
  *         that include (by index):
  *         0: Either a string or a list of strings specifying the glyphs
- *             for a word, 
+ *             for a word,
  *         1: A string specifying the canonical appearance of that word.
  *         2: An integer indicating the frequency of that entry within
  *            the corpus used to construct the domain.
@@ -741,7 +741,7 @@ export function load_simple_word_list(name) {
  *
  * @param glyphs Either a string or an array of single-glyph strings
  *     specifying the glyph sequence to look for.
- * @param domains An array of domain objects to look for matches in. 
+ * @param domains An array of domain objects to look for matches in.
  */
 export function check_word(glyphs, domains) {
     var matches = [];

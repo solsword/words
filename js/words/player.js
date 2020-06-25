@@ -136,6 +136,9 @@ function next_id() {
  *     playtime: A number indicating how many seconds (& fractions of a
  *         second) of in-game time have elapsed while this player was
  *         active.
+       glyphs_mastered: A mapping from domain names or combo names to
+           arrays of glyphys avaiable to the player to choose from when
+           splice.
  */
 export function new_player(seed) {
     let id = next_id();
@@ -181,6 +184,7 @@ export function new_player(seed) {
         "words_unlocked": [],
         "positions_poked": [],
         "playtime": 0,
+        "glyphs_mastered": {},
     };
     CURRENT_PLAYERS[id] = result;
     return result;
@@ -378,3 +382,52 @@ export function limit_pokes(agent) {
     }
     return result;
 }
+/**
+* call this when the player is mastering a glyph
+*if they have already mastered the glyph, a warning will appear
+* in the console
+* @param player is the person mastering the glyph
+* @param glyph is the letter that is being mastered
+* @param domain_name is the name of a domain or como to master the glyph
+
+* @returns glyphs_mastered for the player
+*/
+export function master_glyph(player,glyph,domain_name){
+    let domain_mastered = player.glyphs_mastered[domain_name];
+
+    if (domain_mastered === undefined){
+        domain_mastered = [glyph];
+        player.glyphs_mastered[domain_name] = domain_mastered;
+    }
+    else if (domain_mastered.includes(glyph)) {
+        console.log("glyph already mastered!");
+    }
+    else{
+        domain_mastered.push(glyph);
+    }
+    return domain_mastered;
+}
+
+/**
+*   this function decides if one has mastered the words
+*   @param domain_name the domain
+*   @param player the person playing the game
+*   @returns a glyph
+*
+*/
+// export function mastering_glyph(player,domain_name){
+//     let domain = lookup_domain(domain_name);
+//
+// }
+
+// /**
+// *   this function finds a glyph on the domain
+// *   @param domain_name the domain
+// *   @param glyph the glyph that needs to be found
+// *   @returns a glyph
+// */
+//
+// export function find_glyph(glyph, domain_name){
+//     let domain = lookup_domain(domain_name);
+//
+// }
