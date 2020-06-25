@@ -216,6 +216,8 @@ export var ZOOM_OUT_BUTTON = null;
 export var CLEAR_SELECTION_BUTTON = null;
 export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
+//New menu object SLOTS_MENU
+export var SLOTS_MENU = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -1133,6 +1135,7 @@ function handle_wheel(ctx, e) {
 /**
  * Sets up the canvas object and initializes the CTX and DO_REDRAW
  * variables.
+ * @return: The canvas object that was configured.
  */
 export function setup_canvas() {
     // set up canvas context
@@ -1149,6 +1152,7 @@ export function setup_canvas() {
         CTX.viewport_scale = draw.DEFAULT_SCALE;
     }
     DO_REDRAW = 0;
+    return canvas;
 }
 
 /**
@@ -1269,6 +1273,15 @@ export function init(starting_dimension) {
         [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
     );
 
+    //adding slots menu
+    SLOTS_MENU = new menu.SlotsMenu(
+        "left",
+        undefined,
+        "top: 15vh; left: 3.5vw; text-align: center",
+        ["A", undefined, "C", "E", "T"],
+        undefined,
+    )
+
     ABOUT_TOGGLE = new menu.ToggleMenu(
         CTX,
         { "right": 10, "bottom": 10 },
@@ -1366,7 +1379,7 @@ export function init(starting_dimension) {
     menu.add_menu(CURRENT_GLYPHS_BUTTON);
 
     // set up event handlers
-    document.onmousedown = function (e) {
+    let downHandler = function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         var which = which_click(e);
         if (which == "primary") {
@@ -1377,9 +1390,11 @@ export function init(starting_dimension) {
             handle_tertiary_down(CTX, e);
         } // otherwise ignore this click
     };
-    document.ontouchstart = document.onmousedown;
 
-    document.onmouseup = function(e) {
+    document.addEventListener("mousedown", downHandler);
+    document.addEventListener("touchstart", downHandler);
+
+    let upHandler = function(e) {
         // TODO: Menus
         if (e.preventDefault) { e.preventDefault(); }
         var which = which_click(e);
@@ -1392,28 +1407,31 @@ export function init(starting_dimension) {
         // Reset scroll referent anyways just to be sure:
         SCROLL_REFERENT = null;
     };
-    document.ontouchend = document.onmouseup;
-    document.ontouchcancel = document.onmouseup;
 
-    document.onmousemove = function (e) {
+    document.addEventListener("mouseup", upHandler);
+    document.addEventListener("touchand", upHandler);
+    document.addEventListener("touchcancel", upHandler);
+
+    let moveHandler = function (e) {
         // TODO: Remove this debug
         // LAST_MOUSE_POSITION = canvas_position_of_event(e);
         if (e.preventDefault) { e.preventDefault(); }
         handle_movement(CTX, e);
     };
-    document.ontouchmove = document.onmousemove;
+    document.addEventListener("touchmove", moveHandler);
+    document.addEventListener("mousemove", moveHandler);
 
     // TODO: Make this passive? (see chromium verbose warning)
-    document.onwheel = function (e) {
+    document.addEventListener("wheel", function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         handle_wheel(CTX, e);
-    };
+    });
 
-    document.onkeydown = function (e) {
+    document.addEventListener("keydown", function (e) {
         if (COMMANDS.hasOwnProperty(e.key)) {
             COMMANDS[e.key](e);
         }
-    };
+    });
 }
 
 /**
@@ -1451,11 +1469,11 @@ export function init_test(starting_dimension, supertiles) {
         );
     });
 
-    document.onkeydown = function (e) {
+    document.addEventListener("keydown",function (e) {
         if (GRID_TEST_COMMANDS.hasOwnProperty(e.key)) {
             GRID_TEST_COMMANDS[e.key](e);
         }
-    };
+    });
 }
 
 
