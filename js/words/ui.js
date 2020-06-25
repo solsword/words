@@ -740,28 +740,33 @@ export function update_canvas_size() {
 
 
  let mastered_glyph = "";
-export function update_current_glyphs() {
-    var glyphs = [];
-    for (let sw of CURRENT_SWIPES) {
-        for (let gp of sw) {
-            // TODO: Add code here for handling extra-planar glyphs!
-            let g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
-            if (g == mastered_glyph) { // should never happen in theory:
-                ////
-            }
-
-            if (g == undefined) { // should never happen in theory:
-                console.warn(
-                    "Internal Error: update_current_glyphs found"
-                  + " undefined glyph at: " + gp
-                );
-                g = "?";
-            }
-            glyphs.push(g);
-        }
-    }
-    CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
+ export function update_current_glyphs() {
+     var glyphs = [];
+     for (let sw of CURRENT_SWIPES) {
+         for (let gp_or_index of sw) {
+             let g;
+             // TODO: Add code here for handling extra-planar glyphs!
+             if (typeof gp_or_index[0] == "string"){
+                 if (gp_or_index[0] == "backpack"){
+                     g = "?"; //TO DO
+                 }
+             }
+             else{
+                 g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
+                 if (g == undefined) { // should never happen in theory:
+                     console.warn(
+                         "Internal Error: update_current_glyphs found"
+                         + " undefined glyph at: " + gp
+                     );
+                     g = "?";
+                 }
+             }
+             glyphs.push(g);
+         }
+     }
+     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
 }
+
 
 /**
  * Event handler for the start of a primary-button click or single-point
