@@ -37,7 +37,7 @@ export var MODES = [
  * The current game mode.
  * TODO: Toggle this!
  */
-export var MODE = "free";
+export var MODE = "normal";
 
 /**
  * Is the user currently in the middle of dragging out a swipe path?
@@ -398,7 +398,11 @@ export function warp_to(coordinates, dimension) {
             [x-1, y-1],
             [x, y-1],
         ];
-        content.unlock_path(CURRENT_DIMENSION, nearby);
+        content.unlock_path(
+            player.current_input_player(),
+            CURRENT_DIMENSION,
+            nearby
+        );
     }
     DO_REDRAW = 0;
 }
@@ -635,7 +639,11 @@ export function test_selection() {
         if (connected) {
             // Match is connected:
             // clear our swipes and glyphs and add to our words found
-            content.unlock_path(CURRENT_DIMENSION, combined_swipe);
+            content.unlock_path(
+                player.current_input_player(),
+                CURRENT_DIMENSION,
+                combined_swipe
+            );
             for (let m of matches) {
                 find_word(CURRENT_DIMENSION, m, combined_swipe);
             }
@@ -849,6 +857,10 @@ function handle_primary_up(ctx, e) {
     if (isdbl) {
         // This is a double-click or double-tap
 
+        // TODO: The first click of the double-click always selects the
+        // current letter, so the double-click is always treated as a
+        // cancel, and never as a poke! Fix that!
+
         // Find grid position
         let wp = draw.world_pos(ctx, vpos);
         let gp = grid.grid_pos(wp);
@@ -938,6 +950,7 @@ function handle_primary_up(ctx, e) {
             if (MODE == "free") {
                 valid = false;
             } else {
+                // TODO: Use reach here
                 for (let d = 0; d < 6; ++d) {
                     let np = grid.neighbor(gp, d);
                     if (content.is_unlocked(CURRENT_DIMENSION, np)) {
