@@ -230,6 +230,9 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
+    // TODO: Use this version when worker module import support is
+    // available.
+    // var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
     var worker = new window.Worker(FINALIZE_URL);
     worker.onmessage = function (msg) {
         // Gets a name + finalized domain from the worker and adds the domain.
@@ -268,6 +271,9 @@ export function polish_and_callback(
  *     callback parameter to access the resulting JSON string.
  */
 export function stringify_and_callback(object, callback) {
+    // TODO: Use this version when worker module import support is
+    // available.
+    // let worker = new window.Worker(STRINGIFY_URL, {'type': 'module'});
     let worker = new window.Worker(STRINGIFY_URL);
     worker.onmessage = function (msg) {
         if (msg.data == "worker_ready") { // initial ready message

@@ -454,9 +454,9 @@ export function sample_glyph(seed, context, unicounts, bicounts, tricounts) {
     }
     if (
         table == undefined
-        && context != undefined
-        && context.length >= 1
-        && bicounts != undefined
+     && context != undefined
+     && context.length >= 1
+     && bicounts != undefined
     ) {
         // try bicounts
         if (bicounts.hasOwnProperty(context[0])) {
@@ -3299,7 +3299,7 @@ export function random_unused(layout, seed) {
             draw = 2*section + draw % section;
         }
         // convert our spiral index into a grid position and thence a key
-        let gp = grid.si__gp(draw);
+        let gp = grid.si__igp(draw);
         let k = grid.coords__key(gp);
         // check if it's occupied, if not that's our result
         if (set.hasOwnProperty(k)) {
