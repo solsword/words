@@ -476,6 +476,9 @@ export var COMMANDS = {
             );
         }
     }
+    "a": function () {
+        add_glyph(
+            glyph,vpos) }
 };
 
 /**
@@ -726,12 +729,22 @@ export function update_canvas_size() {
  * Call this function to update the glyphs shown on the
  * CURRENT_GLYPHS_BUTTON based on the contents of the CURRENT_SWIPES.
  */
+
+
+ let mastered_glyph = "";
 export function update_current_glyphs() {
     var glyphs = [];
     for (let sw of CURRENT_SWIPES) {
         for (let gp of sw) {
             // TODO: Add code here for handling extra-planar glyphs!
             let g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
+            if (g == mastered_glyph) { // should never happen in theory:
+                ////
+            }
+            glyphs.push(g);
+        }
+
+
             if (g == undefined) { // should never happen in theory:
                 console.warn(
                     "Internal Error: update_current_glyphs found"
@@ -790,6 +803,8 @@ function handle_primary_down(ctx, e) {
     }
     DO_REDRAW = 0;
 }
+
+
 
 /**
  * Event handler for the start of a middle-button click or multi-point
@@ -1588,9 +1603,9 @@ export function draw_frame(now) {
     var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
     if (
         next_horizon != undefined
-     && (
+        && (
             DO_REDRAW == null
-         || DO_REDRAW > next_horizon
+            || DO_REDRAW > next_horizon
         )
     ) {
         DO_REDRAW = next_horizon;
@@ -1599,14 +1614,14 @@ export function draw_frame(now) {
     // DEBUG: Uncomment this to draw a cursor; causes animation every frame
     // while the mouse is moving.
     /*
-       DO_REDRAW = 0;
-       CTX.strokeStyle = "#fff";
-       CTX.beginPath();
-       CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);
-       CTX.lineTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]+3);
-       CTX.moveTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]-3);
-       CTX.lineTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]+3);
-       CTX.stroke();
+    DO_REDRAW = 0;
+    CTX.strokeStyle = "#fff";
+    CTX.beginPath();
+    CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);
+    CTX.lineTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]+3);
+    CTX.moveTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]-3);
+    CTX.lineTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]+3);
+    CTX.stroke();
     // */
 
     // reschedule ourselves
@@ -1614,20 +1629,20 @@ export function draw_frame(now) {
 }
 
 /**
- * Creates a test animation function which will draw the given
- * supertiles.
- *
- * @param supertiles An array of supertile objects to be drawn. Their pos
- *     attributes determine where, and scrolling is not enabled, so they
- *     should be positioned somewhere near [0, 0].
- */
+* Creates a test animation function which will draw the given
+* supertiles.
+*
+* @param supertiles An array of supertile objects to be drawn. Their pos
+*     attributes determine where, and scrolling is not enabled, so they
+*     should be positioned somewhere near [0, 0].
+*/
 export function make_test_animator(supertiles) {
     /**
-     * The per-frame animation function for the grid test, which just draws
-     * the test grid data. Uses the same DO_REDRAW mechanism as draw_frame.
-     *
-     * @param now The number of milliseconds since the time origin.
-     */
+    * The per-frame animation function for the grid test, which just draws
+    * the test grid data. Uses the same DO_REDRAW mechanism as draw_frame.
+    *
+    * @param now The number of milliseconds since the time origin.
+    */
     let animate_grid_test = function(now) {
         if (DO_REDRAW == null) {
             window.requestAnimationFrame(animate_grid_test);
@@ -1664,4 +1679,179 @@ export function make_test_animator(supertiles) {
         window.requestAnimationFrame(animate_grid_test);
     };
     return animate_grid_test;
+}
+
+
+
+
+
+/**
+*/
+export function add_glyph(mastered_glyph, e, ctx){
+
+    // dispatch to menu system first:
+    var vpos = canvas_position_of_event(e);
+    if (menu.mouseup(vpos)) {
+        DO_REDRAW = 0;
+        return;
+    }
+
+    // No matter what, we're not swiping any more
+    SWIPING = false;
+
+    // Check for double-click/tap:
+    let isdbl = false;
+    if (LAST_RELEASE != null) {
+        let dx = vpos[0] - LAST_RELEASE[0];
+        let dy = vpos[1] - LAST_RELEASE[1];
+        let dt = window.performance.now() - PRESS_RECORDS[0];
+        let rdist = Math.sqrt(dx*dx + dy*dy);
+        isdbl = dt <= DBL_TIMEOUT && rdist <= DBL_DIST;
+    }
+
+    if (isdbl) {
+        // This is a double-click or double-tap
+
+        // Find grid position
+        let wp = draw.world_pos(ctx, vpos);
+        let gp = grid.grid_pos(wp);
+
+        // Figure out if we're on part of a swipe:
+        let cancel_from = undefined;
+        let cancel_index = undefined;
+        for (let i = 0; i < CURRENT_SWIPES.length; ++i) {
+            let sw = CURRENT_SWIPES[i];
+            for (let j = 0; j < sw.length; ++j) {
+                let sgp = sw[j];
+                if (utils.equivalent(gp, sgp)) {
+                    cancel_from = i;
+                    cancel_index = j;
+                    break;
+                }
+            }
+            if (cancel_from != undefined) {
+                break;
+            }
+        }
+
+        if (cancel_from != undefined) {
+            // We double-tapped a swiped glyph to cancel it
+
+            // Find adjacent grid positions from swipe
+            let csw = CURRENT_SWIPES[cancel_from];
+            let csl = csw.length;
+            let prior = undefined;
+            let next = undefined;
+            if (cancel_index == 0) {
+                if (cancel_from > 0) {
+                    let psw = CURRENT_SWIPES[cancel_from-1];
+                    prior = psw[psw.length-1];
+                }
+            } else {
+                prior = csw[cancel_index-1];
+            }
+            if (cancel_index == csw.length - 1) {
+                let nsw = CURRENT_SWIPES[cancel_from+1];
+                if (nsw != undefined) {
+                    next = nsw[0];
+                }
+            } else {
+                next = csw[cancel_index+1];
+            }
+
+            // Check continuity
+            if (prior != undefined && next != undefined) {
+                if (grid.is_neighbor(prior, next)) {
+                    // Cut out just the one glyph and stitch the rest together:
+                    if (csw.length == 1) {
+                        CURRENT_SWIPES.splice(cancel_from, 1);
+                    } else {
+                        csw.splice(cancel_index, 1);
+                    }
+                } else {
+                    // Cut off everything after the target:
+                    if (csw.length == 1) {
+                        CURRENT_SWIPES = CURRENT_SWIPES.slice(0, cancel_from);
+                    } else {
+                        CURRENT_SWIPES = CURRENT_SWIPES.slice(
+                            0,
+                            cancel_from + 1
+                        );
+                        CURRENT_SWIPES[cancel_from] = csw.slice(
+                            0,
+                            cancel_index
+                        );
+                    }
+                }
+            } else {
+                if (csw.length == 1) {
+                    CURRENT_SWIPES.splice(cancel_from, 1);
+                } else {
+                    csw.splice(cancel_index, 1);
+                }
+            }
+            update_current_glyphs();
+        } else {
+            // We double-tapped an open spot to poke it
+
+            // Check adjacency
+            let wp = draw.world_pos(ctx, vpos);
+            let gp = grid.grid_pos(wp);
+            let valid = false;
+            if (MODE == "free") {
+                valid = false;
+            } else {
+                for (let d = 0; d < 6; ++d) {
+                    let np = grid.neighbor(gp, d);
+                    if (content.is_unlocked(CURRENT_DIMENSION, np)) {
+                        valid = true;
+                        break;
+                    }
+                }
+            }
+            if (valid) {
+                // Get rid of last two swipes & update glyphs
+                CURRENT_SWIPES.pop();
+                CURRENT_SWIPES.pop();
+                update_current_glyphs();
+                // Check for already-active poke here
+                let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+                let found = undefined;
+                for (let i = 0; i < ACTIVE_POKES.length; ++i) {
+                    if (
+                        dimensions.same(ACTIVE_POKES[i][0], entry[0])
+                        && utils.equivalent(ACTIVE_POKES[i][1], entry[1])
+                    ) {
+                        found = i;
+                        break;
+                    }
+                }
+                if (found != undefined) {
+                    // Cancel the poke
+                    ACTIVE_POKES.splice(found, 1);
+                } else {
+                    // Add entry to active pokes list:
+                    ACTIVE_POKES.push(entry);
+                    if (ACTIVE_POKES.length > content.POKE_LIMIT) {
+                        ACTIVE_POKES.shift();
+                    }
+                }
+            }
+        }
+        DO_REDRAW = 0;
+    } else {
+        // this is just a normal mouseup
+        if (CURRENT_SWIPES.length == 0) {
+            return;
+        }
+        var latest_swipe = CURRENT_SWIPES.pop();
+        if (latest_swipe.length > 0) {
+            // A non-empty swipe motion; push it back on:
+            CURRENT_SWIPES.push(latest_swipe);
+        }
+        update_current_glyphs();
+        DO_REDRAW = 0;
+    }
+
+
 }

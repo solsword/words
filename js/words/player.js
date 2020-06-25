@@ -79,7 +79,7 @@ function next_id() {
  *         is mapped to an integer. TODO: Something else less siloed?
  *     poke_cooldown: The delay after completing a poke before another
  *         poke may be initiated. TODO: Implement this.
- *     poke_delay: The delay (in integer seconds; may be 0) 
+ *     poke_delay: The delay (in integer seconds; may be 0)
  *     unlock_limit: The limit for the number of words that the player
  *         can unlock at once.
  *     domains_visited: An array containing the names of domains this
@@ -92,6 +92,9 @@ function next_id() {
  *     playtime: A number indicating how many seconds (& fractions of a
  *         second) of in-game time have elapsed while this player was
  *         active.
+       glyphs_mastered: A mapping from domain names or combo names to
+           arrays of glyphys avaiable to the player to choose from when
+           splice.
  */
 export function new_player(seed) {
     let id = next_id();
@@ -115,6 +118,7 @@ export function new_player(seed) {
         "domains_visited": [],
         "words_found": {},
         "playtime": 0,
+        "glyphs_mastered": {},
     };
     CURRENT_PLAYERS[id] = result;
     return result;
@@ -202,3 +206,53 @@ export function remember_match(player, dimension, gp, domain, index) {
     }
     matches[domain].push([index, dimension, gp, now]);
 }
+
+/**
+* call this when the player is mastering a glyph
+*if they have already mastered the glyph, a warning will appear
+* in the console
+* @param player is the person mastering the glyph
+* @param glyph is the letter that is being mastered
+* @param domain_name is the name of a domain or como to master the glyph
+
+* @returns glyphs_mastered for the player
+*/
+export function master_glyph(player,glyph,domain_name){
+    let domain_mastered = player.glyphs_mastered[domain_name];
+
+    if (domain_mastered === undefined){
+        domain_mastered = [glyph];
+        player.glyphs_mastered[domain_name] = domain_mastered;
+    }
+    else if (domain_mastered.includes(glyph)) {
+        console.log("glyph already mastered!");
+    }
+    else{
+        domain_mastered.push(glyph);
+    }
+    return domain_mastered;
+}
+
+/**
+*   this function decides if one has mastered the words
+*   @param domain_name the domain
+*   @param player the person playing the game
+*   @returns a glyph
+*
+*/
+export function mastering_glyph(player,domain_name){
+    let domain = lookup_domain(domain_name);
+
+}
+
+// /**
+// *   this function finds a glyph on the domain
+// *   @param domain_name the domain
+// *   @param glyph the glyph that needs to be found
+// *   @returns a glyph
+// */
+//
+// export function find_glyph(glyph, domain_name){
+//     let domain = lookup_domain(domain_name);
+//
+// }
