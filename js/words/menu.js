@@ -1921,6 +1921,50 @@ GlyphsMenu.prototype.draw = function (ctx) {
 
     return animating;
 };
+/**
+ * Add a slot to this menu. Omit the glyph argument to add an empty
+ * slot.
+ *
+ * @param glyph The glyph to put in the new slot. Use undefined or omit
+ * this argument to add an empty slot.
+ */
+//creating an HTML elmt of a slot of anchor tag
+export function addSlot(glyph) {
+    let slot = document.createElement("a");
+    slot.classList.add("slot");
+    if (glyph != undefined) {
+        slot.innerHTML = glyph;
+        //console.log(slot.id);
+    }
+    //TODO: still clicks behind the menu
+    function clickFunction(e) {
+        if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
+            slot.style.backgroundColor = "rgb(143, 144, 145)";
+            //console.log(slot.id);
+        }
+        else {
+            slot.style.backgroundColor = "rgb(77, 77, 77)";
+        }
+        //TODO: still clicks behind the menu
+        e.stopPropagation();
+    }
+    //adding click function
+    slot.addEventListener("click", clickFunction, true);
+    return slot;
+}
+/**
+ * Removes a slot from the menu.
+ * 
+ * @param glyph The glyph to remove from Slot Menu.
+ */
+export function removeSlot(glyph) {
+    //let slot = document.getElementById("a")
+    //this is not working right now
+    let sMenu = document.getElementById("slot");
+    if (sMenu.innerHTML == glyph) {
+        sMenu.remove();
+    }
+}
 
 /**
  * A SlotsMenu has an adjustable number of slots, and each slot can be
@@ -1967,31 +2011,12 @@ export function SlotsMenu(pos, shape, style, contents, action) {
 
     for (let glyph of contents) {
         //add if statement to cap the number of contents allowed
+        //work on the add/remove function
         if (index > 4) {
+            //console.warn or error or throw
             alert("Slot Menu is full!");
         } else {
-            let slot = document.createElement("a");
-            slot.classList.add("slot");
-            if (glyph != undefined) {
-                slot.innerHTML = glyph;
-            }
-
-            //TODO: still clicks behind the menu
-            function clickFunction(e) {
-                //console.log(slot.style.backgroundColor);
-                if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
-                    slot.style.backgroundColor = "rgb(143, 144, 145)";
-                    //console.log("hi");
-                }
-                else {
-                    slot.style.backgroundColor = "rgb(77, 77, 77)";
-                }
-                //look up stop propagation
-                e.preventDefault();
-            }
-            //adding onclick function?
-            slot.addEventListener("click", clickFunction, true);
-            slotsBox.appendChild(slot);
+            slotsBox.appendChild(addSlot(glyph));
         }
         index++;
     }
@@ -2000,6 +2025,7 @@ export function SlotsMenu(pos, shape, style, contents, action) {
     //Wrtie a separate function that adds glyphs into contents of Slots Menu?
 
     //adding the element onto the page
+    //slotsBox.removeSlot("C");
     document.body.appendChild(slotsBox);
 }
 
