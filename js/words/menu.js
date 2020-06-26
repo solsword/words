@@ -153,6 +153,7 @@ export function flow_text(ctx, text, max_width) {
  */
 export function auto_text_layout(ctx, text, line_height, width) {
     let lh = line_height * ctx.viewport_scale;
+    console.log(lh);
     if (width != undefined) {
         let gw = width * CANVAS_SIZE[0];
         let given = flow_text(ctx, text, gw);
@@ -769,6 +770,7 @@ export function Dialog(ctx, pos, shape, style, text, buttons) {
         twidth = this.shape.width - this.style.padding*2;
     }
     this.set_font(ctx);
+    console.log("hi");
     this.text = auto_text_layout(
         ctx,
         text,

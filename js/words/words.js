@@ -52,8 +52,6 @@ export function start_game() {
     determine_wordlist(edom, ewords, function(w){ finish_setup(edom,eseed,w)});
 }
 function finish_setup (domain, seed, wordlist){
-
-
     /*/ *
     =======
     let starting_dimension = {
@@ -108,6 +106,8 @@ function finish_setup (domain, seed, wordlist){
     };
     */
 
+    console.log(wordlist);
+
     let starting_dimension = {
         "kind": "custom",
         "layout": "dense",
@@ -126,6 +126,7 @@ function finish_setup (domain, seed, wordlist){
 }
 
 function determine_wordlist(dom_name, raw_wordlist, continuation) {
+    console.log(raw_wordlist);
     let dom_names = generate.domains_list(dom_name);
     let is_case_sensitive = false;
     let only_locale = undefined;

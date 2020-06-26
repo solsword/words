@@ -1231,7 +1231,7 @@ export function init(starting_dimension) {
     REWARD_DIALOG = new menu.Dialog(
         CTX,
         undefined,
-        undefined,
+        {"height": 200},
         {},
         (
             "Congratulations, you finished the challenge! Do you want to start"
@@ -1255,8 +1255,12 @@ export function init(starting_dimension) {
                     }
                 }
                 env["seed"] = seed;
-                window.location.href = "index.html#"+ "words=" + env["words"] + ",domain=" + env["domain"] + ",seed=" + env["seed"]}},
-                { "text": "NEW GAME", "action": function () { window.location.href = "/start_quiz.html"; } }
+                window.location.href = "index.html#"+ "words=" + env["words"] + ",domain=" + env["domain"] + ",seed=" + env["seed"]
+                window.location.reload();
+                }},
+                { "text": "NEW GAME", "action": function () { window.location.href = "/start_quiz.html";
+                window.location.reload();
+                }}
             ]
         );
 
@@ -1386,17 +1390,15 @@ export function init(starting_dimension) {
     EXIT_DIALOG = new menu.Dialog(
         CTX,
         undefined,
-        undefined,
+        {"height": 200},
         {},
         (
-            "If you exit, your progress will be lost. You are " 
-            + (Object.keys(QUESTS[0].found).length/QUESTS[0].targets.length)*100 + "% done."
+            "If you exit, your progress will be lost." 
             + " Are you sure you want to exit?"
         ),
         [
-        { "text": "YES", "action": function () { window.location.href = "/start_quiz.html"; } },
-          { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } }
-          // { "text": "YES", "action": function () { window.location.href = "/start_quiz.html"; } }
+        { "text": "YES", "action": function () { window.location.href = "/start_quiz.html"; }},
+        { "text": "NO", "action": function() { EXIT_TOGGLE.off_(); } }
         ]
     );
 
