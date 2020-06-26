@@ -1273,7 +1273,7 @@ export function init(starting_dimension) {
         "left",
         undefined,
         "top: 15vh; left: 3.5vw; text-align: center",
-        ["A", undefined, "C", "E", "T"],
+        ["A", undefined, "C", "E", "T", "B"],
         undefined,
     )
 

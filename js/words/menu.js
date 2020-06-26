@@ -2014,7 +2014,7 @@ export function SlotsMenu(pos, shape, style, contents, action) {
         //work on the add/remove function
         if (index > 4) {
             //console.warn or error or throw
-            alert("Slot Menu is full!");
+            console.warn("Slot Menu is full!");
         } else {
             slotsBox.appendChild(addSlot(glyph));
         }
