@@ -25,12 +25,13 @@ function handle_uploaded_word_list(fileName, text){
     words.shift();
   }
 
-  // console.log(words)
+  console.log("words",words)
 
   var value_selected = document.getElementById("language");
   var result = value_selected.options[value_selected.selectedIndex].value;
 
-  let wordsURL = words.join(";");
+  let wordsURL = words.join(" ");
+  console.log(wordsURL);
   wordsURL = escape(wordsURL);
   let link = document.getElementById("quiz_link");
   link.href = "index.html#"+ encodeURIComponent("words=" + wordsURL + ",domain=" + result);

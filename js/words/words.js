@@ -107,6 +107,31 @@ function finish_setup (domain, seed, wordlist){
     */
 
     console.log(wordlist);
+    let words = [];
+    let definitions = [];
+    for (let i of wordlist) {
+        i= i.split("`");
+        console.log("i",i);
+        if (i.length > 1) {
+            words.push(i[0])
+            definitions.push(i[1])
+            //console.log("words:",words,"definitions",definitions);
+        }
+    }
+    for (let i = 0; i < words.length; i++) {
+        let final_words = words[i].split(/\s+/);
+        if(final_words[final_words.length-1] == ""){
+            final_words.pop();
+        }
+        if(final_words[0] == ""){
+            console.log("hello");
+            final_words.shift()
+            console.log(final_words[0]);
+        }
+        words[i] = final_words[0];
+        console.log("word",words[i]);
+    }
+    console.log(words);
 
     let starting_dimension = {
         "kind": "custom",
@@ -114,7 +139,8 @@ function finish_setup (domain, seed, wordlist){
         "flavor": "bare",
         "domain": domain,
         "seed": 10985^seed,
-        "words": wordlist
+        "words": words,
+        "definitions": definitions
     };
 
 
@@ -158,7 +184,9 @@ function determine_wordlist(dom_name, raw_wordlist, continuation) {
     if (! is_case_sensitive) {
         processed = lc_upper(processed,only_locale)
     }
-    continuation(processed.split(';'))
+
+    console.log("processed",processed);
+    continuation(processed.split('~'))
     //TODO are any languages that use semicolons in spelling?
 }
 
