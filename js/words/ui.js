@@ -74,9 +74,11 @@ export var DBL_DIST = 10;
 var SCROLL_REFERENT = null;
 
 /**
- * An array holding zero or more arrays which each hold 2-element tile
- * grid x/y coordinate pairs to indicate a path. These are the
- * currently-active path(s) that the user has selected.
+ * An array holding zero or more arrays which each hold 2-element tile grid x/y
+ * coordinate pairs to indicate a path. the entries could also be two element
+ * arrays containing a string and an index which corresponds to the glyphs that
+ * don't come from the grid.  These are the currently-active path(s) that the
+ * user has selected.
  */
 var CURRENT_SWIPES = [];
 
@@ -454,6 +456,7 @@ export var COMMANDS = {
     "0": home_view,
     "Home": home_view,
     // Pops a letter from the current swipe set
+    //TODO handle external entries 
     "Backspace": function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         if (CURRENT_SWIPES.length > 0) {
@@ -482,9 +485,9 @@ export var COMMANDS = {
             );
         }
     },
-    "a": function () {
-        add_glyph(
-            glyph,vpos) }
+    "A": function () {
+        add_backpack_glyph(0);
+    }
 };
 
 /**
@@ -615,14 +618,26 @@ export function clear_energy(destination, style) {
 export function test_selection() {
     let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
     let domains = new Set();
-    combined_swipe.forEach(function (gp) {
+    for (let gp of combined_swipe){
+        if (typeof gp[0] == "string"){
+            continue;
+        }
         let tile = content.tile_at(CURRENT_DIMENSION, gp);
         if (tile != null) {
+            // jshint -W083
             generate.domains_list(tile.domain).forEach(function (d) {
                 domains.add(d);
             });
+            // jshint +W083
         }
-    });
+    }
+    if(domains.size == 0){
+        let natural_domain = (dimensions.natural_domain(CURRENT_DIMENSION));
+        for (let component of generate.domains_list(natural_domain)){
+            domains.add(component);
+        }
+    }
+    console.log(domains);
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (matches.length > 0) {
         // Found a match:
@@ -741,7 +756,6 @@ export function update_canvas_size() {
  */
 
 
- let mastered_glyph = "";
  export function update_current_glyphs() {
      var glyphs = [];
      for (let sw of CURRENT_SWIPES) {
@@ -750,15 +764,19 @@ export function update_canvas_size() {
              // TODO: Add code here for handling extra-planar glyphs!
              if (typeof gp_or_index[0] == "string"){
                  if (gp_or_index[0] == "backpack"){
-                     g = "?"; //TO DO
+                     g = SLOTS_MENU.get_glyph(gp_or_index[1]); //TO DO
+                     if(g==undefined){
+                         //TODO maybe clean up the swipe
+                         continue;
+                     }
                  }
              }
              else{
-                 g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
+                 g = content.tile_at(CURRENT_DIMENSION, gp_or_index).glyph;
                  if (g == undefined) { // should never happen in theory:
                      console.warn(
                          "Internal Error: update_current_glyphs found"
-                         + " undefined glyph at: " + gp
+                         + " undefined glyph at: " + gp_or_index
                      );
                      g = "?";
                  }
@@ -783,16 +801,7 @@ function handle_primary_down(ctx, e) {
     if (menu.mousedown(vpos, "primary")) { return; }
     var wpos = draw.world_pos(ctx, vpos);
     var gpos = grid.grid_pos(wpos);
-    var head = null;
-    if (CURRENT_SWIPES.length > 0) {
-        for (var i = CURRENT_SWIPES.length - 1; i > -1; --i) {
-            var latest_swipe = CURRENT_SWIPES[i];
-            if (latest_swipe.length > 0) {
-                head = latest_swipe[latest_swipe.length - 1];
-                break;
-            }
-        }
-    }
+    var head = find_swipe_head();
     var tile = content.tile_at(CURRENT_DIMENSION, gpos);
     if (tile.domain == "__active__") {
         // an active element: just energize it
@@ -1049,10 +1058,8 @@ function handle_movement(ctx, e) {
         var combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
         var wpos = draw.world_pos(CTX, vpos);
         var gpos = grid.grid_pos(wpos);
-        var head = null;
-        if (combined_swipe.length > 0) {
-            head = combined_swipe[combined_swipe.length - 1];
-        }
+        var prev = find_swipe_head(1);
+        var head = find_swipe_head();
         var is_used = false;
         var is_prev = false;
         var is_head = false;
@@ -1074,6 +1081,8 @@ function handle_movement(ctx, e) {
                     latest_swipe.pop();
                     update_current_glyphs();
                     if (latest_swipe.length > 0) {
+                    //TODO make sure to skip external entries
+
                         LAST_POSITION = latest_swipe[latest_swipe.length - 1];
                     } else if (combined_swipe.length > 1) {
                         LAST_POSITION = combined_swipe[
@@ -1566,6 +1575,7 @@ export function draw_frame(now) {
 
     // Swipes
     let combined = utils.combine_arrays(CURRENT_SWIPES);
+    combined = combined.filter((gp)=> typeof gp[0] != "string");
     draw.draw_swipe(CTX, combined, "highlight");
 
     // Pokes
@@ -1887,4 +1897,46 @@ export function add_glyph(mastered_glyph, e, ctx){
     }
 
 
+}
+
+/**
+* this function adds the glyph from the backpack to the CURRENT_SWIPES
+* @param glyph_index the index of the glyph in the array of backpack
+*/
+export function add_backpack_glyph(glyph_index){
+    let backpack_array = ["backpack", glyph_index];
+    CURRENT_SWIPES.push([backpack_array]);
+    update_current_glyphs()
+    DO_REDRAW = 0;
+}
+
+
+/**
+* this function will find the head of the swipe. it will help merge swipes
+* @param index (optional) how far back to go in a swipe. default 0
+* @return returns the last valid grid position in the current swipe or null
+* if there is no such position
+*/
+export function find_swipe_head(index){
+    if (index == undefined){
+        index = 0;
+    }
+    if (CURRENT_SWIPES.length > 0) {
+        for (var i = CURRENT_SWIPES.length - 1; i > -1; --i) {
+
+            var latest_swipe = CURRENT_SWIPES[i];
+            if (latest_swipe.length > 0) {
+                for (var j = latest_swipe.length - 1; j > -1; --j){
+                    let gp = latest_swipe[j];
+                    if(typeof gp[0] != "string"){
+                        index -= 1;
+                        if(index <0 ){
+                            return gp;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return null;
 }
