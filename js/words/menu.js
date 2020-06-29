@@ -1949,6 +1949,7 @@ GlyphsMenu.prototype.draw = function (ctx) {
 export function SlotsMenu(pos, shape, style, contents, action) {
     this.action = action;
     this.contents = []; // will be filled in later
+    this.selected = [];
 
     //Creating an HTML elmt that creates a SlotsMenu
     this.slotsBox = document.createElement("details");
@@ -2004,6 +2005,7 @@ export function SlotsMenu(pos, shape, style, contents, action) {
 SlotsMenu.prototype.add_slot = function(glyph) {
     let index = this.contents.length;
     this.contents.push(glyph);
+    this.selected.push(false);
     let slot = document.createElement("a");
     slot.classList.add("slot");
     if (glyph != undefined) {
@@ -2014,17 +2016,7 @@ SlotsMenu.prototype.add_slot = function(glyph) {
     let the_menu = this;
     function clickFunction(e) {
         //TODO call function on deselect
-        if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
-            slot.style.backgroundColor = "rgb(143, 144, 145)";
-            //console.log(slot.id);
-        }
-        else {
-            //unclicked color
-            slot.style.backgroundColor = "rgb(77, 77, 77)";
-            the_menu.action(the_menu,index);
-            console.log("click function:",the_menu);
-
-        }
+        the_menu.select_slot(index);
         //TODO: still clicks behind the menu
         e.stopPropagation();
     }
@@ -2036,10 +2028,31 @@ SlotsMenu.prototype.add_slot = function(glyph) {
  * Removes the last slot
   TODO this is a fragile code
  */
-SlotsMenu.prototype.removeSlot = function() {
+SlotsMenu.prototype.remove_slot = function() {
     this.contents.pop();
     this.slotsBox.removeChild(this.slotsBox.lastChild);
+    this.selected.pop();
 }
+
+/**
+*/
+SlotsMenu.prototype.select_slot = function(index){
+    let slot = this.slotsBox.children[index+1]; // (+1 ) to skip the summary
+    if (this.selected[index]){
+        slot.style.backgroundColor = "rgb(143, 144, 145)";
+        this.selected[index] = false;
+        //console.log(slot.id);
+    }
+    else {
+        //unclicked color
+        slot.style.backgroundColor = "rgb(77, 77, 77)";
+        this.action(this,index);
+        this.selected[index] = true;
+    }
+
+}
+
+
 
 /**
  * Adds a slot to this menu. Omit the glyph argument to add an empty
