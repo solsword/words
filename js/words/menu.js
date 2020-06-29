@@ -1975,6 +1975,7 @@ export function addSlot(glyph) {
  * TODO: This menu type has not yet been fully implemented.
  */
 export function SlotsMenu(pos, shape, style, contents, action) {
+    this.contents = contents;
     //Creating an HTML elmt that creates a SlotsMenu
     var slotsBox = document.createElement("details");
     slotsBox.classList.add("menu");
@@ -2009,6 +2010,7 @@ export function SlotsMenu(pos, shape, style, contents, action) {
 
     //adding the element onto the page
     document.body.appendChild(slotsBox);
+
 }
 
 
@@ -2037,6 +2039,20 @@ export function SlotsMenu(pos, shape, style, contents, action) {
 //     //this.adjust_width();
 //     return result;
 // };
+
+
+/**
+ * retrieves a glyph from the menu.
+ *
+ * @param index the index of a glyph in the menu
+ * @return the glyph from the menu. There is a possibly of getting undefined
+ */
+  SlotsMenu.prototype.get_glyph = function (index) {
+      return this.contents[index];
+ }
+
+
+
 
 /**
  * Handles a tap/click on the menu.
