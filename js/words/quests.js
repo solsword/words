@@ -386,11 +386,12 @@ Quest.prototype.got_bonus = function() {
     return false;
 };
 
+//TODO documentation
 Quest.prototype.claim_reward = function() {
     this.reward();
-    console.log("reward!");
 }
 
+//TODO documentation for our added code in if statement?
 /**
  * Handles taps on the quest UI element in a list of quests.
  *
@@ -399,10 +400,8 @@ Quest.prototype.claim_reward = function() {
  *     element.
  */
 Quest.prototype.tap = function(rxy) {
-    console.log("tap!");
     let x = rxy[0];
     let y = rxy[1];
-    // console.log("x",y,"y",y, PADDING, icons.WIDTH, icons.HEIGHT);
     if (
         x >= PADDING
         // && x <= PADDING + icons.WIDTH
@@ -414,10 +413,8 @@ Quest.prototype.tap = function(rxy) {
         let complete = this.is_complete();
         if (complete && this.got_bonus()) {
             // TODO: HERE
-            console.log("QUEST w/ BONUS");
         } else if (complete) {
             // TODO: HERE
-            console.log("QUEST");
             //staci and kat claim_reward
             this.claim_reward();
         }
@@ -772,7 +769,6 @@ HuntQuest.prototype.find_word = function(dimension, match) {
             this.found[b] = true;
         }
     }
-    console.log(Object.keys(this.found).length);
 };
 
 /**

@@ -34,8 +34,6 @@ export function start_game() {
         }
     }
 
-    console.log(env);
-
     let edom = env["domain"];
     if (!edom || !dimensions.MULTIPLANAR_DOMAINS.includes(edom)) {
         //edom = "成语";
@@ -51,6 +49,15 @@ export function start_game() {
 
     determine_wordlist(edom, ewords, function(w){ finish_setup(edom,eseed,w)});
 }
+
+//TODO documentation
+/**
+*
+*
+* @param domain
+* @param seed
+* @param wordlist
+*/
 function finish_setup (domain, seed, wordlist){
     /*/ *
     =======
@@ -106,16 +113,13 @@ function finish_setup (domain, seed, wordlist){
     };
     */
 
-    console.log(wordlist);
     let words = [];
     let definitions = [];
     for (let i of wordlist) {
         i= i.split("`");
-        console.log("i",i);
         if (i.length > 1) {
             words.push(i[0])
             definitions.push(i[1])
-            //console.log("words:",words,"definitions",definitions);
         }
     }
     for (let i = 0; i < words.length; i++) {
@@ -124,14 +128,10 @@ function finish_setup (domain, seed, wordlist){
             final_words.pop();
         }
         if(final_words[0] == ""){
-            console.log("hello");
             final_words.shift()
-            console.log(final_words[0]);
         }
         words[i] = final_words[0];
-        console.log("word",words[i]);
     }
-    console.log(words);
 
     let starting_dimension = {
         "kind": "custom",
@@ -151,8 +151,15 @@ function finish_setup (domain, seed, wordlist){
     ui.init(starting_dimension);
 }
 
+//TODO documentation
+/**
+*
+*
+* @param dom_name
+* @param raw_wordlist
+* @param continuation
+*/
 function determine_wordlist(dom_name, raw_wordlist, continuation) {
-    console.log(raw_wordlist);
     let dom_names = generate.domains_list(dom_name);
     let is_case_sensitive = false;
     let only_locale = undefined;
@@ -185,7 +192,6 @@ function determine_wordlist(dom_name, raw_wordlist, continuation) {
         processed = lc_upper(processed,only_locale)
     }
 
-    console.log("processed",processed);
     continuation(processed.split('~'))
     //TODO are any languages that use semicolons in spelling?
 }

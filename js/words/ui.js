@@ -1240,7 +1240,6 @@ export function init(starting_dimension) {
         [
             { "text": "PLAY AGAIN", "action": function(){
                 let seed = anarchy.scramble_seed(starting_dimension.seed);
-                console.log(seed)
                 let hash = window.location.hash;
                 let env = {};
                 if (hash.length > 0) {
@@ -1371,9 +1370,10 @@ export function init(starting_dimension) {
         undefined,
         {},
         (
-            "In quiz mode, try to find all the words that you uploaded."
+            "Take a quiz of the words and their definitions. If you select OK"
         ),
-        [ { "text": "OK", "action": function () { ABOUT_QUIZ_TOGGLE.off_(); } } ]
+        [ { "text": "OK", "action": function () { ABOUT_QUIZ_TOGGLE.off_(); } },
+        { "text": "Cancel", "action": function () { ABOUT_QUIZ_TOGGLE.off_(); } } ]
     );
 
     ABOUT_QUIZ_TOGGLE = new menu.ToggleMenu(
@@ -1381,7 +1381,7 @@ export function init(starting_dimension) {
         { "right": 100, "bottom": 10 },
         { "width": 40, "height": 40 },
         {},
-        "...",
+        "📝",
         function () { menu.add_menu(ABOUT_QUIZ_DIALOG); },
         function () { menu.remove_menu(ABOUT_QUIZ_DIALOG); }
     );
@@ -1393,7 +1393,7 @@ export function init(starting_dimension) {
         {"height": 200},
         {},
         (
-            "If you exit, your progress will be lost." 
+            "If you exit, your progress will be lost."
             + " Are you sure you want to exit?"
         ),
         [

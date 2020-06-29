@@ -11,8 +11,23 @@
 		<script type="text/javascript" src="js/words/locale.js"></script>
     <script type="module" src="js/setup_quiz.js"></script>
   </head>
+  <style>
+  h1 {
+    text-align: center;
+	}
+  </style>
 <body>
   <div style="padding: 8pt;">
+	<h1> Quiz Mode </h1>
+	To play, upload your list of words and their definitions in the following
+	format: <br>
+	<b> word`definition~ </b>
+	<br>
+	You will be able to find all the words from your list along with other
+	scrambled words and letters. You can choose to quiz yourself on the
+	definitions by clicking the 📝 button.
+	<br>
+	<hr class="solid">
 	Pick a domain:
 		<select id="language">
 			<option value="عربى">   عربى </option>
@@ -21,7 +36,7 @@
 			<option value="ひらがな">ひらがな</option>
 			<option value="türk">türk</option>
 		</select>
-		<br> 
+		<br>
   Words list:
   <input id="words_list" type="file" /><br/>
   <span id="loading">Wait for a link to appear below, and copy/paste or click it.</span>
