@@ -1926,7 +1926,7 @@ GlyphsMenu.prototype.draw = function (ctx) {
  * add slot function 
  * @param glyph 
  */
-export function addSlot(glyph) {
+export function addSlot(glyph, index) {
     let slot = document.createElement("a");
     slot.classList.add("slot");
     if (glyph != undefined) {
@@ -1942,6 +1942,7 @@ export function addSlot(glyph) {
         }
         else {
             slot.style.backgroundColor = "rgb(77, 77, 77)";
+            add_backpack_glyph(index);
         }
         //look up stop propagation
         e.preventDefault();
@@ -2000,7 +2001,7 @@ export function SlotsMenu(pos, shape, style, contents, action) {
         if (index > 4) {
             //alert("Slot Menu is full!");
         } else {
-            slotsBox.appendChild(addSlot(glyph));
+            slotsBox.appendChild(addSlot(glyph, index));
         }
         index++;
     }
