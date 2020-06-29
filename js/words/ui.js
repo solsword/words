@@ -626,6 +626,9 @@ export function test_selection() {
         }
     });
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
+
+    // Activated if the given word is not in the dictionary and the user is
+    // in quiz mode. This will check if the word is in the given word list
     if (matches.length == 0 && MODE == "quiz"){
        matches = check_word_in_list(CURRENT_GLYPHS_BUTTON.glyphs);
     }
@@ -671,21 +674,25 @@ export function test_selection() {
 }
 
 /**
- * Returns a list of (domain_name, index, glyphs, word, frequency)
- * quadruples that match the given glyphs in one of the given domains.
- * The list will be empty if there are no matches.
+ * Adapted from the check_word function in dict.js. Returns a list
+ * of (domain_name, index, glyphs, word, frequency) quadruples that
+ * match the given glyphs in the current custom domain. The list will
+ * be empty if there are no matches. This function will only be activated
+ * in quiz mode.
  *
  * @param glyphs Either a string or an array of single-glyph strings
  *     specifying the glyph sequence to look for.
- * @param domains An array of domain objects to look for matches in.
  * @return match A 5-element array containing:
  *     0: The string name of the domain that the matched word belongs to.
+ *        (In this case, "custom").
  *     1: The index of the entry for that word in its domain.
+ *        (In this case, undefined).
  *     2: A string containing the glyph sequence that makes up that word.
  *     3: A string containing the canonical form of the word.
+ *        (In this case, the same as the glyphs sequence).
  *     4: An integer indicating the frequency of that word within its
  *        domain.
- *     (see dict.find_word_in_domain, which returns items 1-4)
+ *        (In this case, undefined).
  */
 
 function check_word_in_list(glyphs) {
@@ -1203,6 +1210,7 @@ export function init(starting_dimension) {
     // TODO: Add starting place?
     warp_to([0, 0], starting_dimension);
 
+    // Default quest
     /*
     // Grant starting quest
     // TODO: Better/different here?
@@ -1216,6 +1224,7 @@ export function init(starting_dimension) {
     );
     */
 
+    // Adds a HuntQuest for quiz mode with the given word list
     if(MODE == "quiz"){
         add_quest(
             new quests.HuntQuest(
@@ -1228,6 +1237,8 @@ export function init(starting_dimension) {
             )
         );
     };
+
+    // Reward for completing the quiz HuntQuest: reshuffling the letters or starting a new game
     REWARD_DIALOG = new menu.Dialog(
         CTX,
         undefined,
@@ -1364,6 +1375,8 @@ export function init(starting_dimension) {
     );
     menu.add_menu(ABOUT_TOGGLE);
 
+    // Separate "about" dialog and toggle button for quiz mode
+    // TODO: Make sure this only activates in quiz mode
     ABOUT_QUIZ_DIALOG = new menu.Dialog(
         CTX,
         undefined,
@@ -1387,6 +1400,8 @@ export function init(starting_dimension) {
     );
     menu.add_menu(ABOUT_QUIZ_TOGGLE);
 
+    // Exit dialog and toggle button for quiz mode
+    // TODO: Should this also only show up in quiz mode?
     EXIT_DIALOG = new menu.Dialog(
         CTX,
         undefined,
@@ -1412,8 +1427,6 @@ export function init(starting_dimension) {
         function () { menu.remove_menu(EXIT_DIALOG); }
     );
     menu.add_menu(EXIT_TOGGLE);
-
-
 
     HOME_BUTTON = new menu.ButtonMenu(
         CTX,

@@ -330,7 +330,8 @@ export function revive_quest(q, words_found) {
  *     - 'branch' Create a certain number of y-shaped branches.
  *     - 'glyph' Unlock certain numbers of certain specific glyphs.
  *
- * @param reward TODO: What are these and how do they work?
+ * @param reward TODO: What are these and how do they work? - Kat and 
+ *               Staci this into a function)
  */
 export function Quest(type, reward) {
     this.type = type;
@@ -386,12 +387,13 @@ Quest.prototype.got_bonus = function() {
     return false;
 };
 
-//TODO documentation
+/**
+ * Calls the reward function of the Quest object.
+ */
 Quest.prototype.claim_reward = function() {
     this.reward();
 }
 
-//TODO documentation for our added code in if statement?
 /**
  * Handles taps on the quest UI element in a list of quests.
  *
@@ -403,19 +405,27 @@ Quest.prototype.tap = function(rxy) {
     let x = rxy[0];
     let y = rxy[1];
     if (
+        // TODO: Kat and Staci noticed some problems with this being
+        //       activated, so we changed the if statement. Might need
+        //       to changed back.
         x >= PADDING
+
         // && x <= PADDING + icons.WIDTH
         && x >= PADDING + icons.WIDTH
+
         && y >= PADDING
+
         // && y <= PADDING + icons.HEIGHT
         && y >= PADDING + icons.HEIGHT
     ) {
         let complete = this.is_complete();
         if (complete && this.got_bonus()) {
             // TODO: HERE
+            // Claim reward if user successfully completed quest
+            this.claim_reward();
         } else if (complete) {
             // TODO: HERE
-            //staci and kat claim_reward
+            // Claim reward if user successfully completed quest
             this.claim_reward();
         }
     } else {
@@ -520,7 +530,8 @@ Quest.prototype.draw = function (ctx, width) {
  * @param type The quest type (see Quest).
  * @param target The numeric value to reach to complete the quest.
  * @param bonus The numeric value to reach to earn the quest bonus.
- * @param reward The quest reward (TODO: What is this?!?!)
+ * @param reward The quest reward (TODO: What is this?!?! - Kat and Staci
+ *               made this into a function)
  */
 export function NumericQuest(type, target, bonus, reward) {
     Quest.call(this, type, reward);
@@ -703,7 +714,8 @@ NumericQuest.prototype.draw = function (ctx, width) {
  *     'retroactive' If true, previously-discovered words are used to
  *     initialize quest progress, otherwise the hints have to be
  *     matched after the quest starts.
- * @param reward The quest reward (TODO).
+ * @param reward The quest reward (TODO - Kat and Staci made this into a
+ *               function).
  * @param found (optional) A list of found words, to be used to
  *     initialize progress when 'retroactive' is specified.
  */
