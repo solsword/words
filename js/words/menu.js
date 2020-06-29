@@ -1943,7 +1943,9 @@ export function addSlot(glyph) {
             //console.log(slot.id);
         }
         else {
+            //unclicked color
             slot.style.backgroundColor = "rgb(77, 77, 77)";
+
         }
         //TODO: still clicks behind the menu
         e.stopPropagation();
@@ -1954,7 +1956,7 @@ export function addSlot(glyph) {
 }
 /**
  * Removes a slot from the menu.
- * 
+ *
  * @param glyph The glyph to remove from Slot Menu.
  */
 export function removeSlot(glyph) {
@@ -2018,6 +2020,7 @@ export function SlotsMenu(pos, shape, style, contents, action) {
             console.warn("Slot Menu is full!");
         } else {
             slotsBox.appendChild(addSlot(glyph));
+            
         }
         index++;
     }
