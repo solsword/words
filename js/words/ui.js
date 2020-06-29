@@ -456,7 +456,7 @@ export var COMMANDS = {
     "0": home_view,
     "Home": home_view,
     // Pops a letter from the current swipe set
-    //TODO handle external entries 
+    //TODO handle external entries
     "Backspace": function (e) {
         if (e.preventDefault) { e.preventDefault(); }
         if (CURRENT_SWIPES.length > 0) {
@@ -1288,7 +1288,9 @@ export function init(starting_dimension) {
         undefined,
         "top: 15vh; left: 3.5vw; text-align: center",
         ["A", undefined, "C", "E", "T", "B"],
-        undefined,
+        function(menu,index){
+            add_backpack_glyph(index);
+        }
     )
 
     ABOUT_TOGGLE = new menu.ToggleMenu(
@@ -1904,6 +1906,7 @@ export function add_glyph(mastered_glyph, e, ctx){
 * @param glyph_index the index of the glyph in the array of backpack
 */
 export function add_backpack_glyph(glyph_index){
+    console.log("abg", glyph_index);
     let backpack_array = ["backpack", glyph_index];
     CURRENT_SWIPES.push([backpack_array]);
     update_current_glyphs()

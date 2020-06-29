@@ -1921,52 +1921,7 @@ GlyphsMenu.prototype.draw = function (ctx) {
 
     return animating;
 };
-/**
- * Add a slot to this menu. Omit the glyph argument to add an empty
- * slot.
- *
- * @param glyph The glyph to put in the new slot. Use undefined or omit
- * this argument to add an empty slot.
- */
-//creating an HTML elmt of a slot of anchor tag
-export function addSlot(glyph) {
-    let slot = document.createElement("a");
-    slot.classList.add("slot");
-    if (glyph != undefined) {
-        slot.innerHTML = glyph;
-        //console.log(slot.id);
-    }
-    //TODO: still clicks behind the menu
-    function clickFunction(e) {
-        if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
-            slot.style.backgroundColor = "rgb(143, 144, 145)";
-            //console.log(slot.id);
-        }
-        else {
-            //unclicked color
-            slot.style.backgroundColor = "rgb(77, 77, 77)";
 
-        }
-        //TODO: still clicks behind the menu
-        e.stopPropagation();
-    }
-    //adding click function
-    slot.addEventListener("click", clickFunction, true);
-    return slot;
-}
-/**
- * Removes a slot from the menu.
- *
- * @param glyph The glyph to remove from Slot Menu.
- */
-export function removeSlot(glyph) {
-    //let slot = document.getElementById("a")
-    //this is not working right now
-    let sMenu = document.getElementById("slot");
-    if (sMenu.innerHTML == glyph) {
-        sMenu.remove();
-    }
-}
 
 /**
  * A SlotsMenu has an adjustable number of slots, and each slot can be
@@ -1986,27 +1941,30 @@ export function removeSlot(glyph) {
  * @param style The menu style (see BaseMenu).
  * @param contents A string or an array of length-one glyph strings.
  * @param action The action function to call when a slot is clicked on.
- *     It will be given the menu object and the glyph in the selected
+ *     It will be given the menu object and the index of the selected
  *     slot as arguments. TODO: that.
  *
  * TODO: This menu type has not yet been fully implemented.
  */
 export function SlotsMenu(pos, shape, style, contents, action) {
-    this.contents = contents;
+    this.action = action;
+    this.contents = []; // will be filled in later
+
     //Creating an HTML elmt that creates a SlotsMenu
-    var slotsBox = document.createElement("details");
-    slotsBox.classList.add("menu");
-    slotsBox.setAttribute("style", style);
+    this.slotsBox = document.createElement("details");
+    this.slotsBox.classList.add("menu");
+    this.slotsBox.setAttribute("style", style);
+
 
     //if the screen is too small for the slotmenu to show up
     var expandBtn = document.createElement("summary");
     expandBtn.innerHTML = "🎒";
-    slotsBox.appendChild(expandBtn);
+    this.slotsBox.appendChild(expandBtn);
 
     //TODO more general solution!
     //decide whether to expand
     if (document.getElementById("canvas").height >= 400) {
-        slotsBox.setAttribute("open", "");
+        this.slotsBox.setAttribute("open", "");
     }
 
     //adding slots & it's functions
@@ -2019,8 +1977,8 @@ export function SlotsMenu(pos, shape, style, contents, action) {
             //console.warn or error or throw
             console.warn("Slot Menu is full!");
         } else {
-            slotsBox.appendChild(addSlot(glyph));
-            
+            this.add_slot(glyph);
+
         }
         index++;
     }
@@ -2030,11 +1988,58 @@ export function SlotsMenu(pos, shape, style, contents, action) {
 
     //adding the element onto the page
     //slotsBox.removeSlot("C");
-    document.body.appendChild(slotsBox);
+    document.body.appendChild(this.slotsBox);
 
 }
 
+/**
+ * Add a slot to this menu. Omit the glyph argument to add an empty
+ * slot.
+ *
+ * @param glyph The glyph to put in the new slot. Use undefined or omit
+ * this argument to add an empty slot.
+ *
+ */
+//creating an HTML elmt of a slot of anchor tag
+SlotsMenu.prototype.add_slot = function(glyph) {
+    let index = this.contents.length;
+    this.contents.push(glyph);
+    let slot = document.createElement("a");
+    slot.classList.add("slot");
+    if (glyph != undefined) {
+        slot.innerHTML = glyph;
+        //console.log(slot.id);
+    }
+    //TODO: still clicks behind the menu
+    let the_menu = this;
+    function clickFunction(e) {
+        //TODO call function on deselect
+        if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
+            slot.style.backgroundColor = "rgb(143, 144, 145)";
+            //console.log(slot.id);
+        }
+        else {
+            //unclicked color
+            slot.style.backgroundColor = "rgb(77, 77, 77)";
+            the_menu.action(the_menu,index);
+            console.log("click function:",the_menu);
 
+        }
+        //TODO: still clicks behind the menu
+        e.stopPropagation();
+    }
+    //adding click function
+    slot.addEventListener("click", clickFunction, true);
+    the_menu.slotsBox.appendChild(slot);
+}
+/**
+ * Removes the last slot
+  TODO this is a fragile code
+ */
+SlotsMenu.prototype.removeSlot = function() {
+    this.contents.pop();
+    this.slotsBox.removeChild(this.slotsBox.lastChild);
+}
 
 /**
  * Adds a slot to this menu. Omit the glyph argument to add an empty
