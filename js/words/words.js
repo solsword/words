@@ -49,14 +49,17 @@ export function start_game() {
 
     determine_wordlist(edom, ewords, function(w){ finish_setup(edom,eseed,w)});
 }
-
-//TODO documentation
+A
 /**
+* In this function, we make the words and their definitions their own lists. The
+* words are split from different characters the user will put in the text file
+* they upload. We get domain, seed and wordlist to call starting_dimension to
+* which starts up the dimension based on those parameters.
 *
-*
-* @param domain
-* @param seed
-* @param wordlist
+* @param domain used to know what domain the user wants to place words from the
+* full dimension besides just their words uploaded
+* @param seed Used to randomize the dimension
+* @param wordlist list of string of words that the user uploaded
 */
 function finish_setup (domain, seed, wordlist){
     /*/ *
@@ -151,13 +154,15 @@ function finish_setup (domain, seed, wordlist){
     ui.init(starting_dimension);
 }
 
-//TODO documentation
 /**
+* This function uppercases the words for the dimension. Returns the list of words
 *
-*
-* @param dom_name
-* @param raw_wordlist
-* @param continuation
+* @param dom_name gets the domain name by calling domains_list
+* @param raw_wordlist the words the user uploads in a list which are unescaped
+* to be readable
+* @param continuation The function to call either immediately or
+*     whenever the domain value becomes available. It will be given the
+*     cache key that corresponds to the given arguments
 */
 function determine_wordlist(dom_name, raw_wordlist, continuation) {
     let dom_names = generate.domains_list(dom_name);

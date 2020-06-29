@@ -1,17 +1,15 @@
 // quiz.js
 // Word game quiz mode
 
-//TODO documentation
-
 /**
- * Waits until the given file upload element has file(s) available, and
- * as soon as it does, sets up a reader process to read the first of
- * those and process it as a words list for creating a domain. Ultimately
- * calls handle_uploaded_domain with the text and filename from the
- * uploaded file.
+ * This function is getting the file from the given file element and reads if
+ * there is anything and if it doesn't read anything, it reloads again. If it
+ * does, it sets up a reader process to read the first of
+ * those and process it as a words list for creating a domain, Then, it calls
+ * handle_uploaded_word_list to split the file to be read the way
+ * we want it to.
  *
- * @param element A DOM <input> node with type="file". The file is a txt file
-    in format of word`definition~
+ * @param element A DOM <input> node with type="file".
  */
 function eventually_process_word_list(element) {
   var files = element.files;
@@ -29,10 +27,12 @@ function eventually_process_word_list(element) {
   }
 }
 
-//TODO documentation
 /**
-* @param filename
-* @param text
+* This function gets the file and the selected option of the user. The words and
+* and definitions are separated. The words are then placed in a string.
+*
+* @param filename  The file is a txt file in format: word`definition~
+* @param text The words and definitions the user uploads which are then separated.
 */
 function handle_uploaded_word_list(fileName, text){
   let words = text.split(/\s+/);
@@ -54,13 +54,13 @@ function handle_uploaded_word_list(fileName, text){
 
 }
 
-//TODO documentation
 /**
-* Setup quiz function
-* @return
+* Setup quiz function sets up the function for the domain page (start_quiz.html)
+*
+* Calls eventually_process_word_list to set up the file upload input to kick off
+* the polishing process.
 */
 export function setup_quiz() {
-  // Setup function for the domain builder.
   var file_input = document.getElementById("words_list");
 
   file_input.onmousedown = function () { this.setAttribute("value", ""); };

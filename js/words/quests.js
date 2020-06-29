@@ -386,12 +386,11 @@ Quest.prototype.got_bonus = function() {
     return false;
 };
 
-//TODO documentation
 Quest.prototype.claim_reward = function() {
     this.reward();
 }
 
-//TODO documentation for our added code in if statement?
+
 /**
  * Handles taps on the quest UI element in a list of quests.
  *
