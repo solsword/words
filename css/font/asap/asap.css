@@ -2,10 +2,10 @@
 
 @font-face {
     font-family: 'asap';
-    src: url('Asap-mediumItalic-webfont.eot');
-    src: url('Asap-mediumItalic-webfont.eot?#iefix') format('embedded-opentype'),
-         url('Asap-mediumItalic-webfont.woff2') format('woff2'),
-         url('Asap-mediumItalic-webfont.woff') format('woff'),
+    src: url('Asap-mediumItalic.eot');
+    src: url('Asap-mediumItalic.eot?#iefix') format('embedded-opentype'),
+         url('Asap-mediumItalic.woff2') format('woff2'),
+         url('Asap-mediumItalic.woff') format('woff'),
     font-weight: normal;
     font-style: Italic;
 
@@ -13,10 +13,10 @@
 
 @font-face {
     font-family: 'asap';
-    src: url('Asap-medium-webfont.eot');
-    src: url('Asap-medium-webfont.eot?#iefix') format('embedded-opentype'),
-         url('Asap-medium-webfont.woff2') format('woff2'),
-         url('Asap-medium-webfont.woff') format('woff'),
+    src: url('Asap-medium.eot');
+    src: url('Asap-medium.eot?#iefix') format('embedded-opentype'),
+         url('Asap-medium.woff2') format('woff2'),
+         url('Asap-medium.woff') format('woff'),
     font-weight: normal;
     font-style: normal;
 
@@ -24,10 +24,10 @@
 
 @font-face {
     font-family: 'asap';
-    src: url('Asap-BoldItalic-webfont.eot');
-    src: url('Asap-BoldItalic-webfont.eot?#iefix') format('embedded-opentype'),
-         url('Asap-BoldItalic-webfont.woff2') format('woff2'),
-         url('Asap-BoldItalic-webfont.woff') format('woff'),
+    src: url('Asap-BoldItalic.eot');
+    src: url('Asap-BoldItalic.eot?#iefix') format('embedded-opentype'),
+         url('Asap-BoldItalic.woff2') format('woff2'),
+         url('Asap-BoldItalic.woff') format('woff'),
     font-weight: Bold;
     font-style: Italic;
 
@@ -35,10 +35,10 @@
 
 @font-face {
     font-family: 'asap';
-    src: url('Asap-Bold-webfont.eot');
-    src: url('Asap-Bold-webfont.eot?#iefix') format('embedded-opentype'),
-         url('Asap-Bold-webfont.woff2') format('woff2'),
-         url('Asap-Bold-webfont.woff') format('woff'),
+    src: url('Asap-Bold.eot');
+    src: url('Asap-Bold.eot?#iefix') format('embedded-opentype'),
+         url('Asap-Bold.woff2') format('woff2'),
+         url('Asap-Bold.woff') format('woff'),
     font-weight: Bold;
     font-style: normal;
 

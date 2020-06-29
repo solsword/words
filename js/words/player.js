@@ -1,6 +1,7 @@
 // player.js
 // Holds all player-specific information in one place so that it can be saved
 // and loaded.
+/* global console */
 
 "use strict";
 

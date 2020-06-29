@@ -71,26 +71,23 @@ export function measure_text(ctx, text) {
  * Interpolates two colors according to the given proportion.
  * Accepts and returns RGB hex strings.
  *
- * @param original The original color as an RGB hex string, used as-is
- *     when the proportion is 0.
+ * @param original The original color as a 3-element RGB component array,
+ *     used as-is when the proportion is 0.
  * @param proportion A number between 0 and 1 that controls how the
  *     colors are mixed.
- * @param target The target color as an RGB hex string, used as-is when
- *     the proportion is 1.
+ * @param target The target color as a 3-element RGB component array,
+ *     used as-is when the proportion is 1.
  *
- * @return An RGB hex color string that represents a mixture between the
- *     two colors. The interpolation is linear in RGB space, which is not
- *     ideal but which is simple.
+ * @return A 3-element RGB component array that represents a mixture
+ *     between the two colors. The interpolation is linear in RGB space,
+ *     which is not ideal but which is simple.
  */
 export function interp_color(original, proportion, target) {
-    let c1 = color_from_hex(original);
-    let c2 = color_from_hex(target);
-    let r = [
-        c1[0] * (1 - proportion) + c2[0] * proportion,
-        c1[1] * (1 - proportion) + c2[1] * proportion,
-        c1[2] * (1 - proportion) + c2[2] * proportion
+    return [
+        original[0] * (1 - proportion) + target[0] * proportion,
+        original[1] * (1 - proportion) + target[1] * proportion,
+        original[2] * (1 - proportion) + target[2] * proportion
     ];
-    return hex_from_color(r);
 }
 
 /**
@@ -136,6 +133,46 @@ export function hex_from_color(c) {
     let g = ("0" + Math.floor(c[1]).toString(16)).slice(-2);
     let b = ("0" + Math.floor(c[2]).toString(16)).slice(-2);
     return "#" + r + g + b;
+}
+
+/**
+ * Converts an HTML rgb() string like "rgb(0, 255, 55)" into a 3-element
+ * RGB color component array. The string must start with the 4 characters
+ * "rgb(".
+ *
+ * @param rgb_string A string containing a color in rgb() format.
+ *
+ * @return A 3-element R/G/B component array where each value is between
+ *     0 and 255 inclusive.
+ */
+export function color_from_rgb(rgb_string) {
+    let c1e = rgb_string.indexOf(",");
+    let c2e = rgb_string.indexOf(",", c1e + 1);
+    let c3e = rgb_string.indexOf(")");
+
+    let c1 = parseInt(rgb_string.slice(4, c1e));
+    let c2 = parseInt(rgb_string.slice(c1e + 1, c2e));
+    let c3 = parseInt(rgb_string.slice(c2e + 1, c3e));
+
+    return [ c1, c2, c3 ];
+}
+
+/**
+ * Converts a color that's either in #ffffff RGB hex string format or in
+ * rgb(255, 255, 255) RGB numerical string format into a 3-element color
+ * array.
+ *
+ * @param hex_or_rgb The color string to convert.
+ *
+ * @return A 3-element R/G/B component array where each value is between
+ *     0 and 255 inclusive.
+ */
+export function color_from_hex_or_rgb(hex_or_rgb) {
+    if (hex_or_rgb.slice(0,4).toLowerCase() == "rgb(") {
+        return color_from_rgb(hex_or_rgb);
+    } else {
+        return color_from_hex(hex_or_rgb);
+    }
 }
 
 /**

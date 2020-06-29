@@ -149,8 +149,10 @@ var LINES_PER_PAGE = 40;
 /**
  * How long to wait in case another resize occurs before actually
  * handling a resize of the screen (in milliseconds).
+ * Note: If this is too short, can cause screen updates to flash in
+ * Firefox.
  */
-var RESIZE_TIMEOUT = 20;
+var RESIZE_TIMEOUT = 50;
 
 /**
  * Keeps track of how many frames are left before we need to redraw
@@ -208,8 +210,7 @@ export var QUEST_MENU = null;
 export var QUEST_SIDEBAR = null;
 export var WORDS_LIST_MENU = null;
 export var WORDS_SIDEBAR = null;
-export var ABOUT_TOGGLE = null;
-export var ABOUT_DIALOG = null;
+export var ABOUT_BUTTON = null;
 export var HOME_BUTTON = null;
 export var ZOOM_IN_BUTTON = null;
 export var ZOOM_OUT_BUTTON = null;
@@ -389,13 +390,14 @@ export function warp_to(coordinates, dimension) {
         let y = coordinates[1];
         let nearby = [
             [x, y],
-            [x+1, y],
-            [x+1, y+1],
             [x, y+1],
             [x-1, y],
             [x-1, y-1],
             [x, y-1],
+            [x+1, y],
+            [x+1, y+1],
         ];
+        // TODO: Unlock these as unremembered tiles instead of as a path.
         content.unlock_path(
             player.current_input_player(),
             CURRENT_DIMENSION,
@@ -424,8 +426,14 @@ export var COMMANDS = {
     // escape removes all current selections
     "Escape": function () {
         clear_selection(
-            CLEAR_SELECTION_BUTTON.center(),
-            { "color": CLEAR_SELECTION_BUTTON.style.text_color }
+            // TODO: Better here?
+            [0, CTX.cheight],
+            {
+                "color":
+                    window.getComputedStyle(
+                        CLEAR_SELECTION_BUTTON.element
+                    ).color
+            }
         );
     },
     // z removes energized elements
@@ -445,7 +453,7 @@ export var COMMANDS = {
     },
     // shows 'about' dialog
     "a": function (e) {
-        ABOUT_TOGGLE.toggle();
+        ABOUT_BUTTON.press();
         DO_REDRAW = 0;
     },
     // home and 0 reset the view to center 0, 0
@@ -524,7 +532,7 @@ export function clear_selection(destination, style) {
             var vp = draw.view_pos(CTX, wp);
             lines.push(
                 new animate.MotionLine(
-                    animate.INSTANT,
+                    animate.MOMENT,
                     undefined,
                     vp,
                     destination,
@@ -643,7 +651,7 @@ export function test_selection() {
                 find_word(CURRENT_DIMENSION, m, combined_swipe);
             }
             clear_selection(
-                CURRENT_GLYPHS_BUTTON.center(),
+                [ CTX.cwidth/2, CTX.cheight ],
                 { "color": "#fff" }
             );
             // Highlight in white:
@@ -715,19 +723,21 @@ export function which_click(e) {
 
 /**
  * Updates the canvas size. Called on resize after a timeout.
+ * TODO: Fix screen flashing in Firefox when resizing width larger...
  */
 export function update_canvas_size() {
     let canvas = document.getElementById("canvas");
-    var bounds = canvas.getBoundingClientRect();
-    var car = bounds.width / bounds.height;
-    canvas.width = 800 * car;
-    canvas.height = 800;
+    let bounds = canvas.getBoundingClientRect();
+    let car = bounds.width / bounds.height;
+    let target_height = Math.max(200, Math.min(600, 1.2 * bounds.height));
+    canvas.width = target_height * car;
+    canvas.height = target_height;
     CTX.cwidth = canvas.width;
     CTX.cheight = canvas.height;
     CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
     CTX.bounds = bounds;
     DO_REDRAW = 0;
-    menu.set_canvas_size([canvas.width, canvas.height]);
+    menu.notify_resize(bounds.width, bounds.height);
 }
 
 /**
@@ -763,7 +773,6 @@ export function update_current_glyphs() {
 function handle_primary_down(ctx, e) {
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
-    if (menu.mousedown(vpos, "primary")) { return; }
     var wpos = draw.world_pos(ctx, vpos);
     var gpos = grid.grid_pos(wpos);
     var head = null;
@@ -808,7 +817,6 @@ function handle_primary_down(ctx, e) {
  */
 function handle_tertiary_down(ctx, e) {
     var vpos = canvas_position_of_event(e);
-    if (menu.mousedown(vpos, "tertiary")) { return; }
     SCROLL_REFERENT = vpos.slice();
 }
 
@@ -822,10 +830,6 @@ function handle_tertiary_down(ctx, e) {
 function handle_primary_up(ctx, e) {
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
-    if (menu.mouseup(vpos)) {
-        DO_REDRAW = 0;
-        return;
-    }
 
     // No matter what, we're not swiping any more
     SWIPING = false;
@@ -1000,7 +1004,6 @@ function handle_primary_up(ctx, e) {
  */
 function handle_tertiary_up(ctx, e) {
     var vpos = canvas_position_of_event(e);
-    if (menu.mouseup(vpos, "tertiary")) { return; }
     SCROLL_REFERENT = null;
 }
 
@@ -1014,7 +1017,6 @@ function handle_tertiary_up(ctx, e) {
 function handle_movement(ctx, e) {
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
-    if (menu.mousemove(vpos)) { DO_REDRAW = 0; return; }
     if (SCROLL_REFERENT != null) {
         // scrolling w/ aux button or two fingers
         var dx = vpos[0] - SCROLL_REFERENT[0];
@@ -1116,6 +1118,9 @@ function handle_wheel(ctx, e) {
 /**
  * Sets up the canvas object and initializes the CTX and DO_REDRAW
  * variables.
+ *
+ * @return The canvas element of the document for which setup was
+ *     performed.
  */
 export function setup_canvas() {
     // set up canvas context
@@ -1132,6 +1137,7 @@ export function setup_canvas() {
         CTX.viewport_scale = draw.DEFAULT_SCALE;
     }
     DO_REDRAW = 0;
+    return canvas;
 }
 
 /**
@@ -1145,7 +1151,10 @@ export function setup_canvas() {
  */
 export function init(starting_dimension) {
     // Set up the canvas
-    setup_canvas();
+    let canvas = setup_canvas();
+
+    // Initialize the menu system
+    menu.init_menus([canvas.width, canvas.height]);
 
     // Unlock initial tiles
     // TODO: Better/different here?
@@ -1184,169 +1193,88 @@ export function init(starting_dimension) {
     });
 
     // set up menus:
+    /*
     QUEST_MENU = new menu.QuestList(
-        CTX,
-        { "left": "50%", "right": 100, "top": 30, "bottom": 100 },
-        { "width": undefined, "height": undefined },
-        undefined,
-        QUESTS
+        QUESTS, // TODO: Track these?
+        "right",
+        "quests"
     );
-
-    QUEST_SIDEBAR = new menu.ToggleMenu(
-        CTX,
-        { "right": 10, "top": 240 },
-        { "width": 40, "height": 40 },
-        undefined, 
-        "!",
-        function () {
-            WORDS_SIDEBAR.off();
-            menu.add_menu(QUEST_MENU);
-        },
-        function () {
-            menu.remove_menu(QUEST_MENU);
-        }
-    );
-    menu.add_menu(QUEST_SIDEBAR);
+    */
 
     WORDS_LIST_MENU = new menu.WordList(
-        CTX,
-        { "left": "50%", "right": 100, "top": 30, "bottom": 100 },
-        { "width": undefined, "height": undefined },
-        undefined,
         found_list(dimensions.natural_domain(CURRENT_DIMENSION)),
-        "https://en.wiktionary.org/wiki/<item>"
+        "https://en.wiktionary.org/wiki/<item>",
+        "right",
+        "words"
     );
     // TODO: Swap words list when dimension changes
     // TODO: Some way to see lists from non-current dimensions?
 
-    WORDS_SIDEBAR = new menu.ToggleMenu(
-        CTX,
-        { "right": 10, "top": 330 },
-        { "width": 40, "height": 40 },
-        undefined, 
-        //"找到",
-        "🗎",
-        function () {
-            QUEST_SIDEBAR.off();
-            menu.add_menu(WORDS_LIST_MENU);
-        },
-        function () {
-            menu.remove_menu(WORDS_LIST_MENU);
-        }
-    );
-    menu.add_menu(WORDS_SIDEBAR);
-
-    ABOUT_DIALOG = new menu.Dialog(
-        CTX,
-        undefined,
-        undefined,
-        {}, 
-        (
-            "This is Words 成语, version 0.1. Select 成语 and press"
-          + " SPACE. Find as many as you can! You can scroll to see more."
-          + " Use the ⊗ at the bottom-left or ESCAPE to clear the"
-          + " selection, or double-tap to remove a glyph. Review 成语"
-          + " with the 找到 button on the right-hand side. The 🏠 button"
-          + " takes you back to the start."
-        ),
-        [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
-    );
-
-    ABOUT_TOGGLE = new menu.ToggleMenu(
-        CTX,
-        { "right": 10, "bottom": 10 },
-        { "width": 40, "height": 40 },
-        {},
-        "?",
-        function () { menu.add_menu(ABOUT_DIALOG); },
-        function () { menu.remove_menu(ABOUT_DIALOG); }
-    );
-    menu.add_menu(ABOUT_TOGGLE);
-
     HOME_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "left": 10, "top": 10 },
-        { "width": 40, "height": 40 },
-        {},
         "🏠",
-        home_view
+        home_view,
+        "left"
     );
-    menu.add_menu(HOME_BUTTON);
 
     ZOOM_IN_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "right": 10, "top": 10 },
-        { "width": 40, "height": 40 },
-        {},
         "+",
-        zoom_in
+        zoom_in,
+        "top"
     );
-    menu.add_menu(ZOOM_IN_BUTTON);
 
     ZOOM_OUT_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "right": 10, "top": 100 },
-        { "width": 40, "height": 40 },
-        {},
         "–",
-        zoom_out
+        zoom_out,
+        "top"
     );
-    menu.add_menu(ZOOM_OUT_BUTTON);
 
     CLEAR_SELECTION_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "left": 10, "bottom": 10 },
-        { "width": 40, "height": 40 },
-        {
-            "background_color": "#310",
-            "border_color": "#732",
-            "text_color": "#d43"
-        },
         "⊗",
         function () {
             clear_selection(
-                CLEAR_SELECTION_BUTTON.center(),
-                { "color": CLEAR_SELECTION_BUTTON.style.text_color }
+                // TODO: Better here?
+                [0, CTX.cheight],
+                {
+                    "color":
+                        window.getComputedStyle(
+                            CLEAR_SELECTION_BUTTON.element
+                        ).color
+                }
             );
-        }
-    );
-    menu.add_menu(CLEAR_SELECTION_BUTTON);
-
-    /*
-    RESET_ENERGY_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "left": 10, "bottom": 60 },
-        { "width": 40, "height": 40 },
-        {
-            "background_color": "#330",
-            "border_color": "#661",
-            "text_color": "#dd2",
         },
-        "⮏",
-        function () {
-            clear_energy(
-                RESET_ENERGY_BUTTON.center(),
-                { "color": RESET_ENERGY_BUTTON.style.text_color }
-            );
-        }
+        "bottom",
+        "clear_selection"
     );
-    // TODO: remove this
-    // menu.add_menu(RESET_ENERGY_BUTTON);
-    */
 
     CURRENT_GLYPHS_BUTTON = new menu.GlyphsMenu(
-        CTX,
-        { "bottom": 10 },
-        { "width": undefined, "height": 40 },
-        {
-            "background_color": "#000",
-            "border_color": "#888",
-            "text_color": "#fff"
-        },
         "",
-        test_selection
+        test_selection,
+        "bottom",
+        "current_glyphs"
     );
-    menu.add_menu(CURRENT_GLYPHS_BUTTON);
+
+    // TODO: prevent dialog stacking?
+    ABOUT_BUTTON = new menu.ButtonMenu(
+        "?",
+        function () {
+            // Simply create a dialog
+            new menu.Dialog(
+                (
+                    "This is Words, version 0.2. Select words and tap"
+                  + " the word that appears below, or press SPACE. You can"
+                  + " scroll to see more of the grid. Use the ⊗ at the"
+                  + " bottom-left or ESCAPE to clear the selection, or"
+                  + " double-tap to remove a glyph. Review words with the"
+                  + " 'Words' button on the right-hand side. The 🏠 button"
+                  + " takes you back to the start."
+                ),
+                undefined,
+                [ { "text": "OK" } ]
+            );
+        },
+        "bottom"
+    );
+
 
     // set up event handlers
     document.onmousedown = function (e) {
@@ -1386,11 +1314,15 @@ export function init(starting_dimension) {
     };
     document.ontouchmove = document.onmousemove;
 
-    // TODO: Make this passive? (see chromium verbose warning)
-    document.onwheel = function (e) {
-        if (e.preventDefault) { e.preventDefault(); }
-        handle_wheel(CTX, e);
-    };
+    canvas.addEventListener(
+        "wheel",
+        function (e) {
+            console.log("W");
+            if (e.preventDefault) { e.preventDefault(); }
+            handle_wheel(CTX, e);
+        },
+        { "capture": true, "passive": false }
+    );
 
     document.onkeydown = function (e) {
         if (COMMANDS.hasOwnProperty(e.key)) {
@@ -1590,11 +1522,6 @@ export function draw_frame(now) {
                 DO_REDRAW = LOADING_RETRY;
             }
         }
-    }
-
-    // Menus:
-    if (menu.draw_active(CTX)) {
-        DO_REDRAW = 0;
     }
 
     // Animations:

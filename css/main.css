@@ -1,26 +1,175 @@
+:root {
+    --menu-size: 36pt;
+    --font-size: 24pt;
+}
+
 html {
   height: 100%;
 }
 
 body {
-  font-family: "asap", "黑体", SimHei, "冬青黑体", "Hiragino Sans GB", sans-serif;
-  font-size: 14pt;
-  color: #aaa;
-  background-color: #444;
-  height: 100%;
-  margin: 0pt;
-  padding: 0pt;
+    font-family: "asap", "黑体", SimHei, "冬青黑体", "Hiragino Sans GB",
+        sans-serif;
+    font-size: 14pt;
+    color: #aaa;
+    background-color: #444;
+    height: 100%;
+    margin: 0pt;
+    padding: 0pt;
+    font-size: var(--font-size);
 }
 
+
+/*-----------------*
+ * The game canvas *
+ *-----------------*/
+
 #canvas {
-  position: absolute;
-  left: 2.5%;
-  top: 2.5%;
-  width: 95%;
-  height: 95%;
-	padding: 0; 
-	margin: 0; 
-	border:2pt solid #000;
-  border-radius: 4pt;
-	background-color:#333;
+    position: absolute;
+    left: 2.5vw;
+    top: 2.5vh;
+    width: 95vw;
+    height: 95vh;
+    padding: 0; 
+    margin: 0; 
+    box-sizing: border-box;
+    border:2pt solid #000;
+    border-radius: 4pt;
+    background-color:#333;
+    z-index: 10;
+}
+
+
+/*--------------------------------*
+ * Menu areas and the menu system *
+ *--------------------------------*/
+
+#menus {
+    position: absolute;
+    left: 2.5vw;
+    top: 2.5vh;
+    width: 95vw;
+    height: 95vh;
+    margin: 0;
+    z-index: 20;
+}
+
+.menu_area {
+    position: absolute;
+    padding: 4pt;
+    box-sizing: border-box;
+}
+
+.menu_area.top, .menu_area.bottom {
+    left: 0pt;
+    width: 95vw;
+    display: flex;
+    justify-content: center;
+    justify-content: space-between; /* not widely supported? */
+}
+
+.menu_area.top {
+    top: 0pt;
+}
+
+.menu_area.bottom {
+    bottom: 0pt;
+}
+
+.menu_area.left, .menu_area.right {
+    top: max(1.5*var(--menu-size), 9vw);
+    height: calc(95vh - max(3*var(--menu-size), 18vw));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    justify-content: space-between; /* not widely supported? */
+}
+
+.menu_area.left {
+    left: 0pt;
+}
+
+.menu_area.right {
+    right: 0pt;
+}
+
+.menu_area.center {
+    top: max(1.5*var(--menu-size), 9vw);
+    left: max(1.5*var(--menu-size), 9vw);
+    width: calc(95vw - max(3*var(--menu-size), 18vw));
+    height: calc(95vh - max(3*var(--menu-size), 18vw));
+    min-width: 1.5*var(--menu-size);
+    min-height: 1.5*var(--menu-size);
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    align-items: middle;
+    justify-items: center;
+}
+
+
+/*------------------*
+ * Individual menus *
+ *------------------*/
+
+.menu {
+    /* TODO: Color matching with canvas colors! */
+    border: 3pt solid #0af;
+    color: #0af;
+    border-radius: 6pt;
+    background: #057;
+    padding: 4pt;
+    margin: 6pt;
+    box-sizing: content-box;
+    width: max-content;
+    height: max-content;
+    text-align: center;
+    min-width: var(--menu-size);
+    min-height: var(--menu-size);
+}
+
+details.menu {
+    list-style-type: none;
+}
+
+details.menu summary {
+    list-style-type: none;
+}
+
+details.menu summary .open {
+    display: none;
+}
+
+details.menu[open] summary .open {
+    display: block;
+}
+
+details.menu summary .closed {
+    display: block;
+}
+
+details.menu[open] summary .losed {
+    display: none;
+}
+
+/*----------------*
+ * Specific menus *
+ *----------------*/
+
+.menu.dialog {
+    max-width: 80vw;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.menu.clear_selection {
+    background-color: #310;
+    border-color: #732;
+    color: #d43;
+}
+
+.menu.current_glyphs {
+    border-color: #888;
+    background-color: #444;
+    color: #ddd;
 }
