@@ -1923,6 +1923,35 @@ GlyphsMenu.prototype.draw = function (ctx) {
 };
 
 /**
+ * add slot function 
+ * @param glyph 
+ */
+export function addSlot(glyph) {
+    let slot = document.createElement("a");
+    slot.classList.add("slot");
+    if (glyph != undefined) {
+        slot.innerHTML = glyph;
+    }
+
+    //TODO: still clicks behind the menu
+    function clickFunction(e) {
+        //console.log(slot.style.backgroundColor);
+        if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
+            slot.style.backgroundColor = "rgb(143, 144, 145)";
+            //console.log("hi");
+        }
+        else {
+            slot.style.backgroundColor = "rgb(77, 77, 77)";
+        }
+        //look up stop propagation
+        e.preventDefault();
+    }
+    //adding onclick function?
+    slot.addEventListener("click", clickFunction, true);
+    return slot;
+}
+
+/**
  * A SlotsMenu has an adjustable number of slots, and each slot can be
  * filled or emptied, and may trigger an action when clicked. The action
  * callback is called with the glyph value of the slot that was clicked
@@ -1968,30 +1997,9 @@ export function SlotsMenu(pos, shape, style, contents, action) {
     for (let glyph of contents) {
         //add if statement to cap the number of contents allowed
         if (index > 4) {
-            alert("Slot Menu is full!");
+            //alert("Slot Menu is full!");
         } else {
-            let slot = document.createElement("a");
-            slot.classList.add("slot");
-            if (glyph != undefined) {
-                slot.innerHTML = glyph;
-            }
-
-            //TODO: still clicks behind the menu
-            function clickFunction(e) {
-                //console.log(slot.style.backgroundColor);
-                if (slot.style.backgroundColor == "rgb(77, 77, 77)") {
-                    slot.style.backgroundColor = "rgb(143, 144, 145)";
-                    //console.log("hi");
-                }
-                else {
-                    slot.style.backgroundColor = "rgb(77, 77, 77)";
-                }
-                //look up stop propagation
-                e.preventDefault();
-            }
-            //adding onclick function?
-            slot.addEventListener("click", clickFunction, true);
-            slotsBox.appendChild(slot);
+            slotsBox.appendChild(addSlot(glyph));
         }
         index++;
     }
