@@ -1282,7 +1282,7 @@ export function init(starting_dimension) {
         [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
     );
 
-    //adding slots menu
+    //adding slots menu, the contents are currently predetermined.
     SLOTS_MENU = new menu.SlotsMenu(
         "left",
         undefined,

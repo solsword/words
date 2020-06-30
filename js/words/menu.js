@@ -1930,12 +1930,9 @@ GlyphsMenu.prototype.draw = function (ctx) {
  * on when one is clicked on. The initial number of slots will be
  * determined by the length of the contents iterable, along with their
  * initial values. null, false, undefined or other false-values may be
- * used to represent initially-empty slots. The slot_width variable of
- * the shape object is used to determine the size of each slot; it will
- * be compute from shape.width and contents.length if not given,
- * otherwise shape.width will be computed from it and contents.length.
+ * used to represent initially-empty slots. Currently the SlotsMenu changes
+ * color and adds glyph to current swipes in ui.js when a slot is selected.
  *
- * @param ctx The canvas context to use for drawing.
  * @param pos The menu position (see BaseMenu).
  * @param shape The menu shape (see BaseMenu).
  * @param style The menu style (see BaseMenu).
@@ -1944,9 +1941,14 @@ GlyphsMenu.prototype.draw = function (ctx) {
  *     It will be given the menu object and the index of the selected
  *     slot as arguments. TODO: that.
  *
- * TODO: This menu type has not yet been fully implemented.
+ * TODO: This menu type has not yet been fully implemented. The contents are 
+ * currently predetermined, hoping to connect it with a rewards system if it is 
+ * implemented in the future.
  */
 export function SlotsMenu(pos, shape, style, contents, action) {
+    //pos and shape have not been implemented but kept for potential future purposes.
+    this.pos = pos;
+    this.shape = shape;
     this.action = action;
     this.contents = []; // will be filled in later
     this.selected = [];
@@ -1955,7 +1957,6 @@ export function SlotsMenu(pos, shape, style, contents, action) {
     this.slotsBox = document.createElement("details");
     this.slotsBox.classList.add("menu");
     this.slotsBox.setAttribute("style", style);
-
 
     //if the screen is too small for the slotmenu to show up
     var expandBtn = document.createElement("summary");
@@ -1984,13 +1985,9 @@ export function SlotsMenu(pos, shape, style, contents, action) {
         index++;
     }
 
-    // TODO: add glyph to CURRENT_SWIPES when being used
-    //Wrtie a separate function that adds glyphs into contents of Slots Menu?
-
     //adding the element onto the page
     //slotsBox.removeSlot("C");
     document.body.appendChild(this.slotsBox);
-
 }
 
 /**
@@ -2006,11 +2003,14 @@ SlotsMenu.prototype.add_slot = function(glyph) {
     let index = this.contents.length;
     this.contents.push(glyph);
     this.selected.push(false);
+
+    //creating an HTML element for slot
     let slot = document.createElement("a");
     slot.classList.add("slot");
+
+    //adds glyph into slot
     if (glyph != undefined) {
         slot.innerHTML = glyph;
-        //console.log(slot.id);
     }
     //TODO: still clicks behind the menu
     let the_menu = this;
@@ -2025,8 +2025,10 @@ SlotsMenu.prototype.add_slot = function(glyph) {
     the_menu.slotsBox.appendChild(slot);
 }
 /**
- * Removes the last slot
-  TODO this is a fragile code
+ * Removes the last slot from the SlotMenu. Should implement
+ * a method that is better.
+ * 
+ * TODO this is a fragile code
  */
 SlotsMenu.prototype.remove_slot = function() {
     this.contents.pop();
@@ -2035,6 +2037,13 @@ SlotsMenu.prototype.remove_slot = function() {
 }
 
 /**
+ * select_slot method is called when a slot is clicked and selected.
+ * The color of the slot changes when it is clicked and the glyph contained
+ * in the slot is added to the current swipes by the player. 
+ * 
+ * TODO: The deselecting of slots is still a work in progress. Currently 
+ * the slot that is selected can continue to be selected multiple times, might
+ * want to change this feature in the future.
 */
 SlotsMenu.prototype.select_slot = function(index){
     let slot = this.slotsBox.children[index+1]; // (+1 ) to skip the summary
@@ -2052,34 +2061,6 @@ SlotsMenu.prototype.select_slot = function(index){
 
 }
 
-
-
-/**
- * Adds a slot to this menu. Omit the glyph argument to add an empty
- * slot.
- *
- * @param glyph The glyph to put in the new slot. Use undefined or omit
- *     this argument to add an empty slot.
- */
-// SlotsMenu.prototype.add_slot = function (glyph) {
-//     this.contents.push(glyph);
-//     //this.adjust_width();
-// };
-
-/**
- * Removes the last (rightmost) slot from the menu.
- *
- * @return The glyph that was in the slot which was removed, or undefined
- *     if it was empty.
- */
-// SlotsMenu.prototype.remove_slot = function () {
-//     // Removes the last (rightmost) slot
-//     let result = this.contents.pop();
-//     //this.adjust_width();
-//     return result;
-// };
-
-
 /**
  * retrieves a glyph from the menu.
  *
@@ -2089,28 +2070,6 @@ SlotsMenu.prototype.select_slot = function(index){
   SlotsMenu.prototype.get_glyph = function (index) {
       return this.contents[index];
  }
-
-
-
-
-/**
- * Handles a tap/click on the menu.
- * TODO: Finish this function?
- *
- * @param pos The global canvas position of the tap/click.
- * @param hit A boolean indicating whether the click/tap happened within
- *     the menu or not.
- */
-// SlotsMenu.prototype.tap = function (pos, hit) {
-//     if (!hit) {
-//         return;
-//     }
-//     var rp = this.rel_pos(pos);
-
-//     rp[0] / this.shape.width;
-//     // TODO: HERE
-// };
-
 
 /**
  * Adds the given menu to the top of the active menus list.
