@@ -51,8 +51,8 @@ var SWIPING = false;
 var PRESS_RECORDS = [undefined, undefined];
 
 /**
- * The time at which the most recent mouse-release (or touch-end)
- * occurred.
+ * The position at which the most recent mouse-release (or touch-end)
+ * occurred (a 2-element x/y canvas coordinate array).
  */
 var LAST_RELEASE = null;
 
@@ -142,10 +142,6 @@ export var CURRENT_DIMENSION;
 var PIXELS_PER_LINE = 18;
 var LINES_PER_PAGE = 40;
 
-// TODO: Remove this DEBUG
-// This is used for animating a cursor for debugging purposes
-// var LAST_MOUSE_POSITION = [0, 0];
-
 /**
  * How long to wait in case another resize occurs before actually
  * handling a resize of the screen (in milliseconds).
@@ -203,6 +199,12 @@ export var FOUND_LISTS = {};
  */
 export var QUESTS = [];
 
+
+/**
+ * The node that ultimately holds all menu elements.
+ */
+export var MENUS_NODE = null;
+
 /**
  * All of the different menu objects that make up the core UI.
  */
@@ -235,6 +237,26 @@ var LOADING_RETRY = 10;
  * A fixed array of supertiles for grid testing.
  */
 var GRID_TEST_DATA;
+
+/**
+ * Tests whether a certain DOM node has another node as an ancestor or
+ * not.
+ *
+ * @param descendant The node whose status we're interested in.
+ * @param query The node we think might be an ancestor of the descendant.
+ *
+ * @return True if the query node is an ancestor of the descendant node,
+ *     or if the two nodes are the same node. False otherwise.
+ */
+export function has_ancestor(descendant, query) {
+    if (!descendant.parentNode) {
+        return false;
+    } else if (descendant.parentNode === query) {
+        return true;
+    } else {
+        return has_ancestor(descendant.parentNode, query);
+    }
+}
 
 /**
  * Returns (possibly after creating) the found list for the given domain
@@ -1141,6 +1163,26 @@ export function setup_canvas() {
 }
 
 /**
+ * Figures out whether this event targets a menu or not. If the click's
+ * target is a descendant of the MENUS_NODE rather than some other part
+ * of the page, as long as we didn't hit a menu_area element, we must
+ * have hit a real menu.
+ *
+ * @param e The event object to inquire about.
+ *
+ * @return True if that event hit a menu.
+ */
+export function event_targets_a_menu(e) {
+    return (
+        has_ancestor(e.target, MENUS_NODE)
+     && (
+             !e.target.classList
+          || !e.target.classList.contains("menu_area")
+        )
+    );
+}
+
+/**
  * Sets up the UI components, including attaching the various event
  * handlers and initiating the first call to draw_frame.
  *
@@ -1150,6 +1192,9 @@ export function setup_canvas() {
  * TODO: use a player to define starting location instead?
  */
 export function init(starting_dimension) {
+    // Grab handle for the menus node
+    MENUS_NODE = document.getElementById("menus");
+
     // Set up the canvas
     let canvas = setup_canvas();
 
@@ -1254,31 +1299,45 @@ export function init(starting_dimension) {
     );
 
     // TODO: prevent dialog stacking?
+    let about_dialog = null;
+    let cleanup_about = function () { about_dialog = null; }
     ABOUT_BUTTON = new menu.ButtonMenu(
         "?",
         function () {
-            // Simply create a dialog
-            new menu.Dialog(
-                (
-                    "This is Words, version 0.2. Select words and tap"
-                  + " the word that appears below, or press SPACE. You can"
-                  + " scroll to see more of the grid. Use the ⊗ at the"
-                  + " bottom-left or ESCAPE to clear the selection, or"
-                  + " double-tap to remove a glyph. Review words with the"
-                  + " 'Words' button on the right-hand side. The 🏠 button"
-                  + " takes you back to the start."
-                ),
-                undefined,
-                [ { "text": "OK" } ]
-            );
+            if (about_dialog == null) {
+                // Create a dialog
+                about_dialog = new menu.Dialog(
+                    (
+                        "This is Words, version 0.2. Select words and tap"
+                      + " the word that appears below, or press SPACE. You can"
+                      + " scroll to see more of the grid. Use the ⊗ at the"
+                      + " bottom-left or ESCAPE to clear the selection, or"
+                      + " double-tap to remove a glyph. Review words with the"
+                      + " 'Words' button on the right-hand side. The 🏠 button"
+                      + " takes you back to the start."
+                    ),
+                    cleanup_about,
+                    [ { "text": "Got it.", "action": cleanup_about } ]
+                );
+            } else {
+                // Remove the existing dialog
+                about_dialog.cancel();
+            }
         },
         "bottom"
     );
 
 
     // set up event handlers
-    document.onmousedown = function (e) {
+    let down_handler = function (e) {
+        console.log(e.target);
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+
+        // Stop propagation & prevent default action
         if (e.preventDefault) { e.preventDefault(); }
+
+        // Figure out click/tap type and dispatch event
         var which = which_click(e);
         if (which == "primary") {
             handle_primary_down(CTX, e);
@@ -1286,49 +1345,71 @@ export function init(starting_dimension) {
             PRESS_RECORDS[1] = window.performance.now();
         } else if (which == "tertiary") {
             handle_tertiary_down(CTX, e);
-        } // otherwise ignore this click
-    };
-    document.ontouchstart = document.onmousedown;
+        } // otherwise ignore this click/tap
+    }
+    document.addEventListener("mousedown", down_handler);
+    document.addEventListener("touchstart", down_handler);
 
-    document.onmouseup = function(e) {
-        // TODO: Menus
+    let up_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) {
+            // Reset scroll referent even if the event hit a menu
+            SCROLL_REFERENT = null;
+            // End swiping even if the event hit a menu
+            SWIPING = false;
+            return;
+        }
+
+        // Stop propagation & prevent default action
         if (e.preventDefault) { e.preventDefault(); }
+
+        // Figure out click/tap type and dispatch event
         var which = which_click(e);
         if (which == "primary") {
             handle_primary_up(CTX, e);
             LAST_RELEASE = canvas_position_of_event(e);
         } else if (which == "tertiary") {
             handle_tertiary_up(CTX, e);
-        } // otherwise ignore this click
+        } // otherwise ignore this click/tap
+
         // Reset scroll referent anyways just to be sure:
         SCROLL_REFERENT = null;
-    };
-    document.ontouchend = document.onmouseup;
-    document.ontouchcancel = document.onmouseup;
+    }
+    document.addEventListener("mouseup", up_handler);
+    document.addEventListener("touchend", up_handler);
+    document.addEventListener("touchcancel", up_handler);
 
-    document.onmousemove = function (e) {
-        // TODO: Remove this debug
-        // LAST_MOUSE_POSITION = canvas_position_of_event(e);
+    let move_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+
         if (e.preventDefault) { e.preventDefault(); }
         handle_movement(CTX, e);
-    };
-    document.ontouchmove = document.onmousemove;
+    }
+    document.addEventListener("mousemove", move_handler);
+    document.addEventListener("touchmove", move_handler);
 
-    canvas.addEventListener(
+    let wheel_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+        if (e.preventDefault) { e.preventDefault(); }
+        handle_wheel(CTX, e);
+    }
+    document.addEventListener(
         "wheel",
-        function (e) {
-            console.log("W");
-            if (e.preventDefault) { e.preventDefault(); }
-            handle_wheel(CTX, e);
-        },
+        wheel_handler,
         { "capture": true, "passive": false }
     );
 
-    document.onkeydown = function (e) {
+    let key_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+
         if (COMMANDS.hasOwnProperty(e.key)) {
             COMMANDS[e.key](e);
         }
-    };
+    }
+    document.addEventListener("keydown", key_handler);
 }
 
 /**
@@ -1535,19 +1616,6 @@ export function draw_frame(now) {
     ) {
         DO_REDRAW = next_horizon;
     }
-
-    // DEBUG: Uncomment this to draw a cursor; causes animation every frame
-    // while the mouse is moving.
-    /*
-       DO_REDRAW = 0;
-       CTX.strokeStyle = "#fff";
-       CTX.beginPath();
-       CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);
-       CTX.lineTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]+3);
-       CTX.moveTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]-3);
-       CTX.lineTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]+3);
-       CTX.stroke();
-    // */
 
     // reschedule ourselves
     window.requestAnimationFrame(draw_frame);

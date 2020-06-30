@@ -18,11 +18,11 @@ export var ALL_MENUS = [];
 /**
  * The five menu regions at the edges of and in the middle of the screen.
  */
+export var CENTER_MENU_REGION;
 export var TOP_MENU_REGION;
 export var BOTTOM_MENU_REGION;
 export var LEFT_MENU_REGION;
 export var RIGHT_MENU_REGION;
-export var CENTER_MENU_REGION;
 
 /**
  * Stores the current canvas size, as provided to notify_resize.
@@ -69,6 +69,8 @@ export function init_menus() {
     menus_div.appendChild(BOTTOM_MENU_REGION);
     menus_div.appendChild(LEFT_MENU_REGION);
     menus_div.appendChild(RIGHT_MENU_REGION);
+    // Center is created last so that its children appear on top of the
+    // children of other menus.
     menus_div.appendChild(CENTER_MENU_REGION);
 }
 
@@ -329,13 +331,14 @@ AutoExpandMenu.prototype.extend = function () {
  *     buttons. If left undefined, nothing extra happens when the user
  *     cancels the menu.
  * @param buttons An array of button objects, each of which must have
- *     'text' and 'action' properties. The button text will be drawn on
- *     the button, and when a button is clicked, its action function will
- *     be called (without arguments), and then the menu will be removed.
- *     The action may be the string "cancel" instead of a function which
- *     will end up calling the cancel function for the menu. The action
- *     may also be undefined, in which case the menu is simply closed
- *     when the button is pressed without any further action.
+ *     'text' and 'action' properties. The button text (may be HTML) will
+ *     be put in the button, and when a button is clicked, its action
+ *     function will be called (without arguments), and then the menu
+ *     will be removed. The action may be the string "cancel" instead of
+ *     a function which will end up calling the cancel function for the
+ *     menu. The action may also be undefined, in which case the menu is
+ *     simply closed when the button is pressed without any further
+ *     action.
  * @param pos The position of this menu (see BaseMenu).
  * @param classes CSS classes for this menu (see BaseMenu).
  * @param style Extra style code for this menu (see BaseMenu).
@@ -343,10 +346,11 @@ AutoExpandMenu.prototype.extend = function () {
 export function Dialog(text, cancel, buttons, pos, classes, style) {
     BaseMenu.call(this, pos, classes, style);
     this.element.classList.add("dialog");
+    this.element.classList.add("passive");
 
     // Save args as attributes
     this.text = text;
-    this.cancel = cancel || function () {};
+    this.cancel_action = cancel || function () {};
     this.buttons = buttons;
 
     // Create HTML elements + event handlers
@@ -365,7 +369,7 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
 
     // Create handler for all taps on the menu
     let canceller = function (e) {
-        the_menu.cancel();
+        the_menu.cancel_action();
         the_menu.remove();
         e.stopPropagation();
     };
@@ -376,9 +380,9 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
 
     // The buttons themselves
     for (let button of this.buttons) {
-        let b = document.createElement("input");
-        b.setAttribute("type", "button");
-        b.setAttribute("value", button.text);
+        let b = document.createElement("a");
+        b.classList.add("button");
+        b.innerHTML = button.text;
         let handler;
         if (button.action == "cancel") {
             handler = canceller;
@@ -406,8 +410,17 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
 Dialog.prototype = Object.create(BaseMenu.prototype);
 Dialog.prototype.constructor = Dialog;
 
+/**
+ * Cancels the dialog as if the cancel action had been taken by the user.
+ * Triggers the cancel function if there is one.
+ */
+Dialog.prototype.cancel = function () {
+    this.cancel_action();
+    this.remove();
+}
 
-/*
+
+/**
  * A ToggleMenu is a persistent button that can be tapped to toggle
  * between on and off states, calling the on_action or off_action
  * function each time it transitions. The button starts in the "off"
@@ -532,6 +545,7 @@ export function ItemList(icon, items, constructor, pos, classes, style) {
     ExpandMenu.call(this, icon, pos, classes, style);
     this.scrollbox = document.createElement("div");
     this.scrollbox.classList.add("scroll");
+    this.scrollbox.classList.add("passive");
     this.element.appendChild(this.scrollbox);
 
     this.items = items;
@@ -818,10 +832,22 @@ export function GlyphsMenu(text, action, pos, classes, style) {
     this.orig_border_width = parseFloat(
         window.getComputedStyle(this.element).borderWidth
     );
+    this.update_state();
     // TODO: Make the element into an anchor? ARIA stuff!
 }
 GlyphsMenu.prototype = Object.create(ButtonMenu.prototype);
 GlyphsMenu.prototype.constructor = GlyphsMenu;
+
+/**
+ * Updates the state of the glyphs menu based on its current contents.
+ */
+GlyphsMenu.prototype.update_state = function () {
+    if (this.element.innerHTML == "") {
+        this.element.classList.add("passive");
+    } else {
+        this.element.classList.remove("passive");
+    }
+}
 
 /**
  * Adds a single glyph to the button text.
@@ -832,6 +858,7 @@ GlyphsMenu.prototype.constructor = GlyphsMenu;
 GlyphsMenu.prototype.add_glyph = function (glyph) {
     this.glyphs.push(glyph);
     this.element.innerHTML = this.glyphs.join("");
+    this.update_state();
 };
 
 /**
@@ -840,6 +867,7 @@ GlyphsMenu.prototype.add_glyph = function (glyph) {
 GlyphsMenu.prototype.remove_glyph = function () {
     this.glyphs.pop();
     this.element.innerHTML = this.glyphs.join("");
+    this.update_state();
 };
 
 /**
@@ -852,6 +880,7 @@ GlyphsMenu.prototype.remove_glyph = function () {
 GlyphsMenu.prototype.set_glyphs = function (glyphs) {
     this.glyphs = glyphs.slice();
     this.element.innerHTML = this.glyphs.join("");
+    this.update_state();
 };
 
 /**
@@ -879,6 +908,9 @@ GlyphsMenu.prototype.flash = function (color) {
  */
 GlyphsMenu.prototype.animate_flash = function() {
     if (this.fade == undefined) {
+        this.element.style.borderColor = "";
+        this.element.style.borderWidth = "";
+        this.update_state();
         return; // flash is over, do not request another call
     }
 
