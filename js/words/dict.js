@@ -230,7 +230,8 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
-    // TODO: Use this version when worker module import support is
+
+    //TODO: Use this version when worker module import support is
     // available.
     // var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
     var worker = new window.Worker(FINALIZE_URL);

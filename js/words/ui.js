@@ -120,7 +120,7 @@ export var LAST_POSITION = [0, 0];
  * The number of milliseconds per frame (ideally).
  * TODO: Measure this?
  */
-export const MS_PER_FRAME = 1000/60;
+export const MS_PER_FRAME = 1000 / 60;
 
 /**
  * The millisecond timestamp at the time of the previous animation
@@ -281,7 +281,7 @@ export function find_word(dimension, match, path) {
     if (WORDS_FOUND.hasOwnProperty(word)) {
         WORDS_FOUND[word].push([dimension, path[0]]);
     } else {
-        WORDS_FOUND[word] = [ [dimension, path[0]] ];
+        WORDS_FOUND[word] = [[dimension, path[0]]];
     }
 
     // Have the current player remember this word.
@@ -301,7 +301,7 @@ export function find_word(dimension, match, path) {
         let fl = found_list(dom);
         let st = 0;
         let ed = fl.length;
-        let idx = st + Math.floor((ed - st)/2);
+        let idx = st + Math.floor((ed - st) / 2);
         while (ed - st > 0) {
             if (word < fl[idx]) {
                 ed = idx;
@@ -311,7 +311,7 @@ export function find_word(dimension, match, path) {
                 // found it!
                 break;
             }
-            idx = st + Math.floor((ed - st)/2);
+            idx = st + Math.floor((ed - st) / 2);
         }
 
         if (fl[idx] == undefined) { // empty list
@@ -351,7 +351,7 @@ export function zoom_in() {
  * Zooms out a bit (exact inverse of zoom_in up to rounding error).
  */
 export function zoom_out() {
-    CTX.viewport_scale *= 1/1.25;
+    CTX.viewport_scale *= 1 / 1.25;
     DO_REDRAW = 0;
 }
 
@@ -393,12 +393,12 @@ export function warp_to(coordinates, dimension) {
         let y = coordinates[1];
         let nearby = [
             [x, y],
-            [x+1, y],
-            [x+1, y+1],
-            [x, y+1],
-            [x-1, y],
-            [x-1, y-1],
-            [x, y-1],
+            [x + 1, y],
+            [x + 1, y + 1],
+            [x, y + 1],
+            [x - 1, y],
+            [x - 1, y - 1],
+            [x, y - 1],
         ];
         content.unlock_path(
             player.current_input_player(),
@@ -419,7 +419,7 @@ export var COMMANDS = {
         MODE = MODES[(MODES.index(MODE) + 1) % MODES.length];
     },
     "d": function (e) {
-        let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
+        let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION, 1);
         warp_to([0, 0], nbd);
     },
     // DEBUG
@@ -618,8 +618,8 @@ export function clear_energy(destination, style) {
 export function test_selection() {
     let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
     let domains = new Set();
-    for (let gp of combined_swipe){
-        if (typeof gp[0] == "string"){
+    for (let gp of combined_swipe) {
+        if (typeof gp[0] == "string") {
             continue;
         }
         let tile = content.tile_at(CURRENT_DIMENSION, gp);
@@ -631,13 +631,13 @@ export function test_selection() {
             // jshint +W083
         }
     }
-    if(domains.size == 0){
+    if (domains.size == 0) {
         let natural_domain = (dimensions.natural_domain(CURRENT_DIMENSION));
-        for (let component of generate.domains_list(natural_domain)){
+        for (let component of generate.domains_list(natural_domain)) {
             domains.add(component);
         }
     }
-    console.log(domains);
+    //console.log(domains);
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (matches.length > 0) {
         // Found a match:
@@ -756,35 +756,35 @@ export function update_canvas_size() {
  */
 
 
- export function update_current_glyphs() {
-     var glyphs = [];
-     for (let sw of CURRENT_SWIPES) {
-         for (let gp_or_index of sw) {
-             let g;
-             // TODO: Add code here for handling extra-planar glyphs!
-             if (typeof gp_or_index[0] == "string"){
-                 if (gp_or_index[0] == "backpack"){
-                     g = SLOTS_MENU.get_glyph(gp_or_index[1]); //TO DO
-                     if(g==undefined){
-                         //TODO maybe clean up the swipe
-                         continue;
-                     }
-                 }
-             }
-             else{
-                 g = content.tile_at(CURRENT_DIMENSION, gp_or_index).glyph;
-                 if (g == undefined) { // should never happen in theory:
-                     console.warn(
-                         "Internal Error: update_current_glyphs found"
-                         + " undefined glyph at: " + gp_or_index
-                     );
-                     g = "?";
-                 }
-             }
-             glyphs.push(g);
-         }
-     }
-     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
+export function update_current_glyphs() {
+    var glyphs = [];
+    for (let sw of CURRENT_SWIPES) {
+        for (let gp_or_index of sw) {
+            let g;
+            // TODO: Add code here for handling extra-planar glyphs!
+            if (typeof gp_or_index[0] == "string") {
+                if (gp_or_index[0] == "backpack") {
+                    g = SLOTS_MENU.get_glyph(gp_or_index[1]); //TO DO
+                    if (g == undefined) {
+                        //TODO maybe clean up the swipe
+                        continue;
+                    }
+                }
+            }
+            else {
+                g = content.tile_at(CURRENT_DIMENSION, gp_or_index).glyph;
+                if (g == undefined) { // should never happen in theory:
+                    console.warn(
+                        "Internal Error: update_current_glyphs found"
+                        + " undefined glyph at: " + gp_or_index
+                    );
+                    g = "?";
+                }
+            }
+            glyphs.push(g);
+        }
+    }
+    CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
 }
 
 
@@ -811,8 +811,8 @@ function handle_primary_down(ctx, e) {
         // a normal tile: select it
         if (
             !is_selected(gpos)
-         && (head == null || grid.is_neighbor(head, gpos))
-         && tile.glyph != undefined
+            && (head == null || grid.is_neighbor(head, gpos))
+            && tile.glyph != undefined
         ) {
             CURRENT_SWIPES.push([gpos]);
             update_current_glyphs();
@@ -864,7 +864,7 @@ function handle_primary_up(ctx, e) {
         let dx = vpos[0] - LAST_RELEASE[0];
         let dy = vpos[1] - LAST_RELEASE[1];
         let dt = window.performance.now() - PRESS_RECORDS[0];
-        let rdist = Math.sqrt(dx*dx + dy*dy);
+        let rdist = Math.sqrt(dx * dx + dy * dy);
         isdbl = dt <= DBL_TIMEOUT && rdist <= DBL_DIST;
     }
 
@@ -907,19 +907,19 @@ function handle_primary_up(ctx, e) {
             let next = undefined;
             if (cancel_index == 0) {
                 if (cancel_from > 0) {
-                    let psw = CURRENT_SWIPES[cancel_from-1];
-                    prior = psw[psw.length-1];
+                    let psw = CURRENT_SWIPES[cancel_from - 1];
+                    prior = psw[psw.length - 1];
                 }
             } else {
-                prior = csw[cancel_index-1];
+                prior = csw[cancel_index - 1];
             }
             if (cancel_index == csw.length - 1) {
-                let nsw = CURRENT_SWIPES[cancel_from+1];
+                let nsw = CURRENT_SWIPES[cancel_from + 1];
                 if (nsw != undefined) {
                     next = nsw[0];
                 }
             } else {
-                next = csw[cancel_index+1];
+                next = csw[cancel_index + 1];
             }
 
             // Check continuity
@@ -979,7 +979,7 @@ function handle_primary_up(ctx, e) {
                 CURRENT_SWIPES.pop();
                 update_current_glyphs();
                 // Check for already-active poke here
-                let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+                let entry = [CURRENT_DIMENSION, gp, window.performance.now()];
                 let found = undefined;
                 for (let i = 0; i < ACTIVE_POKES.length; ++i) {
                     if (
@@ -1073,7 +1073,7 @@ function handle_movement(ctx, e) {
                 }
             }
         });
-        var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length -1];
+        var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
         if (is_used) {
             if (is_prev) {
                 if (latest_swipe.length > 0) {
@@ -1081,7 +1081,7 @@ function handle_movement(ctx, e) {
                     latest_swipe.pop();
                     update_current_glyphs();
                     if (latest_swipe.length > 0) {
-                    //TODO make sure to skip external entries
+                        //TODO make sure to skip external entries
 
                         LAST_POSITION = latest_swipe[latest_swipe.length - 1];
                     } else if (combined_swipe.length > 1) {
@@ -1199,7 +1199,7 @@ export function init(starting_dimension) {
     // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
     // consecutive one to do anything.
     var timer_id = undefined;
-    window.addEventListener("resize", function() {
+    window.addEventListener("resize", function () {
         if (timer_id != undefined) {
             window.clearTimeout(timer_id);
             timer_id = undefined;
@@ -1273,13 +1273,13 @@ export function init(starting_dimension) {
         {},
         (
             "This is Words 成语, version 0.1. Select 成语 and press"
-          + " SPACE. Find as many as you can! You can scroll to see more."
-          + " Use the ⊗ at the bottom-left or ESCAPE to clear the"
-          + " selection, or double-tap to remove a glyph. Review 成语"
-          + " with the 找到 button on the right-hand side. The 🏠 button"
-          + " takes you back to the start."
+            + " SPACE. Find as many as you can! You can scroll to see more."
+            + " Use the ⊗ at the bottom-left or ESCAPE to clear the"
+            + " selection, or double-tap to remove a glyph. Review 成语"
+            + " with the 找到 button on the right-hand side. The 🏠 button"
+            + " takes you back to the start."
         ),
-        [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
+        [{ "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } }]
     );
 
     //adding slots menu, the contents are currently predetermined.
@@ -1288,8 +1288,20 @@ export function init(starting_dimension) {
         undefined,
         "top: 15vh; left: 3.5vw; text-align: center",
         ["A", undefined, "C", "E", "T", "B"],
-        function(menu,index){
+        function (menu, index) {
             add_backpack_glyph(index);
+        },
+        function (e) {
+            if (e.preventDefault) { e.preventDefault(); }
+            if (CURRENT_SWIPES.length > 0) {
+                let last_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
+                last_swipe.pop();
+                if (last_swipe.length == 0) {
+                    CURRENT_SWIPES.pop();
+                }
+                CURRENT_GLYPHS_BUTTON.remove_glyph();
+            }
+            DO_REDRAW = 0;
         }
     )
 
@@ -1405,7 +1417,7 @@ export function init(starting_dimension) {
     document.addEventListener("mousedown", downHandler);
     document.addEventListener("touchstart", downHandler);
 
-    let upHandler = function(e) {
+    let upHandler = function (e) {
         // TODO: Menus
         if (e.preventDefault) { e.preventDefault(); }
         var which = which_click(e);
@@ -1466,7 +1478,7 @@ export function init_test(starting_dimension, supertiles) {
     // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
     // consecutive one to do anything.
     var timer_id = undefined;
-    window.addEventListener("resize", function() {
+    window.addEventListener("resize", function () {
         if (timer_id != undefined) {
             window.clearTimeout(timer_id);
             timer_id = undefined;
@@ -1480,7 +1492,7 @@ export function init_test(starting_dimension, supertiles) {
         );
     });
 
-    document.addEventListener("keydown",function (e) {
+    document.addEventListener("keydown", function (e) {
         if (GRID_TEST_COMMANDS.hasOwnProperty(e.key)) {
             GRID_TEST_COMMANDS[e.key](e);
         }
@@ -1530,7 +1542,7 @@ export function draw_frame(now) {
 
     // Compute elapsed time
     let elapsed;
-    if (PREV_FRAME_TIME == undefined ) {
+    if (PREV_FRAME_TIME == undefined) {
         elapsed = 0; // on first frame we count 0 elapsed
     } else {
         elapsed = now - PREV_FRAME_TIME; // otherwise compute it
@@ -1577,7 +1589,7 @@ export function draw_frame(now) {
 
     // Swipes
     let combined = utils.combine_arrays(CURRENT_SWIPES);
-    combined = combined.filter((gp)=> typeof gp[0] != "string");
+    combined = combined.filter((gp) => typeof gp[0] != "string");
     draw.draw_swipe(CTX, combined, "highlight");
 
     // Pokes
@@ -1588,7 +1600,7 @@ export function draw_frame(now) {
         if (dimensions.same(CURRENT_DIMENSION, poke[0])) {
             let initiated_at = poke[2];
             let age = now - initiated_at;
-            let ticks = Math.floor(age/1000);
+            let ticks = Math.floor(age / 1000);
             let until_tick = 1000 - age % 1000;
 
             draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
@@ -1596,7 +1608,7 @@ export function draw_frame(now) {
             let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
             if (
                 poke_redraw_after == undefined
-             || poke_redraw_after > frames_left
+                || poke_redraw_after > frames_left
             ) {
                 poke_redraw_after = frames_left;
             }
@@ -1688,7 +1700,7 @@ export function make_test_animator(supertiles) {
     *
     * @param now The number of milliseconds since the time origin.
     */
-    let animate_grid_test = function(now) {
+    let animate_grid_test = function (now) {
         if (DO_REDRAW == null) {
             window.requestAnimationFrame(animate_grid_test);
             return;
@@ -1732,7 +1744,7 @@ export function make_test_animator(supertiles) {
 
 /**
 */
-export function add_glyph(mastered_glyph, e, ctx){
+export function add_glyph(mastered_glyph, e, ctx) {
 
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
@@ -1750,7 +1762,7 @@ export function add_glyph(mastered_glyph, e, ctx){
         let dx = vpos[0] - LAST_RELEASE[0];
         let dy = vpos[1] - LAST_RELEASE[1];
         let dt = window.performance.now() - PRESS_RECORDS[0];
-        let rdist = Math.sqrt(dx*dx + dy*dy);
+        let rdist = Math.sqrt(dx * dx + dy * dy);
         isdbl = dt <= DBL_TIMEOUT && rdist <= DBL_DIST;
     }
 
@@ -1789,19 +1801,19 @@ export function add_glyph(mastered_glyph, e, ctx){
             let next = undefined;
             if (cancel_index == 0) {
                 if (cancel_from > 0) {
-                    let psw = CURRENT_SWIPES[cancel_from-1];
-                    prior = psw[psw.length-1];
+                    let psw = CURRENT_SWIPES[cancel_from - 1];
+                    prior = psw[psw.length - 1];
                 }
             } else {
-                prior = csw[cancel_index-1];
+                prior = csw[cancel_index - 1];
             }
             if (cancel_index == csw.length - 1) {
-                let nsw = CURRENT_SWIPES[cancel_from+1];
+                let nsw = CURRENT_SWIPES[cancel_from + 1];
                 if (nsw != undefined) {
                     next = nsw[0];
                 }
             } else {
-                next = csw[cancel_index+1];
+                next = csw[cancel_index + 1];
             }
 
             // Check continuity
@@ -1860,7 +1872,7 @@ export function add_glyph(mastered_glyph, e, ctx){
                 CURRENT_SWIPES.pop();
                 update_current_glyphs();
                 // Check for already-active poke here
-                let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+                let entry = [CURRENT_DIMENSION, gp, window.performance.now()];
                 let found = undefined;
                 for (let i = 0; i < ACTIVE_POKES.length; ++i) {
                     if (
@@ -1905,8 +1917,7 @@ export function add_glyph(mastered_glyph, e, ctx){
 * this function adds the glyph from the backpack to the CURRENT_SWIPES
 * @param glyph_index the index of the glyph in the array of backpack
 */
-export function add_backpack_glyph(glyph_index){
-    console.log("abg", glyph_index);
+export function add_backpack_glyph(glyph_index) {
     let backpack_array = ["backpack", glyph_index];
     CURRENT_SWIPES.push([backpack_array]);
     update_current_glyphs()
@@ -1920,8 +1931,8 @@ export function add_backpack_glyph(glyph_index){
 * @return returns the last valid grid position in the current swipe or null
 * if there is no such position
 */
-export function find_swipe_head(index){
-    if (index == undefined){
+export function find_swipe_head(index) {
+    if (index == undefined) {
         index = 0;
     }
     if (CURRENT_SWIPES.length > 0) {
@@ -1929,11 +1940,11 @@ export function find_swipe_head(index){
 
             var latest_swipe = CURRENT_SWIPES[i];
             if (latest_swipe.length > 0) {
-                for (var j = latest_swipe.length - 1; j > -1; --j){
+                for (var j = latest_swipe.length - 1; j > -1; --j) {
                     let gp = latest_swipe[j];
-                    if(typeof gp[0] != "string"){
+                    if (typeof gp[0] != "string") {
                         index -= 1;
-                        if(index <0 ){
+                        if (index < 0) {
                             return gp;
                         }
                     }

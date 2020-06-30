@@ -7,6 +7,7 @@
 import * as grid from "./grid.js";
 import * as draw from "./draw.js";
 import * as colors from "./colors.js";
+import { COMMANDS } from "./ui.js";
 
 // TODO: Import this when that becomes possible (see locale.js).
 // import * as locale from "./locale.js";
@@ -1943,13 +1944,16 @@ GlyphsMenu.prototype.draw = function (ctx) {
  *
  * TODO: This menu type has not yet been fully implemented. The contents are 
  * currently predetermined, hoping to connect it with a rewards system if it is 
- * implemented in the future.
+ * implemented in the future. The menu also doesn't expand as the screen expands as well.
+ * When backspace, hopefully the slot deselects. After successfully selecting a
+ * word, want to deselect the glyph.
  */
-export function SlotsMenu(pos, shape, style, contents, action) {
+export function SlotsMenu(pos, shape, style, contents, select, backspace) {
     //pos and shape have not been implemented but kept for potential future purposes.
     this.pos = pos;
     this.shape = shape;
-    this.action = action;
+    this.select = select;
+    this.backspace = backspace;
     this.contents = []; // will be filled in later
     this.selected = [];
 
@@ -1971,7 +1975,6 @@ export function SlotsMenu(pos, shape, style, contents, action) {
 
     //adding slots & it's functions
     let index = 0;
-
     for (let glyph of contents) {
         //add if statement to cap the number of contents allowed
         //work on the add/remove function
@@ -1984,7 +1987,6 @@ export function SlotsMenu(pos, shape, style, contents, action) {
         }
         index++;
     }
-
     //adding the element onto the page
     //slotsBox.removeSlot("C");
     document.body.appendChild(this.slotsBox);
@@ -2047,15 +2049,20 @@ SlotsMenu.prototype.remove_slot = function() {
 */
 SlotsMenu.prototype.select_slot = function(index){
     let slot = this.slotsBox.children[index+1]; // (+1 ) to skip the summary
+    //Experimenting on backspacing
+    // if (this.backspace) {
+    //     this.selected[index] = false;
+    //     slot.style.backgroundColor = "rgb(143, 144, 145)";
+    // }
     if (this.selected[index]){
         slot.style.backgroundColor = "rgb(143, 144, 145)";
         this.selected[index] = false;
         //console.log(slot.id);
     }
     else {
-        //unclicked color
+        //selected
         slot.style.backgroundColor = "rgb(77, 77, 77)";
-        this.action(this,index);
+        this.select(this,index);
         this.selected[index] = true;
     }
 
