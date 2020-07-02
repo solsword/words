@@ -125,7 +125,6 @@ var POCKET_LAYOUT_CACHE_SIZE = 128;
 var DOMAIN_COMBOS = {
     "English": [ "adj", "adv", "noun", "verb", "stop" ]
 };
-// TODO: Allow words found in combo domains to appear in a common list!?!
 
 /**
  * All possible basic paths through a single half-socket.
@@ -2121,9 +2120,7 @@ export function pick_word(domains, arp, seed, only_socketable) {
     let lesser_counttable = [];
     domains.forEach(function (d) {
         if (only_socketable) {
-            let socketable_count = d.short_count_sums[
-                d.short_count_sums.length - 1
-            ];
+            let socketable_count = d.short_count_sums[d.short_count_sums.length - 1];
             greater_counttable.push(socketable_count);
             grand_total += socketable_count;
             let socketable_entries = d.normlength.length;
@@ -2445,6 +2442,7 @@ export function generate_full_supertile(dimension, sgp, world_seed) {
     }
 
     // First, embed any socketed words
+    // TODO: pass in ultratile context here!
     let socket_count = embed_socketed_words(result);
     if (socket_count == undefined) {
         return undefined;

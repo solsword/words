@@ -82,7 +82,8 @@ export function matches(hint, word) {
  */
 export function unlocked_encircled(dimension) {
     // Create map for checking whether tiles are in the unlocked region:
-    let unlk = content.unlocked_set(dimension);
+    let dk = dimensions.dim__key(dimension);
+    let unlk = content.unlocked_set(dk);
 
     // Compute bounding box of unlocked region
     let bounds = [undefined, undefined, undefined, undefined];
@@ -170,7 +171,8 @@ export function unlocked_span(dimension) {
     let xbounds = [undefined, undefined];
     let ybounds = [undefined, undefined];
     let zbounds = [undefined, undefined];
-    let unlk = content.unlocked_set(dimension);
+    let dk = dimensions.dim__key(dimension);
+    let unlk = content.unlocked_set(dk);
     for (var k of Object.keys(unlk)) {
         let pos = grid.key__coords(k);
         if (pos == undefined) {
@@ -218,7 +220,8 @@ export function unlocked_span(dimension) {
  *     configurations.
  */
 export function unlocked_branches(dimension) {
-    let unlk = content.unlocked_set(dimension);
+    let dk = dimensions.dim__key(dimension);
+    let unlk = content.unlocked_set(dk);
 
     // Check each position to see if it's the center of a branch setup:
     let branches = 0;

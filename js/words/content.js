@@ -9,7 +9,6 @@ import * as grid from "./grid.js";
 import * as generate from "./generate.js";
 import * as dimensions from "./dimensions.js";
 import * as active from "./active.js";
-import * as player from "./player.js";
 
 /**
  * An object to hold generated supertile info.
@@ -255,17 +254,17 @@ export function fetch_supertile(dimension, gp) {
  * Retrieves the set (as an object mapping keys to true) of unlocked
  * positions in a given dimension.
  *
- * @param The dimension to inspect.
+ * @param dimkey The string key for the dimension to inspect.
  *
  * @return A mapping from coordinate keys for unlocked positions in the
  *     given dimension to true. Will contain 'undefined' as a key when
  *     there is an unlocked path which uses an extradimensional glyph.
  */
-export function unlocked_set(dimension) {
+export function unlocked_set(dimkey) {
     let result = {};
     for (let i = 0; i < UNLOCKED.length; ++i) {
         let entry = UNLOCKED[i];
-        if (dimensions.same(entry.dimension, dimension)) {
+        if (entry.dimension == dimkey) {
             let path = entry.path;
             for (let j = 0; j < path.length; ++j) {
                 result[grid.coords__key(path[j])] = true;
@@ -274,7 +273,7 @@ export function unlocked_set(dimension) {
     }
     for (let i = 0; i < POKES.length; ++i) {
         let entry = POKES[i];
-        if (dimensions.same(entry.dimension, dimension)) {
+        if (entry.dimension == dimkey) {
             result[grid.coords__key(entry.pos)] = true;
         }
     }
@@ -286,14 +285,14 @@ export function unlocked_set(dimension) {
  * dimension (not counting pokes). Note that some paths may contain
  * 'undefined' entries where extradimensional glyphs were used.
  *
- * @param dimension The dimension to look for paths in.
+ * @param dimkey The string key for the dimension to look for paths in.
  *
  * @return An array of unlocked entries (see add_unlocked).
  */
-export function unlocked_entries(dimension) {
+export function unlocked_entries(dimkey) {
     let result = [];
     for (let entry of UNLOCKED) {
-        if (dimensions.same(entry.dimension, dimension)) {
+        if (entry.dimension == dimkey) {
             result.push(entry);
         }
     }
@@ -305,16 +304,16 @@ export function unlocked_entries(dimension) {
  * TODO: This could be more efficient if multiple tiles were
  * given at once.
  *
- * @param dimension The dimension to check in.
+ * @param dimkey The string key of the dimension to check in.
  * @param gp The grid position (see grid.js) to inspect.
  *
  * @return True if the given position is unlocked in the given dimension;
  *     false otherwise.
  */
-export function is_unlocked(dimension, gp) {
+export function is_unlocked(dimkey, gp) {
     for (let i = 0; i < UNLOCKED.length; ++i) {
         let entry = UNLOCKED[i];
-        if (dimensions.same(entry.dimension, dimension)) {
+        if (entry.dimension == dimkey) {
             var path = entry.path;
             for (let j = 0; j < path.length; ++j) {
                 let pos = path[j];
@@ -326,7 +325,7 @@ export function is_unlocked(dimension, gp) {
     }
     for (let i = 0; i < POKES.length; ++i) {
         let entry = POKES[i];
-        if (dimensions.same(entry.dimension, dimension)) {
+        if (entry.dimension == dimkey) {
             let pos = entry.pos;
             if (pos[0] == gp[0] && pos[1] == gp[1]) {
                 return true;
@@ -340,18 +339,18 @@ export function is_unlocked(dimension, gp) {
  * Finds all unlocked list entries which overlap any of a set of grid
  * positions in the given dimension.
  *
- * @param dimension The dimension to look in.
+ * @param dimkey The string key for the dimension to look in.
  * @param gpmap An object that maps coords__key'd grid positions to any
  *     kind of value.
  *
  * @return A list of each unlocked entry (see add_unlocked) that overlaps
  *     any of the grid positions in the given grid position map.
  */
-export function unlocked_entries_that_overlap(dimension, gpmap) {
+export function unlocked_entries_that_overlap(dimkey, gpmap) {
     let result = [];
     for (let i = 0; i < UNLOCKED.length; ++i) {
         let entry = UNLOCKED[i];
-        if (dimensions.same(entry.dimension, dimension)) {
+        if (entry.dimension == dimkey) {
             let path = entry.path;
             for (let j = 0; j < path.length; ++j) {
                 let pos = path[j];
@@ -370,7 +369,8 @@ export function unlocked_entries_that_overlap(dimension, gpmap) {
  * Finds the full unlocked entry which corresponds to the given path in
  * the given dimension, if it exists.
  *
- * @param dimension The dimension of the entry to search for.
+ * @param dimkey The dimension of the entry to search for, as a string
+ *     key (see dimensions.dim__key).
  * @param path The path of grid positions (an array of 2-element x/y
  *     grid coordinate arrays) to look for.
  *
@@ -378,12 +378,12 @@ export function unlocked_entries_that_overlap(dimension, gpmap) {
  *     path in the given dimension, or undefined if there is no such
  *     entry.
  */
-export function find_unlocked(dimension, path) {
+export function find_unlocked(dimkey, path) {
     for (var i = 0; i < UNLOCKED.length; ++i) {
         if (
             utils.equivalent(
                 [UNLOCKED[i].dimension, UNLOCKED[i].path],
-                [dimension, path]
+                [dimkey, path]
             )
         ) {
             return UNLOCKED[i];
@@ -395,19 +395,21 @@ export function find_unlocked(dimension, path) {
 /**
  * Unlocks the given path of grid positions in the given dimension.
  * Depending on the player's unlock limit, may lock the oldest unlocked
- * path. Also updates energies for all unlocked paths and their adjacent
- * active elements.
+ * path. This does not updates energies for unlocked paths or their
+ * adjacent active elements, although that will usually be necessary
+ * afterwards.
  *
  * TODO: respect free mode and don't expire unlocks in that mode?
  *
  * @param agent The player doing the unlocking.
- * @param dimension The dimension to work in.
+ * @param dimkey The dimension to work in, as a string key (see
+ *     dimensions.dim__key).
  * @param path An array of grid positions (see grid.js) corresponding to
  *     the path that should be unlocked.
  */
-export function unlock_path(agent, dimension, path) {
+export function unlock_path(agent, dimkey, path) {
     var entry = {
-        "dimension": dimension,
+        "dimension": dimkey,
         "path": path.slice(),
         "players": [ agent.id ],
         "sources": {},
@@ -436,26 +438,12 @@ export function unlock_path(agent, dimension, path) {
         // them, and have them remember that:
         if (entry.players.indexOf(agent.id) < 0) {
             entry.players.push(agent.id);
-            player.add_unlocked(agent, entry.dimension, entry.path);
         }
         UNLOCKED.push(entry);
     } else {
         // Add our new entry and update everything:
-        player.add_unlocked(agent, entry.dimension, entry.path);
         add_unlocked(entry);
     }
-
-    // Check whether this player is withdrawing support from any entires
-    // because of their unlock_limit.
-    let expired = player.limit_unlocked(agent);
-    for (let exp of expired) {
-        expire_unlocked(agent, find_unlocked(exp[0], exp[1]));
-        // We ignore the result because we just added an entry so we want
-        // to recalculate energies in any case
-    }
-
-    // Finally, recompute unlocked energies:
-    recalculate_unlocked_energies();
 }
 
 /**
@@ -465,7 +453,8 @@ export function unlock_path(agent, dimension, path) {
  * doesn't do that.
  *
  * @param entry An unlocked-list entry. It must have the following keys:
- *      "dimension": The dimension this entry belongs to.
+ *      "dimension": The dimension this entry belongs to, as a string
+ *          key (see dimensions.dim__key).
  *      "path": An array of grid positions (see grid.js).
  *      "sources": An object whose keys are energy glyphs and whose
  *          values are 'true'. Should be empty (this function fills it in
@@ -486,10 +475,11 @@ export function unlock_path(agent, dimension, path) {
 function add_unlocked(entry) {
     // First, calculate the sources and create a gpmap for this entry:
     let gpmap = {};
+    let full_dim = dimensions.key__dim(entry.dimension);
     for (let gp of entry.path) {
         let gpk = grid.coords__key(gp);
         gpmap[gpk] = true;
-        let h_tile = tile_at(entry.dimension, gp);
+        let h_tile = tile_at(full_dim, gp);
         if (h_tile.domain == "__active__") {
             if (active.is_energy(h_tile.glyph)) {
                 entry.sources[h_tile.glyph] = true;
@@ -500,7 +490,7 @@ function add_unlocked(entry) {
             let nb = grid.neighbor(gp, d);
             let nbk = grid.coords__key(nb);
             gpmap[nbk] = true;
-            let nb_tile = tile_at(entry.dimension, nb);
+            let nb_tile = tile_at(full_dim, nb);
             if (nb_tile.domain == "__active__") {
                 if (active.is_energy(nb_tile.glyph)) {
                     entry.sources[nb_tile.glyph] = true;
@@ -543,11 +533,10 @@ function propagate_energy(entry, energy) {
         entry.energies[energy] = true;
 
         // Get or create energy map for this dimension:
-        let dk = dimensions.dim__key(entry.dimension);
-        if (!ENERGY_MAP.hasOwnProperty(dk)) {
-            ENERGY_MAP[dk] = {};
+        if (!ENERGY_MAP.hasOwnProperty(entry.dimension)) {
+            ENERGY_MAP[entry.dimension] = {};
         }
-        let dmap = ENERGY_MAP[dk];
+        let dmap = ENERGY_MAP[entry.dimension];
 
         // Iterate through path:
         for (let gpos of entry.path) {
@@ -592,11 +581,10 @@ export function recalculate_unlocked_energies() {
 
     // Add energies to active elements:
     for (let entry of UNLOCKED) {
-        let dk = dimensions.dim__key(entry.dimension);
-        if (!ENERGY_MAP.hasOwnProperty(dk)) {
-            ENERGY_MAP[dk] = {};
+        if (!ENERGY_MAP.hasOwnProperty(entry.dimension)) {
+            ENERGY_MAP[entry.dimension] = {};
         }
-        let delems = ENERGY_MAP[dk];
+        let delems = ENERGY_MAP[entry.dimension];
         for (let gpk of Object.keys(entry.active_elements)) {
             if (!delems.hasOwnProperty(gpk)) {
                 delems[gpk] = {};
@@ -670,19 +658,19 @@ export function remove_unlocked(entry) {
  * Returns an entry from the POKES list which has the given dimension
  * and position, if there is one, or undefined if there isn't one.
  *
- * @param dimension The dimension of the poke to find.
+ * @param dimkey The string key of the dimension of the poke to find.
  * @param gp A 2-element grid position x/y array specifying the position
  *     of the poke we're interested in.
  *
  * @return An entry from the POKES array, with "dimension", "pos", and
  *     "players" properties.
  */
-function find_poke(dimension, gp) {
+function find_poke(dimkey, gp) {
     for (let poke of POKES) {
         if (
             utils.equivalent(
                 [poke.dimension, poke.pos],
-                [dimension, gp]
+                [dimkey, gp]
             )
         ) {
             return poke;
@@ -693,15 +681,17 @@ function find_poke(dimension, gp) {
 
 /**
  * Unlocks the given grid position in the given dimension. Depending on
- * the player's poke limit, may lock the oldest unlocked poke.
+ * the player's poke limit, may lock the oldest unlocked poke. This does
+ * not recalculate unlocked energies, although that will usually be
+ * necessary afterwards.
  *
  * @param agent The player unlocking the poke.
- * @param dimension The dimension to work in.
+ * @param dimension The string key of the dimension to work in.
  * @param gp The grid position (see grid.js) to unlock.
  */
-export function unlock_poke(agent, dimension, gp) {
+export function unlock_poke(agent, dimkey, gp) {
     var entry = {
-        "dimension": dimension,
+        "dimension": dimkey,
         "pos": gp.slice(),
         "players": [ agent.id ]
     };
@@ -721,14 +711,6 @@ export function unlock_poke(agent, dimension, gp) {
     }
 
     POKES.push(entry);
-
-    player.add_poke(agent, entry.dimension, entry.pos);
-
-    let expired = player.limit_pokes(agent);
-    for (let exp of expired) {
-        expire_poke(agent, find_poke(exp[0], exp[1]));
-        // We don't care about the result here
-    }
 }
 
 /**

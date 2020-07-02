@@ -925,7 +925,8 @@ export function draw_tile(ctx, tile) {
         // Draw the active element:
         draw_active_element(ctx, glyph, energy_glyph, energized);
     } else { // a loaded normal tile: the works
-        let unlocked = content.is_unlocked(tile["dimension"], gpos);
+        let dk = dimensions.dim__key(tile.dimension);
+        let unlocked = content.is_unlocked(dk, gpos);
 
         // Hexagon highlight
         ctx.lineWidth = THICK_LINE;
@@ -1567,11 +1568,12 @@ export function draw_connector_symbol(ctx, glyph, eglyph, energized) {
  * Highlights the player's unlocked words by drawing trace lines
  * through them.
  *
- * @param dimension The dimension to draw unlocked words from.
+ * @param dimkey The string key of the dimension to draw unlocked words
+ *     from.
  * @param ctx The canvas context to use.
  */
-export function trace_unlocked(dimension, ctx) {
-    let entries = content.unlocked_entries(dimension);
+export function trace_unlocked(dimkey, ctx) {
+    let entries = content.unlocked_entries(dimkey);
     for (let entry of entries) {
         // Highlight each swipe using a neutral color:
         draw_swipe(
@@ -1679,7 +1681,7 @@ export function draw_swipe(ctx, gplist, method, color) {
         ctx.strokeStyle = color || colors.scheme_color("ui", "trail");
         ctx.fillStyle = ctx.strokeStyle;
         if (method == "line") {
-            ctx.lineWidth = THICK_LINE * ctx.viewport_scale;
+            ctx.lineWidth = THINNER_LINE * ctx.viewport_scale;
         } else {
             ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
         }
@@ -1687,14 +1689,14 @@ export function draw_swipe(ctx, gplist, method, color) {
         ctx.save();
         transform_to_tile(ctx, gplist[0]);
         ctx.beginPath();
-        ctx.arc(0, 0, VERY_THICK_LINE, 0, 2*Math.PI);
+        ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
         ctx.fill();
         ctx.restore();
 
         ctx.save();
         transform_to_tile(ctx, gplist[gplist.length - 1]);
         ctx.beginPath();
-        ctx.arc(0, 0, VERY_THICK_LINE, 0, 2*Math.PI);
+        ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
         ctx.fill();
         ctx.restore();
 

@@ -171,30 +171,6 @@ export var CTX;
 export var ANIMATION_FRAME = 0;
 
 /**
- * Word tracking...
- *
- * An object where the keys are words (in their canonical form, not their
- * glyphs-list form) and the values are arrays of 2-element [dimension,
- * position] arrays containing a dimension object where that word was
- * found, and a global tile grid 2-element x/y position array in that
- * dimension where the first glyph of that word was discovered (to save
- * memory we assume that when you find one copy of a word starting at a
- * particular location, you might as well have found any additional
- * copies that also start at that location, which is rare enough in any
- * case).
- */
-export var WORDS_FOUND = {};
-
-/**
- * An object with domain names as keys, where each value is an array of
- * word strings (in canonical form) from that domain which have been
- * discovered by the player. These lists are maintained in sorted order
- * alphabetically (or at least, according to the Javascript default
- * string < operator).
- */
-export var FOUND_LISTS = {};
-
-/**
  * An array of the player's currently active quests.
  */
 export var QUESTS = [];
@@ -259,24 +235,6 @@ export function has_ancestor(descendant, query) {
 }
 
 /**
- * Returns (possibly after creating) the found list for the given domain
- * (should be given by name).
- *
- * TODO: What if we used arrays of entry indices instead?
- *
- * @param domain_name A string naming a domain.
- *
- * @return A sorted array of canonical word strings from the given domain
- *     which correspond to words that the player has found in that domain.
- */
-export function found_list(domain_name) {
-    if (!FOUND_LISTS.hasOwnProperty(domain_name)) {
-        FOUND_LISTS[domain_name] = [];
-    }
-    return FOUND_LISTS[domain_name];
-}
-
-/**
  * Updates the game state when a word has been found.
  *
  * @param dimension The dimension object within which the match occurred.
@@ -296,50 +254,26 @@ export function found_list(domain_name) {
 export function find_word(dimension, match, path) {
     DO_REDRAW = 0;
     let word = match[3];
-    // Insert into global found map:
-    if (WORDS_FOUND.hasOwnProperty(word)) {
-        WORDS_FOUND[word].push([dimension, path[0]]);
-    } else {
-        WORDS_FOUND[word] = [ [dimension, path[0]] ];
-    }
 
     // Have the current player remember this word.
+    let who = player.current_input_player();
     player.remember_match(
-        player.current_input_player(),
-        dimension,
+        who,
+        dimensions.dim__key(dimension),
         path[0],
         match[0],
         match[1]
     );
 
-    // TODO: Use player info instead!
-    // Insert into per-domain alphabetized found list(s):
-    let this_dom = match[0];
-    let all_doms = [this_dom].concat(generate.ancestor_domains(this_dom));
-    for (let dom of all_doms) {
-        let fl = found_list(dom);
-        let st = 0;
-        let ed = fl.length;
-        let idx = st + Math.floor((ed - st)/2);
-        while (ed - st > 0) {
-            if (word < fl[idx]) {
-                ed = idx;
-            } else if (word > fl[idx]) {
-                st = idx + 1;
-            } else {
-                // found it!
-                break;
-            }
-            idx = st + Math.floor((ed - st)/2);
-        }
-
-        if (fl[idx] == undefined) { // empty list
-            fl[idx] = word;
-        } else if (fl[idx] > word) {
-            fl.splice(idx, 0, word);
-        } else if (fl[idx] < word) {
-            fl.splice(idx + 1, 0, word);
-        } // else it's already there!
+    // Update the words found list.
+    if (WORDS_LIST_MENU) {
+        WORDS_LIST_MENU.add_item(
+            [match[0], match[2], match[3], player.elapsed(who)]
+        );
+        // Note: this gets very slightly out-of-sync with the player's
+        // recent-finds list (duplicate matches plus no forgetting) but
+        // it should be *way* more efficient not to re-constitute all of
+        // the DOM elements every time we find a word.
     }
 
     // Update active quests:
@@ -354,7 +288,8 @@ export function find_word(dimension, match, path) {
  * @param q A Quest object (see quests.js).
  */
 export function add_quest(q) {
-    q.initialize(CURRENT_DIMENSION, WORDS_FOUND);
+    // TODO: This should be per-player!
+    q.initialize(CURRENT_DIMENSION, []);
     QUESTS.push(q);
 }
 
@@ -397,11 +332,7 @@ export function home_view() {
 export function warp_to(coordinates, dimension) {
     if (dimension) {
         CURRENT_DIMENSION = dimension;
-    }
-    if (WORDS_LIST_MENU) {
-        WORDS_LIST_MENU.replace_items(
-            found_list(dimensions.natural_domain(CURRENT_DIMENSION))
-        );
+        player.remember_dimension(player.current_input_player(), dimension);
     }
     // TODO: Update base URL?
     let wpos = grid.world_pos(coordinates);
@@ -420,9 +351,9 @@ export function warp_to(coordinates, dimension) {
             [x+1, y+1],
         ];
         // TODO: Unlock these as unremembered tiles instead of as a path.
-        content.unlock_path(
+        player.add_unlocked(
             player.current_input_player(),
-            CURRENT_DIMENSION,
+            dimensions.dim__key(CURRENT_DIMENSION),
             nearby
         );
     }
@@ -631,11 +562,11 @@ export function clear_energy(destination, style) {
 
 /**
  * Tests whether the current selection is a valid word, and if it is,
- * triggers find_word. In any case it will provide UI feedback by
- * flashing the edge of the glyphs button with a certain color: red for a
- * non-word, yellow for a valid word that's not reachable, and white for
- * a valid word (the menu will also be emptied in that case as the match
- * is recorded).
+ * triggers find_word, perhaps multiple times (once for each match). In
+ * any case it will provide UI feedback by flashing the edge of the
+ * glyphs button with a certain color: red for a non-word, yellow for a
+ * valid word that's not reachable, and white for a valid word (the menu
+ * will also be emptied in that case as the match is recorded).
  */
 export function test_selection() {
     let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
@@ -649,24 +580,25 @@ export function test_selection() {
         }
     });
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
-    if (matches.length > 0) {
-        // Found a match:
-        let connected = false;
+    if (matches.length > 0) { // Found a match
+        let in_reach = false; // is this match within reach?
+        // TODO: Implement reach > 0
         if (MODE == "free") {
-            connected = true;
+            in_reach = true;
         } else {
-            combined_swipe.forEach(function (gp) {
-                if (content.is_unlocked(CURRENT_DIMENSION, gp)) {
-                    connected = true;
+            let dk = dimensions.dim__key(CURRENT_DIMENSION);
+            for (let gp of combined_swipe) {
+                if (content.is_unlocked(dk, gp)) {
+                    in_reach = true;
+                    break;
                 }
-            });
+            }
         }
-        if (connected) {
-            // Match is connected:
+        if (in_reach) { // Match is in-reach
             // clear our swipes and glyphs and add to our words found
-            content.unlock_path(
+            player.add_unlocked(
                 player.current_input_player(),
-                CURRENT_DIMENSION,
+                dimensions.dim__key(CURRENT_DIMENSION),
                 combined_swipe
             );
             for (let m of matches) {
@@ -676,14 +608,13 @@ export function test_selection() {
                 [ CTX.cwidth/2, CTX.cheight ],
                 { "color": "#fff" }
             );
-            // Highlight in white:
+            // Highlight in white
             CURRENT_GLYPHS_BUTTON.flash("#fff");
-        } else {
-            // Highlight in yellow:
+        } else { // Valid word but it's not in-reach
+            // Highlight in yellow
             CURRENT_GLYPHS_BUTTON.flash("#ff2");
         }
-    } else {
-        // No match found: just highlight in red
+    } else { // No match found: highlight in red
         CURRENT_GLYPHS_BUTTON.flash("#f22");
     }
     DO_REDRAW = 0;
@@ -963,9 +894,10 @@ function handle_primary_up(ctx, e) {
                 valid = false;
             } else {
                 // TODO: Use reach here
+                let dk = dimensions.dim__key(CURRENT_DIMENSION);
                 for (let d = 0; d < 6; ++d) {
                     let np = grid.neighbor(gp, d);
-                    if (content.is_unlocked(CURRENT_DIMENSION, np)) {
+                    if (content.is_unlocked(dk, np)) {
                         valid = true;
                         break;
                     }
@@ -1247,8 +1179,8 @@ export function init(starting_dimension) {
     */
 
     WORDS_LIST_MENU = new menu.WordList(
-        found_list(dimensions.natural_domain(CURRENT_DIMENSION)),
-        "https://en.wiktionary.org/wiki/<item>",
+        player.recent_words(player.current_input_player()),
+        "https://<lang>.wiktionary.org/wiki/<item>",
         "right",
         "words"
     );
@@ -1300,7 +1232,7 @@ export function init(starting_dimension) {
 
     // TODO: prevent dialog stacking?
     let about_dialog = null;
-    let cleanup_about = function () { about_dialog = null; }
+    let cleanup_about = function () { about_dialog = null; };
     ABOUT_BUTTON = new menu.ButtonMenu(
         "?",
         function () {
@@ -1330,7 +1262,6 @@ export function init(starting_dimension) {
 
     // set up event handlers
     let down_handler = function (e) {
-        console.log(e.target);
         // If this event targets a menu, skip it
         if (event_targets_a_menu(e)) { return; }
 
@@ -1346,7 +1277,7 @@ export function init(starting_dimension) {
         } else if (which == "tertiary") {
             handle_tertiary_down(CTX, e);
         } // otherwise ignore this click/tap
-    }
+    };
     document.addEventListener("mousedown", down_handler);
     document.addEventListener("touchstart", down_handler);
 
@@ -1374,7 +1305,7 @@ export function init(starting_dimension) {
 
         // Reset scroll referent anyways just to be sure:
         SCROLL_REFERENT = null;
-    }
+    };
     document.addEventListener("mouseup", up_handler);
     document.addEventListener("touchend", up_handler);
     document.addEventListener("touchcancel", up_handler);
@@ -1385,7 +1316,7 @@ export function init(starting_dimension) {
 
         if (e.preventDefault) { e.preventDefault(); }
         handle_movement(CTX, e);
-    }
+    };
     document.addEventListener("mousemove", move_handler);
     document.addEventListener("touchmove", move_handler);
 
@@ -1394,7 +1325,7 @@ export function init(starting_dimension) {
         if (event_targets_a_menu(e)) { return; }
         if (e.preventDefault) { e.preventDefault(); }
         handle_wheel(CTX, e);
-    }
+    };
     document.addEventListener(
         "wheel",
         wheel_handler,
@@ -1408,7 +1339,7 @@ export function init(starting_dimension) {
         if (COMMANDS.hasOwnProperty(e.key)) {
             COMMANDS[e.key](e);
         }
-    }
+    };
     document.addEventListener("keydown", key_handler);
 }
 
@@ -1536,7 +1467,7 @@ export function draw_frame(now) {
 
     // Highlight unlocked:
     if (TRACE_UNLOCKED) {
-        draw.trace_unlocked(CURRENT_DIMENSION, CTX);
+        draw.trace_unlocked(dimensions.dim__key(CURRENT_DIMENSION), CTX);
     }
 
     // Add energy highlights:
@@ -1577,12 +1508,8 @@ export function draw_frame(now) {
         let adj = 0;
         for (let i = 0; i < finished_pokes.length; ++i) {
             let poke = ACTIVE_POKES[i - adj];
-            content.unlock_poke(poke[0], poke[1]);
-            player.remember_poke(
-                player.current_input_player(),
-                poke[0],
-                poke[1]
-            );
+            let dk = dimensions.dim__key(poke[0]);
+            player.add_poke(player.current_input_player(), dk, poke[1]);
             ACTIVE_POKES.splice(i - adj, 1);
             adj += 1;
         }

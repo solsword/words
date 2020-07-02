@@ -7,6 +7,7 @@
 import * as grid from "./grid.js";
 import * as draw from "./draw.js";
 import * as colors from "./colors.js";
+import * as dict from "./dict.js";
 
 // TODO: Import this when that becomes possible (see locale.js).
 // import * as locale from "./locale.js";
@@ -417,7 +418,7 @@ Dialog.prototype.constructor = Dialog;
 Dialog.prototype.cancel = function () {
     this.cancel_action();
     this.remove();
-}
+};
 
 
 /**
@@ -712,7 +713,8 @@ export function create_link_list_constructor(
         }
 
         link.setAttribute("href", url);
-        link.innerHTML = str;
+        link.setAttribute("target", "definitions");
+        link.innerHTML = icon + str;
 
         return result;
     };
@@ -749,7 +751,15 @@ QuestList.prototype.constructor = QuestList;
  * A WordList is a scrollable list of words which each link to a
  * definition.
  *
- * @param words An array of strings listing the words to be included.
+ * TODO: Make it sortable!
+ * TODO: Include domain info somehow?
+ * TODO: Include glyph strings too!
+ *
+ * @param words An array of 4-element arrays listing the words to be
+ *     included. Each entry includes the domain name for the word (might
+ *     be "_custom_" or "_personal_"), the word glyphs string, the word
+ *     string, and the player timestamp at which the word was most
+ *     recently matched.
  * @param base_url A URL template that includes the text "<item>".
  * @param pos The position of this menu (see BaseMenu).
  * @param classes CSS classes for this menu (see BaseMenu).
@@ -759,8 +769,37 @@ export function WordList(words, url_template, pos, classes, style) {
     ItemList.call(
         this,
         'Words',
-        words,
-        create_link_list_constructor(url_template, "📖"),
+        words.map(w => w[2]),
+        create_link_list_constructor(
+            function (entry) {
+                let [dom, glyphs, word, when] = entry;
+                let dobj = dict.lookup_domain(dom);
+                let loc = locale.DEFAULT_LOCALE;
+                if (dobj) { loc = dobj.locale; }
+                let lower = locale.lc_lower(word, loc);
+                return url_template.replace(
+                    "<item>",
+                    encodeURIComponent(lower)
+                ).replace(
+                    "<lang>",
+                    loc.split('-')[0]
+                );
+            },
+            "📖",
+            function (entry) {
+                let [dom, glyphs, word, when] = entry;
+                let dobj = dict.lookup_domain(dom);
+                let loc = "???";
+                if (dobj) {
+                    loc = dobj.locale;
+                }
+                if (glyphs == word) {
+                    return `${glyphs} (${loc})`;
+                } else {
+                    return `${glyphs} → ${word} (${loc})`;
+                }
+            }
+        ),
         pos,
         classes,
         style
@@ -826,6 +865,7 @@ export function GlyphsMenu(text, action, pos, classes, style) {
     this.glyphs = this.text.split("");
     this.fade = undefined;
     this.fade_color = undefined;
+    this.flash_in_progress = null;
     this.orig_border_color = window.getComputedStyle(
         this.element
     ).borderTopColor;
@@ -847,7 +887,7 @@ GlyphsMenu.prototype.update_state = function () {
     } else {
         this.element.classList.remove("passive");
     }
-}
+};
 
 /**
  * Adds a single glyph to the button text.
@@ -885,7 +925,8 @@ GlyphsMenu.prototype.set_glyphs = function (glyphs) {
 
 /**
  * Initiates a flash of color using the border of the menu. The actual
- * flash will happen over the course of many animation frames.
+ * flash will happen over the course of many animation frames. If there
+ * is another flash in progress, that flash will be cancelled.
  *
  * @param color The color to use (must be an RGB hex string).
  */
@@ -900,7 +941,12 @@ GlyphsMenu.prototype.flash = function (color) {
     this.fade = 1.0;
     let the_menu = this;
     this.animate = function () { the_menu.animate_flash.call(the_menu); };
-    window.requestAnimationFrame(this.animate);
+
+    // Cancel any in-progress flash
+    if (this.flash_in_progress != null) {
+        window.cancelAnimationFrame(this.flash_in_progress);
+    }
+    this.flash_in_progress = window.requestAnimationFrame(this.animate);
 };
 
 /**
@@ -911,6 +957,7 @@ GlyphsMenu.prototype.animate_flash = function() {
         this.element.style.borderColor = "";
         this.element.style.borderWidth = "";
         this.update_state();
+        this.flash_in_progress = null;
         return; // flash is over, do not request another call
     }
 
@@ -938,5 +985,5 @@ GlyphsMenu.prototype.animate_flash = function() {
     }
 
     // Continue animating
-    window.requestAnimationFrame(this.animate);
+    this.flash_in_progress = window.requestAnimationFrame(this.animate);
 };
