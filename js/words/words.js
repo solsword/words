@@ -49,7 +49,7 @@ export function start_game() {
 
     determine_wordlist(edom, ewords, function(w){ finish_setup(edom,eseed,w)});
 }
-A
+
 /**
 * In this function, we make the words and their definitions their own lists. The
 * words are split from different characters the user will put in the text file
