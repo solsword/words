@@ -15,6 +15,7 @@ import * as animate from "./animate.js";
 import * as utils from "./utils.js";
 import * as quests from "./quests.js";
 import * as player from "./player.js";
+import * as avatar from "./avatar.js";
 
 /**
  * Different game modes.
@@ -1147,6 +1148,9 @@ export function init(starting_dimension) {
     // Set up the canvas
     setup_canvas();
 
+    // Display the current player's avatar
+    avatar.init_avatar(player.current_input_player()); 
+
     // Unlock initial tiles
     // TODO: Better/different here?
     // TODO: Add starting place?
@@ -1440,7 +1444,6 @@ export function init_test(starting_dimension, supertiles) {
         }
     };
 }
-
 
 /**
  * Tests whether the given position is selected by a current swipe.

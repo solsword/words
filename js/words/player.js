@@ -5,6 +5,7 @@
 "use strict";
 
 import * as anarchy from "../anarchy.mjs";
+import * as avatar from "./avatar.js";
 
 /**
  * All current players by ID
@@ -136,6 +137,14 @@ function next_id() {
  *     playtime: A number indicating how many seconds (& fractions of a
  *         second) of in-game time have elapsed while this player was
  *         active.
+ *     avatar: A sub-object with the following keys:
+ *         static_img_src: The filename of the avatar's static image within
+ *             the images folder in the format "../../images/<filename>.svg" 
+ *             where <filename> is the name of the file.
+ *         animation_srcs: A list containing the filenames of the avatar's
+ *             animations within the images folder in the format 
+ *             "../../images/<filename>.svg" where <filename> is the
+ *             name of each file.
  */
 export function new_player(seed) {
     let id = next_id();
@@ -181,6 +190,7 @@ export function new_player(seed) {
         "words_unlocked": [],
         "positions_poked": [],
         "playtime": 0,
+        "avatar": avatar.new_avatar("trial_image"),
     };
     CURRENT_PLAYERS[id] = result;
     return result;
