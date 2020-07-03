@@ -52,8 +52,8 @@ var SWIPING = false;
 var PRESS_RECORDS = [undefined, undefined];
 
 /**
- * The time at which the most recent mouse-release (or touch-end)
- * occurred.
+ * The position at which the most recent mouse-release (or touch-end)
+ * occurred (a 2-element x/y canvas coordinate array).
  */
 var LAST_RELEASE = null;
 
@@ -110,12 +110,6 @@ var SEL_CLEAR_ANIM = null;
 var EN_CLEAR_ANIM = null;
 
 /**
- * A 2-element array holding tile grid x/y coordinates specifying where
- * the player's most recent interaction happened on the grid.
- */
-export var LAST_POSITION = [0, 0];
-
-/**
  * The number of milliseconds per frame (ideally).
  * TODO: Measure this?
  */
@@ -133,25 +127,18 @@ export var PREV_FRAME_TIME = undefined;
 export var TRACE_UNLOCKED = true;
 
 /**
- * The current dimension object.
- */
-export var CURRENT_DIMENSION;
-
-/**
  * Mouse scroll correction factors:
  */
 var PIXELS_PER_LINE = 18;
 var LINES_PER_PAGE = 40;
 
-// TODO: Remove this DEBUG
-// This is used for animating a cursor for debugging purposes
-// var LAST_MOUSE_POSITION = [0, 0];
-
 /**
  * How long to wait in case another resize occurs before actually
  * handling a resize of the screen (in milliseconds).
+ * Note: If this is too short, can cause screen updates to flash in
+ * Firefox.
  */
-var RESIZE_TIMEOUT = 20;
+var RESIZE_TIMEOUT = 50;
 
 /**
  * Keeps track of how many frames are left before we need to redraw
@@ -173,44 +160,19 @@ export var CTX;
  */
 export var ANIMATION_FRAME = 0;
 
-/**
- * Word tracking...
- *
- * An object where the keys are words (in their canonical form, not their
- * glyphs-list form) and the values are arrays of 2-element [dimension,
- * position] arrays containing a dimension object where that word was
- * found, and a global tile grid 2-element x/y position array in that
- * dimension where the first glyph of that word was discovered (to save
- * memory we assume that when you find one copy of a word starting at a
- * particular location, you might as well have found any additional
- * copies that also start at that location, which is rare enough in any
- * case).
- */
-export var WORDS_FOUND = {};
 
 /**
- * An object with domain names as keys, where each value is an array of
- * word strings (in canonical form) from that domain which have been
- * discovered by the player. These lists are maintained in sorted order
- * alphabetically (or at least, according to the Javascript default
- * string < operator).
+ * The node that ultimately holds all menu elements.
  */
-export var FOUND_LISTS = {};
-
-/**
- * An array of the player's currently active quests.
- */
-export var QUESTS = [];
+export var MENUS_NODE = null;
 
 /**
  * All of the different menu objects that make up the core UI.
  */
 export var QUEST_MENU = null;
-export var QUEST_SIDEBAR = null;
 export var WORDS_LIST_MENU = null;
 export var WORDS_SIDEBAR = null;
-export var ABOUT_TOGGLE = null;
-export var ABOUT_DIALOG = null;
+export var ABOUT_BUTTON = null;
 export var HOME_BUTTON = null;
 export var ZOOM_IN_BUTTON = null;
 export var ZOOM_OUT_BUTTON = null;
@@ -237,27 +199,48 @@ var LOADING_RETRY = 10;
 var GRID_TEST_DATA;
 
 /**
- * Returns (possibly after creating) the found list for the given domain
- * (should be given by name).
- *
- * TODO: What if we used arrays of entry indices instead?
- *
- * @param domain_name A string naming a domain.
- *
- * @return A sorted array of canonical word strings from the given domain
- *     which correspond to words that the player has found in that domain.
+ * Last recorded grid position of the avatar
  */
-export function found_list(domain_name) {
-    if (!FOUND_LISTS.hasOwnProperty(domain_name)) {
-        FOUND_LISTS[domain_name] = [];
+var LAST_AVATAR_POSITION = [0, 0];
+
+/**
+ * Tests whether a certain DOM node has another node as an ancestor or
+ * not.
+ *
+ * @param descendant The node whose status we're interested in.
+ * @param query The node we think might be an ancestor of the descendant.
+ *
+ * @return True if the query node is an ancestor of the descendant node,
+ *     or if the two nodes are the same node. False otherwise.
+ */
+export function has_ancestor(descendant, query) {
+    if (!descendant.parentNode) {
+        return false;
+    } else if (descendant.parentNode === query) {
+        return true;
+    } else {
+        return has_ancestor(descendant.parentNode, query);
     }
-    return FOUND_LISTS[domain_name];
+}
+
+/**
+ * Retrieves the current input player's current dimension.
+ *
+ * @return A dimension key string indicating what dimension the current
+ *     input player is in. Will return undefined before the player has
+ *     been placed somewhere, or when there is no current input player.
+ */
+export function get_current_dimkey() {
+    let pl = player.current_input_player();
+    if (!pl) { return undefined; }
+    return pl.position.dimension;
 }
 
 /**
  * Updates the game state when a word has been found.
  *
- * @param dimension The dimension object within which the match occurred.
+ * @param dimkey The dimension key string within which the match
+ *     occurred.
  * @param match A 5-element array containing:
  *     0: The string name of the domain that the matched word belongs to.
  *     1: The index of the entry for that word in its domain.
@@ -271,69 +254,31 @@ export function found_list(domain_name) {
  *     of those positions may be undefined if extra-planar glyphs are
  *     involved in the match.
  */
-export function find_word(dimension, match, path) {
+export function find_word(dimkey, match, path) {
     DO_REDRAW = 0;
-    let word = match[3];
-    // Insert into global found map:
-    if (WORDS_FOUND.hasOwnProperty(word)) {
-        WORDS_FOUND[word].push([dimension, path[0]]);
-    } else {
-        WORDS_FOUND[word] = [ [dimension, path[0]] ];
-    }
+    let [domname, widx, glyphs, word, freq] = match;
 
     // Have the current player remember this word.
+    let who = player.current_input_player();
     player.remember_match(
-        player.current_input_player(),
-        dimension,
-        path[0],
-        match[0],
-        match[1]
+        who,
+        dimkey,
+        path,
+        domname,
+        widx,
+        glyphs
     );
+    place_avatar(path[0]);
 
-    // TODO: Use player info instead!
-    // Insert into per-domain alphabetized found list(s):
-    let this_dom = match[0];
-    let all_doms = [this_dom].concat(generate.ancestor_domains(this_dom));
-    for (let dom of all_doms) {
-        let fl = found_list(dom);
-        let st = 0;
-        let ed = fl.length;
-        let idx = st + Math.floor((ed - st)/2);
-        while (ed - st > 0) {
-            if (word < fl[idx]) {
-                ed = idx;
-            } else if (word > fl[idx]) {
-                st = idx + 1;
-            } else {
-                // found it!
-                break;
-            }
-            idx = st + Math.floor((ed - st)/2);
-        }
-
-        if (fl[idx] == undefined) { // empty list
-            fl[idx] = word;
-        } else if (fl[idx] > word) {
-            fl.splice(idx, 0, word);
-        } else if (fl[idx] < word) {
-            fl.splice(idx + 1, 0, word);
-        } // else it's already there!
+    // Update the quests list.
+    if (QUEST_MENU) {
+        QUEST_MENU.update();
     }
 
-    // Update active quests:
-    for (var q of QUESTS) {
-        q.find_word(dimension, match, path);
+    // Update the words found list.
+    if (WORDS_LIST_MENU) {
+        WORDS_LIST_MENU.update();
     }
-}
-
-/**
- * Adds the given quest to the list of active quests.
- *
- * @param q A Quest object (see quests.js).
- */
-export function add_quest(q) {
-    q.initialize(CURRENT_DIMENSION, WORDS_FOUND);
-    QUESTS.push(q);
 }
 
 /**
@@ -342,6 +287,8 @@ export function add_quest(q) {
 export function zoom_in() {
     CTX.viewport_scale *= 1.25;
     DO_REDRAW = 0;
+    rescale_avatar();
+    replace_avatar();
 }
 
 /**
@@ -350,6 +297,8 @@ export function zoom_in() {
 export function zoom_out() {
     CTX.viewport_scale *= 1/1.25;
     DO_REDRAW = 0;
+    rescale_avatar();
+    replace_avatar();
 }
 
 /**
@@ -359,8 +308,7 @@ export function zoom_out() {
  */
 export function home_view() {
     let wpos = grid.world_pos([0, 0]);
-    CTX.viewport_center[0] = wpos[0];
-    CTX.viewport_center[1] = wpos[1];
+    place_viewport(wpos);
     DO_REDRAW = 0;
 }
 
@@ -370,40 +318,19 @@ export function home_view() {
  * the given destination.
  *
  * @param coordinates The coordinates to move to.
- * @param dimension (optional) A dimension object to swap to.
+ * @param dimkey (optional) The string key for the dimension to swap to.
  */
-export function warp_to(coordinates, dimension) {
-    if (dimension) {
-        CURRENT_DIMENSION = dimension;
-    }
-    if (WORDS_LIST_MENU) {
-        WORDS_LIST_MENU.replace_items(
-            found_list(dimensions.natural_domain(CURRENT_DIMENSION))
-        );
-    }
-    // TODO: Update base URL?
+export function warp_to(coordinates, dimkey) {
+    player.teleport(
+        player.current_input_player(),
+        coordinates,
+        dimkey,
+        MODE != "free"
+    );
     let wpos = grid.world_pos(coordinates);
-    CTX.viewport_center[0] = wpos[0];
-    CTX.viewport_center[1] = wpos[1];
-    if (MODE != "free") {
-        let x = coordinates[0];
-        let y = coordinates[1];
-        let nearby = [
-            [x, y],
-            [x+1, y],
-            [x+1, y+1],
-            [x, y+1],
-            [x-1, y],
-            [x-1, y-1],
-            [x, y-1],
-        ];
-        content.unlock_path(
-            player.current_input_player(),
-            CURRENT_DIMENSION,
-            nearby
-        );
-    }
+    place_viewport(wpos);
     DO_REDRAW = 0;
+    place_avatar(coordinates);
 }
 
 /**
@@ -416,8 +343,10 @@ export var COMMANDS = {
         MODE = MODES[(MODES.index(MODE) + 1) % MODES.length];
     },
     "d": function (e) {
-        let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
-        warp_to([0, 0], nbd);
+        let cdk = get_current_dimkey();
+        let fd = dimensions.key__dim(cdk);
+        let nbd = dimensions.neighboring_dimension(fd, 1);
+        warp_to([0, 0], dimensions.dim__key(nbd));
     },
     // DEBUG
     "s": function (e) { generate.toggle_socket_colors(); },
@@ -425,8 +354,14 @@ export var COMMANDS = {
     // escape removes all current selections
     "Escape": function () {
         clear_selection(
-            CLEAR_SELECTION_BUTTON.center(),
-            { "color": CLEAR_SELECTION_BUTTON.style.text_color }
+            // TODO: Better here?
+            [0, CTX.cheight],
+            {
+                "color":
+                    window.getComputedStyle(
+                        CLEAR_SELECTION_BUTTON.element
+                    ).color
+            }
         );
     },
     // z removes energized elements
@@ -439,14 +374,16 @@ export var COMMANDS = {
     // tab recenters view on current/last swipe head
     "Tab": function (e) {
         if (e.preventDefault) { e.preventDefault(); }
-        var wpos = grid.world_pos(LAST_POSITION);
-        CTX.viewport_center[0] = wpos[0];
-        CTX.viewport_center[1] = wpos[1];
-        DO_REDRAW = 0;
+        let lp = player.current_input_player().position.pos;
+        if (lp) {
+            var wpos = grid.world_pos(lp);
+            place_viewport(wpos);
+            DO_REDRAW = 0;
+        }
     },
     // shows 'about' dialog
     "a": function (e) {
-        ABOUT_TOGGLE.toggle();
+        ABOUT_BUTTON.press();
         DO_REDRAW = 0;
     },
     // home and 0 reset the view to center 0, 0
@@ -468,10 +405,12 @@ export var COMMANDS = {
     // TODO: DEBUG
     "q": function (e) { // "find' a bunch of words for testing purposes
         for (let w of "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()") {
+            let cdk = get_current_dimkey();
+            let cd = dimensions.key__dim(cdk);
             find_word(
-                CURRENT_DIMENSION,
+                cdk,
                 [
-                    dimensions.natural_domain(CURRENT_DIMENSION),
+                    dimensions.natural_domain(cd),
                     undefined,
                     [w],
                     w,
@@ -525,7 +464,7 @@ export function clear_selection(destination, style) {
             var vp = draw.view_pos(CTX, wp);
             lines.push(
                 new animate.MotionLine(
-                    animate.INSTANT,
+                    animate.MOMENT,
                     undefined,
                     vp,
                     destination,
@@ -602,59 +541,60 @@ export function clear_energy(destination, style) {
 
 /**
  * Tests whether the current selection is a valid word, and if it is,
- * triggers find_word. In any case it will provide UI feedback by
- * flashing the edge of the glyphs button with a certain color: red for a
- * non-word, yellow for a valid word that's not reachable, and white for
- * a valid word (the menu will also be emptied in that case as the match
- * is recorded).
+ * triggers find_word, perhaps multiple times (once for each match). In
+ * any case it will provide UI feedback by flashing the edge of the
+ * glyphs button with a certain color: red for a non-word, yellow for a
+ * valid word that's not reachable, and white for a valid word (the menu
+ * will also be emptied in that case as the match is recorded).
  */
 export function test_selection() {
     let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
     let domains = new Set();
-    combined_swipe.forEach(function (gp) {
-        let tile = content.tile_at(CURRENT_DIMENSION, gp);
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
+    for (let gp of combined_swipe) {
+        let tile = content.tile_at(cd, gp);
         if (tile != null) {
-            generate.domains_list(tile.domain).forEach(function (d) {
-                domains.add(d);
-            });
+            for (let domain of generate.domains_list(tile.domain)) {
+                domains.add(domain);
+            }
         }
-    });
+    }
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
-    if (matches.length > 0) {
-        // Found a match:
-        let connected = false;
+    if (matches.length > 0) { // Found a match
+        let in_reach = false; // is this match within reach?
+        // TODO: Implement reach > 0
         if (MODE == "free") {
-            connected = true;
+            in_reach = true;
         } else {
-            combined_swipe.forEach(function (gp) {
-                if (content.is_unlocked(CURRENT_DIMENSION, gp)) {
-                    connected = true;
+            for (let gp of combined_swipe) {
+                if (content.is_unlocked(cdk, gp)) {
+                    in_reach = true;
+                    break;
                 }
-            });
+            }
         }
-        if (connected) {
-            // Match is connected:
+        if (in_reach) { // Match is in-reach
             // clear our swipes and glyphs and add to our words found
-            content.unlock_path(
+            player.add_unlocked(
                 player.current_input_player(),
-                CURRENT_DIMENSION,
+                cdk,
                 combined_swipe
             );
             for (let m of matches) {
-                find_word(CURRENT_DIMENSION, m, combined_swipe);
+                find_word(cdk, m, combined_swipe);
             }
             clear_selection(
-                CURRENT_GLYPHS_BUTTON.center(),
+                [ CTX.cwidth/2, CTX.cheight ],
                 { "color": "#fff" }
             );
-            // Highlight in white:
+            // Highlight in white
             CURRENT_GLYPHS_BUTTON.flash("#fff");
-        } else {
-            // Highlight in yellow:
+        } else { // Valid word but it's not in-reach
+            // Highlight in yellow
             CURRENT_GLYPHS_BUTTON.flash("#ff2");
         }
-    } else {
-        // No match found: just highlight in red
+    } else { // No match found: highlight in red
         CURRENT_GLYPHS_BUTTON.flash("#f22");
     }
     DO_REDRAW = 0;
@@ -680,7 +620,6 @@ export function canvas_position_of_event(e) {
     // console.log("e", e);
     var client_x = e.clientX - CTX.bounds.left;
     var client_y = e.clientY - CTX.bounds.top;
-    console.log("client_x", client_x, "client_y", client_y);
     return [
         client_x * CTX.cwidth / CTX.bounds.width,
         client_y * CTX.cheight / CTX.bounds.height
@@ -728,19 +667,21 @@ export function which_click(e) {
 
 /**
  * Updates the canvas size. Called on resize after a timeout.
+ * TODO: Fix screen flashing in Firefox when resizing width larger...
  */
 export function update_canvas_size() {
     let canvas = document.getElementById("canvas");
-    var bounds = canvas.getBoundingClientRect();
-    var car = bounds.width / bounds.height;
-    canvas.width = 800 * car;
-    canvas.height = 800;
+    let bounds = canvas.getBoundingClientRect();
+    let car = bounds.width / bounds.height;
+    let target_height = Math.max(200, Math.min(600, 1.2 * bounds.height));
+    canvas.width = target_height * car;
+    canvas.height = target_height;
     CTX.cwidth = canvas.width;
     CTX.cheight = canvas.height;
     CTX.middle = [CTX.cwidth / 2, CTX.cheight / 2];
     CTX.bounds = bounds;
     DO_REDRAW = 0;
-    menu.set_canvas_size([canvas.width, canvas.height]);
+    menu.notify_resize(bounds.width, bounds.height);
 }
 
 /**
@@ -749,10 +690,12 @@ export function update_canvas_size() {
  */
 export function update_current_glyphs() {
     var glyphs = [];
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
     for (let sw of CURRENT_SWIPES) {
         for (let gp of sw) {
             // TODO: Add code here for handling extra-planar glyphs!
-            let g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
+            let g = content.tile_at(cd, gp).glyph;
             if (g == undefined) { // should never happen in theory:
                 console.warn(
                     "Internal Error: update_current_glyphs found"
@@ -776,7 +719,6 @@ export function update_current_glyphs() {
 function handle_primary_down(ctx, e) {
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
-    if (menu.mousedown(vpos, "primary")) { return; }
     var wpos = draw.world_pos(ctx, vpos);
     var gpos = grid.grid_pos(wpos);
     var head = null;
@@ -789,11 +731,13 @@ function handle_primary_down(ctx, e) {
             }
         }
     }
-    var tile = content.tile_at(CURRENT_DIMENSION, gpos);
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
+    var tile = content.tile_at(cd, gpos);
     if (tile.domain == "__active__") {
         // an active element: just energize it
         // TODO: Energize preconditions
-        content.energize_tile(CURRENT_DIMENSION, gpos);
+        content.energize_tile(cd, gpos);
     } else {
         // a normal tile: select it
         if (
@@ -803,7 +747,6 @@ function handle_primary_down(ctx, e) {
         ) {
             CURRENT_SWIPES.push([gpos]);
             update_current_glyphs();
-            LAST_POSITION = gpos;
         } else {
             CURRENT_SWIPES.push([]);
         }
@@ -821,7 +764,6 @@ function handle_primary_down(ctx, e) {
  */
 function handle_tertiary_down(ctx, e) {
     var vpos = canvas_position_of_event(e);
-    if (menu.mousedown(vpos, "tertiary")) { return; }
     SCROLL_REFERENT = vpos.slice();
 }
 
@@ -835,13 +777,13 @@ function handle_tertiary_down(ctx, e) {
 function handle_primary_up(ctx, e) {
     // dispatch to menu system first:
     var vpos = canvas_position_of_event(e);
-    if (menu.mouseup(vpos)) {
-        DO_REDRAW = 0;
-        return;
-    }
 
     // No matter what, we're not swiping any more
     SWIPING = false;
+
+    // Get current dimension
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
 
     // Check for double-click/tap:
     let isdbl = false;
@@ -952,7 +894,7 @@ function handle_primary_up(ctx, e) {
                 // TODO: Use reach here
                 for (let d = 0; d < 6; ++d) {
                     let np = grid.neighbor(gp, d);
-                    if (content.is_unlocked(CURRENT_DIMENSION, np)) {
+                    if (content.is_unlocked(cdk, np)) {
                         valid = true;
                         break;
                     }
@@ -964,7 +906,7 @@ function handle_primary_up(ctx, e) {
                 CURRENT_SWIPES.pop();
                 update_current_glyphs();
                 // Check for already-active poke here
-                let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+                let entry = [ cd, gp, window.performance.now() ];
                 let found = undefined;
                 for (let i = 0; i < ACTIVE_POKES.length; ++i) {
                     if (
@@ -1013,7 +955,6 @@ function handle_primary_up(ctx, e) {
  */
 function handle_tertiary_up(ctx, e) {
     var vpos = canvas_position_of_event(e);
-    if (menu.mouseup(vpos, "tertiary")) { return; }
     SCROLL_REFERENT = null;
 }
 
@@ -1025,9 +966,16 @@ function handle_tertiary_up(ctx, e) {
  * @param e The event being handled.
  */
 function handle_movement(ctx, e) {
-    // dispatch to menu system first:
+    // position of the event
     var vpos = canvas_position_of_event(e);
-    if (menu.mousemove(vpos)) { DO_REDRAW = 0; return; }
+
+    // Get current dimension
+    let cdk = get_current_dimkey();
+    if (cdk == undefined) {
+        console.log("BAD");
+    }
+    let cd = dimensions.key__dim(cdk);
+
     if (SCROLL_REFERENT != null) {
         // scrolling w/ aux button or two fingers
         var dx = vpos[0] - SCROLL_REFERENT[0];
@@ -1035,8 +983,8 @@ function handle_movement(ctx, e) {
 
         SCROLL_REFERENT = vpos.slice();
 
-        CTX.viewport_center[0] -= dx;
-        CTX.viewport_center[1] += dy;
+        place_viewport([CTX.viewport_center[0] - dx, CTX.viewport_center[1] + dy]);
+
         DO_REDRAW = 0;
     } else if (SWIPING && CURRENT_SWIPES.length > 0) {
         // swiping w/ primary button or one finger
@@ -1067,22 +1015,15 @@ function handle_movement(ctx, e) {
                     // only pop from an active swipe
                     latest_swipe.pop();
                     update_current_glyphs();
-                    if (latest_swipe.length > 0) {
-                        LAST_POSITION = latest_swipe[latest_swipe.length - 1];
-                    } else if (combined_swipe.length > 1) {
-                        LAST_POSITION = combined_swipe[
-                            combined_swipe.length - 2
-                        ];
-                    }
                     DO_REDRAW = 0;
                 }
             }
             // else do nothing, we're on a tile that's already part of the
             // current swipe.
         } else {
-            // for tiles that aren't part of the swipe already, and which *are*
-            // loaded:
-            var tile = content.tile_at(CURRENT_DIMENSION, gpos);
+            // for tiles that aren't part of the swipe already, and
+            // which *are* loaded:
+            var tile = content.tile_at(cd, gpos);
             if (
                 (head == null || grid.is_neighbor(head, gpos))
                 && tile.glyph != undefined
@@ -1093,7 +1034,6 @@ function handle_movement(ctx, e) {
                 // (and not unloaded, and not an object)
                 latest_swipe.push(gpos);
                 update_current_glyphs();
-                LAST_POSITION = gpos;
                 DO_REDRAW = 0;
             }
         }
@@ -1121,14 +1061,17 @@ function handle_wheel(ctx, e) {
         dy *= PIXELS_PER_LINE * LINES_PER_PAGE;
     }
 
-    CTX.viewport_center[0] += dx;
-    CTX.viewport_center[1] -= dy;
+    place_viewport([CTX.viewport_center[0] + dx, CTX.viewport_center[1] - dy]);
+
     DO_REDRAW = 0;
 }
 
 /**
  * Sets up the canvas object and initializes the CTX and DO_REDRAW
  * variables.
+ *
+ * @return The canvas element of the document for which setup was
+ *     performed.
  */
 export function setup_canvas() {
     // set up canvas context
@@ -1145,6 +1088,27 @@ export function setup_canvas() {
         CTX.viewport_scale = draw.DEFAULT_SCALE;
     }
     DO_REDRAW = 0;
+    return canvas;
+}
+
+/**
+ * Figures out whether this event targets a menu or not. If the click's
+ * target is a descendant of the MENUS_NODE rather than some other part
+ * of the page, as long as we didn't hit a menu_area element, we must
+ * have hit a real menu.
+ *
+ * @param e The event object to inquire about.
+ *
+ * @return True if that event hit a menu.
+ */
+export function event_targets_a_menu(e) {
+    return (
+        has_ancestor(e.target, MENUS_NODE)
+     && (
+             !e.target.classList
+          || !e.target.classList.contains("menu_area")
+        )
+    );
 }
 
 /**
@@ -1157,26 +1121,125 @@ export function setup_canvas() {
  * TODO: use a player to define starting location instead?
  */
 export function init(starting_dimension) {
+    // Grab handle for the menus node
+    MENUS_NODE = document.getElementById("menus");
+
     // Set up the canvas
-    setup_canvas();
+    let canvas = setup_canvas();
+
+    // Initialize the menu system
+    menu.init_menus([canvas.width, canvas.height]);
 
     // Display the current player's avatar
     avatar.init_avatar(player.current_input_player()); 
+    rescale_avatar();
+    // avatar.set_avatar_position(CTX.bounds.width * 0.025, CTX.bounds.height * 0.75);
+    place_avatar([0, 0]);
 
     // Unlock initial tiles
     // TODO: Better/different here?
     // TODO: Add starting place?
-    warp_to([0, 0], starting_dimension);
+    warp_to([0, 0], dimensions.dim__key(starting_dimension));
+
+    // TODO: This is just a demo...
+    let bonus_words = [
+        "ABACUS",
+        "BENEVOLENCE",
+        "CONCEPTUALIZATION",
+        "DECADENT",
+        "ENDOMETRIUM",
+        "FUNCTION",
+        "GABBRO",
+        "HYPHENATION",
+        "INFLORESCENCE",
+        "JUBILEE",
+        "KIDNEY",
+        "LEAVENING",
+        "MONGOOSE",
+        "NIQAB",
+        "OATH",
+        "PHALANX",
+        "QUADRILATERAL",
+        "RADIUM",
+        "SEVERANCE",
+        "TRANSCENDENCE",
+        "ULNA",
+        "VACCINE",
+        "WIZARDRY",
+        "XENOPHOBIA",
+        "YUCCA",
+        "ZYGOTE",
+    ];
+
+    let bonus_dimension = {
+        "kind": "custom",
+        "layout": "dense",
+        "flavor": "bare",
+        "domain": "English",
+        "seed": 10985,
+        "words": bonus_words
+    };
+    let bdk = dimensions.dim__key(bonus_dimension);
+
+    // Quest chain:
+    let inner_quest = quests.new_quest(
+        "hunt",
+        // bonus_words.slice(0, 3),
+        [ "ZYGOTE" ],
+        bonus_words.slice(3, 8),
+        [ // rewards
+            [ "exp", ["acuity", 60] ],
+            [ "exp", ["dexterity", 60] ],
+            [ "return" ],
+            [
+                "quest",
+                quests.new_quest(
+                    "big",
+                    [5, 3], // length, #
+                    [7, 4],
+                    [ // rewards
+                        [ "exp", ["concentration", 30] ],
+                        [ "exp", ["intuition", 30] ],
+                        [ "exp", ["compassion", 30] ],
+                        [ "refresh", 3 ],
+                    ]
+                )
+            ],
+        ]
+    );
+    quests.bind_dimension(inner_quest, bdk);
 
     // Grant starting quest
     // TODO: Better/different here?
-    add_quest(
-        new quests.HuntQuest(
-            ["F__D", "S_N", "S*R"],
-            ["D__*__R"],
-            undefined, // params
-            undefined // reward
-        )
+    let starting_quest = quests.new_quest(
+        "stretch",
+        3,
+        15,
+        [ // rewards
+            [ "exp", ["creativity", 100] ],
+            [ "exp", ["leadership", 100] ],
+            [
+                "quest",
+                quests.new_quest(
+                    "encircle",
+                    8,
+                    16,
+                    [ // rewards
+                        [ "exp", ["memory", 120] ],
+                        [ "portal", [ bdk, [0, 0] ] ],
+                        [ "quest", inner_quest ],
+                    ]
+                )
+            ],
+        ]
+    );
+    player.activate_quest(
+        player.current_input_player(),
+        starting_quest,
+        function () {
+            QUEST_MENU.update();
+            DO_REDRAW = 0;
+        }
     );
 
     // kick off animation
@@ -1201,172 +1264,104 @@ export function init(starting_dimension) {
 
     // set up menus:
     QUEST_MENU = new menu.QuestList(
-        CTX,
-        { "left": "50%", "right": 100, "top": 30, "bottom": 100 },
-        { "width": undefined, "height": undefined },
-        undefined,
-        QUESTS
+        player.current_input_player(),
+        "right",
+        "quests"
     );
-
-    QUEST_SIDEBAR = new menu.ToggleMenu(
-        CTX,
-        { "right": 10, "top": 240 },
-        { "width": 40, "height": 40 },
-        undefined, 
-        "!",
-        function () {
-            WORDS_SIDEBAR.off();
-            menu.add_menu(QUEST_MENU);
-        },
-        function () {
-            menu.remove_menu(QUEST_MENU);
-        }
-    );
-    menu.add_menu(QUEST_SIDEBAR);
+    // TODO: How to make sure items are updated when a reward is
+    // claimed?!?
 
     WORDS_LIST_MENU = new menu.WordList(
-        CTX,
-        { "left": "50%", "right": 100, "top": 30, "bottom": 100 },
-        { "width": undefined, "height": undefined },
-        undefined,
-        found_list(dimensions.natural_domain(CURRENT_DIMENSION)),
-        "https://en.wiktionary.org/wiki/<item>"
+        player.current_input_player(),
+        "https://<lang>.wiktionary.org/wiki/<item>",
+        "right",
+        "words"
     );
     // TODO: Swap words list when dimension changes
     // TODO: Some way to see lists from non-current dimensions?
 
-    WORDS_SIDEBAR = new menu.ToggleMenu(
-        CTX,
-        { "right": 10, "top": 330 },
-        { "width": 40, "height": 40 },
-        undefined, 
-        //"找到",
-        "🗎",
-        function () {
-            QUEST_SIDEBAR.off();
-            menu.add_menu(WORDS_LIST_MENU);
-        },
-        function () {
-            menu.remove_menu(WORDS_LIST_MENU);
-        }
-    );
-    menu.add_menu(WORDS_SIDEBAR);
-
-    ABOUT_DIALOG = new menu.Dialog(
-        CTX,
-        undefined,
-        undefined,
-        {}, 
-        (
-            "This is Words 成语, version 0.1. Select 成语 and press"
-          + " SPACE. Find as many as you can! You can scroll to see more."
-          + " Use the ⊗ at the bottom-left or ESCAPE to clear the"
-          + " selection, or double-tap to remove a glyph. Review 成语"
-          + " with the 找到 button on the right-hand side. The 🏠 button"
-          + " takes you back to the start."
-        ),
-        [ { "text": "OK", "action": function () { ABOUT_TOGGLE.off_(); } } ]
-    );
-
-    ABOUT_TOGGLE = new menu.ToggleMenu(
-        CTX,
-        { "right": 10, "bottom": 10 },
-        { "width": 40, "height": 40 },
-        {},
-        "?",
-        function () { menu.add_menu(ABOUT_DIALOG); },
-        function () { menu.remove_menu(ABOUT_DIALOG); }
-    );
-    menu.add_menu(ABOUT_TOGGLE);
-
     HOME_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "left": 10, "top": 10 },
-        { "width": 40, "height": 40 },
-        {},
         "🏠",
-        home_view
+        home_view,
+        "left"
     );
-    menu.add_menu(HOME_BUTTON);
 
     ZOOM_IN_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "right": 10, "top": 10 },
-        { "width": 40, "height": 40 },
-        {},
         "+",
-        zoom_in
+        zoom_in,
+        "top"
     );
-    menu.add_menu(ZOOM_IN_BUTTON);
 
     ZOOM_OUT_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "right": 10, "top": 100 },
-        { "width": 40, "height": 40 },
-        {},
         "–",
-        zoom_out
+        zoom_out,
+        "top"
     );
-    menu.add_menu(ZOOM_OUT_BUTTON);
 
     CLEAR_SELECTION_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "left": 10, "bottom": 10 },
-        { "width": 40, "height": 40 },
-        {
-            "background_color": "#310",
-            "border_color": "#732",
-            "text_color": "#d43"
-        },
         "⊗",
         function () {
             clear_selection(
-                CLEAR_SELECTION_BUTTON.center(),
-                { "color": CLEAR_SELECTION_BUTTON.style.text_color }
+                // TODO: Better here?
+                [0, CTX.cheight],
+                {
+                    "color":
+                        window.getComputedStyle(
+                            CLEAR_SELECTION_BUTTON.element
+                        ).color
+                }
             );
-        }
-    );
-    menu.add_menu(CLEAR_SELECTION_BUTTON);
-
-    /*
-    RESET_ENERGY_BUTTON = new menu.ButtonMenu(
-        CTX,
-        { "left": 10, "bottom": 60 },
-        { "width": 40, "height": 40 },
-        {
-            "background_color": "#330",
-            "border_color": "#661",
-            "text_color": "#dd2",
         },
-        "⮏",
-        function () {
-            clear_energy(
-                RESET_ENERGY_BUTTON.center(),
-                { "color": RESET_ENERGY_BUTTON.style.text_color }
-            );
-        }
+        "bottom",
+        "clear_selection"
     );
-    // TODO: remove this
-    // menu.add_menu(RESET_ENERGY_BUTTON);
-    */
 
     CURRENT_GLYPHS_BUTTON = new menu.GlyphsMenu(
-        CTX,
-        { "bottom": 10 },
-        { "width": undefined, "height": 40 },
-        {
-            "background_color": "#000",
-            "border_color": "#888",
-            "text_color": "#fff"
-        },
         "",
-        test_selection
+        test_selection,
+        "bottom",
+        "current_glyphs"
     );
-    menu.add_menu(CURRENT_GLYPHS_BUTTON);
+
+    // TODO: prevent dialog stacking?
+    let about_dialog = null;
+    let cleanup_about = function () { about_dialog = null; };
+    ABOUT_BUTTON = new menu.ButtonMenu(
+        "?",
+        function () {
+            if (about_dialog == null) {
+                // Create a dialog
+                about_dialog = new menu.Dialog(
+                    (
+                        "This is Words, version 0.2. Select words and tap"
+                      + " the word that appears below, or press SPACE. You can"
+                      + " scroll to see more of the grid. Use the ⊗ at the"
+                      + " bottom-left or ESCAPE to clear the selection, or"
+                      + " double-tap to remove a glyph. Review words with the"
+                      + " 'Words' button on the right-hand side. The 🏠 button"
+                      + " takes you back to the start."
+                    ),
+                    cleanup_about,
+                    [ { "text": "Got it.", "action": cleanup_about } ]
+                );
+            } else {
+                // Remove the existing dialog
+                about_dialog.cancel();
+            }
+        },
+        "bottom"
+    );
+
 
     // set up event handlers
-    document.onmousedown = function (e) {
+    let down_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+
+        // Stop propagation & prevent default action
         if (e.preventDefault) { e.preventDefault(); }
+
+        // Figure out click/tap type and dispatch event
         var which = which_click(e);
         if (which == "primary") {
             handle_primary_down(CTX, e);
@@ -1374,45 +1369,71 @@ export function init(starting_dimension) {
             PRESS_RECORDS[1] = window.performance.now();
         } else if (which == "tertiary") {
             handle_tertiary_down(CTX, e);
-        } // otherwise ignore this click
+        } // otherwise ignore this click/tap
     };
-    document.ontouchstart = document.onmousedown;
+    document.addEventListener("mousedown", down_handler);
+    document.addEventListener("touchstart", down_handler);
 
-    document.onmouseup = function(e) {
-        // TODO: Menus
+    let up_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) {
+            // Reset scroll referent even if the event hit a menu
+            SCROLL_REFERENT = null;
+            // End swiping even if the event hit a menu
+            SWIPING = false;
+            return;
+        }
+
+        // Stop propagation & prevent default action
         if (e.preventDefault) { e.preventDefault(); }
+
+        // Figure out click/tap type and dispatch event
         var which = which_click(e);
         if (which == "primary") {
             handle_primary_up(CTX, e);
             LAST_RELEASE = canvas_position_of_event(e);
         } else if (which == "tertiary") {
             handle_tertiary_up(CTX, e);
-        } // otherwise ignore this click
+        } // otherwise ignore this click/tap
+
         // Reset scroll referent anyways just to be sure:
         SCROLL_REFERENT = null;
     };
-    document.ontouchend = document.onmouseup;
-    document.ontouchcancel = document.onmouseup;
+    document.addEventListener("mouseup", up_handler);
+    document.addEventListener("touchend", up_handler);
+    document.addEventListener("touchcancel", up_handler);
 
-    document.onmousemove = function (e) {
-        // TODO: Remove this debug
-        // LAST_MOUSE_POSITION = canvas_position_of_event(e);
+    let move_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+
         if (e.preventDefault) { e.preventDefault(); }
         handle_movement(CTX, e);
     };
-    document.ontouchmove = document.onmousemove;
+    document.addEventListener("mousemove", move_handler);
+    document.addEventListener("touchmove", move_handler);
 
-    // TODO: Make this passive? (see chromium verbose warning)
-    document.onwheel = function (e) {
+    let wheel_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
         if (e.preventDefault) { e.preventDefault(); }
         handle_wheel(CTX, e);
     };
+    document.addEventListener(
+        "wheel",
+        wheel_handler,
+        { "capture": true, "passive": false }
+    );
 
-    document.onkeydown = function (e) {
+    let key_handler = function (e) {
+        // If this event targets a menu, skip it
+        if (event_targets_a_menu(e)) { return; }
+
         if (COMMANDS.hasOwnProperty(e.key)) {
             COMMANDS[e.key](e);
         }
     };
+    document.addEventListener("keydown", key_handler);
 }
 
 /**
@@ -1428,7 +1449,7 @@ export function init_test(starting_dimension, supertiles) {
     setup_canvas();
 
     // put ourselves in the test dimension
-    warp_to([0, 0], starting_dimension);
+    warp_to([0, 0], dimensions.dim__key(starting_dimension));
 
     // kick off animation
     window.requestAnimationFrame(make_test_animator(supertiles));
@@ -1497,7 +1518,7 @@ export function draw_frame(now) {
     ANIMATION_FRAME %= animate.ANIMATION_FRAME_MAX;
     // TODO: Normalize frame count to passage of time!
 
-    // Compute elapsed time
+    // Compute elapsed time (in milliseconds)
     let elapsed;
     if (PREV_FRAME_TIME == undefined ) {
         elapsed = 0; // on first frame we count 0 elapsed
@@ -1507,8 +1528,10 @@ export function draw_frame(now) {
     elapsed = Math.max(0, elapsed); // ensure its not negative
     PREV_FRAME_TIME = now; // update previous value
 
+    let elapsed_seconds = elapsed / 1000;
+
     // Tick players and check whether they want a redraw...
-    if (player.tick_players(elapsed)) {
+    if (player.tick_players(elapsed_seconds)) {
         DO_REDRAW = 0;
     }
 
@@ -1526,74 +1549,77 @@ export function draw_frame(now) {
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
 
-    // Tiles
-    let visible_tiles = draw.visible_tile_list(CURRENT_DIMENSION, CTX);
-    if (!draw.draw_tiles(CURRENT_DIMENSION, CTX, visible_tiles)) {
-        if (DO_REDRAW != null) {
-            DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
-        } else {
-            DO_REDRAW = MISSING_TILE_RETRY;
-        }
-    }
+    // get current dimension
+    let cdk = get_current_dimkey();
+    // tiles etc. only if available
+    if (cdk != undefined) {
+        let cd = dimensions.key__dim(cdk);
 
-    // Highlight unlocked:
-    if (TRACE_UNLOCKED) {
-        draw.trace_unlocked(CURRENT_DIMENSION, CTX);
-    }
-
-    // Add energy highlights:
-    draw.draw_energies(CURRENT_DIMENSION, CTX, visible_tiles);
-
-    // Swipes
-    let combined = utils.combine_arrays(CURRENT_SWIPES);
-    draw.draw_swipe(CTX, combined, "highlight");
-
-    // Pokes
-    var poke_redraw_after = undefined;
-    var finished_pokes = [];
-    for (let index = 0; index < ACTIVE_POKES.length; ++index) {
-        let poke = ACTIVE_POKES[index];
-        if (dimensions.same(CURRENT_DIMENSION, poke[0])) {
-            let initiated_at = poke[2];
-            let age = now - initiated_at;
-            let ticks = Math.floor(age/1000);
-            let until_tick = 1000 - age % 1000;
-
-            draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
-
-            let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
-            if (
-                poke_redraw_after == undefined
-             || poke_redraw_after > frames_left
-            ) {
-                poke_redraw_after = frames_left;
-            }
-            if (ticks >= POKE_DELAY) {
-                finished_pokes.push(index);
+        // Tiles
+        let visible_tiles = draw.visible_tile_list(cd, CTX);
+        if (!draw.draw_tiles(cd, CTX, visible_tiles)) {
+            if (DO_REDRAW != null) {
+                DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
+            } else {
+                DO_REDRAW = MISSING_TILE_RETRY;
             }
         }
-    }
-    if (finished_pokes.length > 0) {
-        // remove & process finished pokes
-        DO_REDRAW = 0;
-        let adj = 0;
-        for (let i = 0; i < finished_pokes.length; ++i) {
-            let poke = ACTIVE_POKES[i - adj];
-            content.unlock_poke(poke[0], poke[1]);
-            player.remember_poke(
-                player.current_input_player(),
-                poke[0],
-                poke[1]
-            );
-            ACTIVE_POKES.splice(i - adj, 1);
-            adj += 1;
+
+        // Highlight unlocked:
+        if (TRACE_UNLOCKED) {
+            draw.trace_unlocked(dimensions.dim__key(cd), CTX);
         }
-    } else if (poke_redraw_after != undefined) {
-        // set up redraw for remaining active pokes
-        DO_REDRAW = Math.max(poke_redraw_after, 0);
+
+        // Add energy highlights:
+        draw.draw_energies(cd, CTX, visible_tiles);
+
+        // Swipes
+        let combined = utils.combine_arrays(CURRENT_SWIPES);
+        draw.draw_swipe(CTX, combined, "highlight");
+
+        // Pokes
+        var poke_redraw_after = undefined;
+        var finished_pokes = [];
+        for (let index = 0; index < ACTIVE_POKES.length; ++index) {
+            let poke = ACTIVE_POKES[index];
+            if (dimensions.same(cd, poke[0])) {
+                let initiated_at = poke[2];
+                let age = now - initiated_at;
+                let ticks = Math.floor(age/1000);
+                let until_tick = 1000 - age % 1000;
+
+                draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
+
+                let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
+                if (
+                    poke_redraw_after == undefined
+                 || poke_redraw_after > frames_left
+                ) {
+                    poke_redraw_after = frames_left;
+                }
+                if (ticks >= POKE_DELAY) {
+                    finished_pokes.push(index);
+                }
+            }
+        }
+        if (finished_pokes.length > 0) {
+            // remove & process finished pokes
+            DO_REDRAW = 0;
+            let adj = 0;
+            for (let i = 0; i < finished_pokes.length; ++i) {
+                let poke = ACTIVE_POKES[i - adj];
+                let dk = dimensions.dim__key(poke[0]);
+                player.add_poke(player.current_input_player(), dk, poke[1]);
+                ACTIVE_POKES.splice(i - adj, 1);
+                adj += 1;
+            }
+        } else if (poke_redraw_after != undefined) {
+            // set up redraw for remaining active pokes
+            DO_REDRAW = Math.max(poke_redraw_after, 0);
+        }
     }
 
-    // Loading bars for domains:
+    // Loading bars for domains (regardless of dimension availability)
     var loading = dict.LOADING;
     var lks = Object.keys(loading);
     if (lks.length > 0) {
@@ -1607,12 +1633,7 @@ export function draw_frame(now) {
         }
     }
 
-    // Menus:
-    if (menu.draw_active(CTX)) {
-        DO_REDRAW = 0;
-    }
-
-    // Animations:
+    // Animations (regardless of dimension availability)
     var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
     if (
         next_horizon != undefined
@@ -1623,19 +1644,6 @@ export function draw_frame(now) {
     ) {
         DO_REDRAW = next_horizon;
     }
-
-    // DEBUG: Uncomment this to draw a cursor; causes animation every frame
-    // while the mouse is moving.
-    /*
-       DO_REDRAW = 0;
-       CTX.strokeStyle = "#fff";
-       CTX.beginPath();
-       CTX.moveTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]-3);
-       CTX.lineTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]+3);
-       CTX.moveTo(LAST_MOUSE_POSITION[0]+3, LAST_MOUSE_POSITION[1]-3);
-       CTX.lineTo(LAST_MOUSE_POSITION[0]-3, LAST_MOUSE_POSITION[1]+3);
-       CTX.stroke();
-    // */
 
     // reschedule ourselves
     window.requestAnimationFrame(draw_frame);
@@ -1692,4 +1700,26 @@ export function make_test_animator(supertiles) {
         window.requestAnimationFrame(animate_grid_test);
     };
     return animate_grid_test;
+}
+
+function place_avatar(gpos) {
+    let wp = grid.world_pos(gpos);
+    let vp = draw.view_pos(CTX, wp);
+    let hp = vpos__hpos(vp);
+    LAST_AVATAR_POSITION = gpos;
+    avatar.set_avatar_position(hp[0], hp[1]);
+}
+
+function rescale_avatar(){
+    avatar.set_avatar_size(CTX.viewport_scale * grid.GRID_SIZE, CTX.viewport_scale * grid.GRID_SIZE);
+}
+
+function replace_avatar(){
+    place_avatar(LAST_AVATAR_POSITION);
+}
+
+function place_viewport(wpos) {
+    CTX.viewport_center[0] = wpos[0];
+    CTX.viewport_center[1] = wpos[1];
+    replace_avatar();
 }

@@ -150,7 +150,7 @@ export function MotionLine(duration, on_end, from, to, style) {
     this.to = to;
     this.style = style || {};
     this.style.color = this.style.color || "#fff";
-    this.style.line_width = this.style.line_width || 1;
+    this.style.line_width = this.style.line_width || 3;
 }
 MotionLine.prototype = Object.create(SimpleAnimation.prototype);
 MotionLine.prototype.constructor = MotionLine;

@@ -95,3 +95,15 @@ export function init_avatar(current_player) {
     let avatar_div = document.getElementById("avatar_div");
     avatar_div.appendChild(AVATAR);
 }
+
+export function set_avatar_size(width, height) {
+    AVATAR.style.width = width + "px";
+    AVATAR.style.height = height + "px";
+}
+
+export function set_avatar_position(left, top) {
+    left -= parseFloat(AVATAR.style.width)/2;
+    top -= parseFloat(AVATAR.style.height)/2;
+    AVATAR.style.left = left + "px";
+    AVATAR.style.top = top + "px";
+}

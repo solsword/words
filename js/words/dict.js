@@ -735,13 +735,18 @@ export function load_simple_word_list(name) {
 }
 
 /**
- * Returns a list of (domain_name, index, glyphs, word, frequency)
- * quadruples that match the given glyphs in one of the given domains.
- * The list will be empty if there are no matches.
+ * Finds all matches for the given glyph sequence in any of the given
+ * domains. Returns an empty array if there are no matches.
  *
  * @param glyphs Either a string or an array of single-glyph strings
  *     specifying the glyph sequence to look for.
  * @param domains An array of domain objects to look for matches in. 
+ *
+ * @return A possibly-empty array of matches, each of which is a
+ *     5-element array containing a domain name, the index within that
+ *     domain of the entry that matched, the glyphs string for the
+ *     matching word, the word string for the matching word,
+ *     and a frequency integer for the matching word.
  */
 export function check_word(glyphs, domains) {
     var matches = [];

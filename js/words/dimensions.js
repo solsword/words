@@ -117,7 +117,11 @@ export function dim__key(d) {
     result += "#" + d.seed + ":" + d.domain;
     if (d.kind == "custom") {
         for (let w of d.words) {
-            result += "," + w;
+            if (typeof w == "string") { // simple case
+                result += "," + w;
+            } else { // glyphs/word case
+                result += "," + w[0] + "→" + w[1];
+            }
         }
     }
     return result;
@@ -139,12 +143,14 @@ export function dim__key(d) {
  *         'seed': The seed for this dimension (a number).
  *         'words': For 'custom' dimensions, an array of strings
  *             specifying the particular words that will be used in
- *             this dimension.
+ *             this dimension. Entries in this array may also be
+ *             2-element [glyphs, word] arrays containing a glyphs string
+ *             and a word string.
  *
  */
 export function key__dim(k) {
     let kind = DIMENSION_KINDS[k[0]];
-    let layout = DIMENSION_KINDS[kind][k[2]];
+    let layout = DIMENSION_LAYOUTS[kind][k[2]];
     let result = {
         "kind": kind,
         "layout": layout,
@@ -176,14 +182,24 @@ export function key__dim(k) {
             }
         } else if (mode == "words") {
             if (k[i] == ",") {
-                words.push(thisword);
+                if (thisword.indexOf("→") < 0) {
+                    words.push(thisword);
+                } else {
+                    words.push(thisword.split("→"));
+                }
                 thisword = "";
             } else {
                 thisword += k[i];
             }
         }
     }
-    words.push(thisword);
+    if (mode == "words") {
+        if (thisword.indexOf("→") < 0) {
+            words.push(thisword);
+        } else {
+            words.push(thisword.split("→"));
+        }
+    }
     result["domain"] = domain;
     result["seed"] = Number.parseInt(seed);
     if (kind == "custom") {
@@ -275,7 +291,9 @@ export function pocket_word_count(dimension) {
  *
  * @return The specified basis word of the given dimension (a string) or
  *     undefined if the dimension is a full dimension (and thus does not
- *     have basis words).
+ *     have basis words). In some cases will return a 2-entry array
+ *     containing a glyph sequence string and a word string when those
+ *     things are different.
  */
 export function pocket_nth_word(dimension, n) {
     if (dimension.kind == "pocket") {
@@ -298,12 +316,19 @@ export function pocket_nth_word(dimension, n) {
  *
  * @return An array of glyph arrays specifying the glyph components of
  *     each basis word for the given pocket or custom dimension, or an
- *     empty array if given a full dimension.
+ *     empty array if given a full dimension. This result never includes
+ *     2-element array entries, even if the dimension is a custom
+ *     dimension for which some words have different glyph sequences and
+ *     word strings: it only includes the glyph sequences.
  */
 export function pocket_words(dimension) {
     let result = [];
     for (let i = 0; i < pocket_word_count(dimension); ++i) {
         let str = pocket_nth_word(dimension, i);
+        // get glyphs from any 2-entry arrays:
+        if (typeof str != "string") {
+            str = str[0];
+        }
         result.push(utils.string__array(str));
     }
     return result;
