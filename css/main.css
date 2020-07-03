@@ -36,10 +36,10 @@ body {
 
  .avatar {
   position: absolute;
-  left: 2.5vw;
-  top: 15vh;
-  width: 10vw;
-  height: 10vh;
+  right: 2.5vw;
+  bottom: 15vh;
+  width: 17vw;
+  height: 17vh;
   margin: 0;
  }
 

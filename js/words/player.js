@@ -190,7 +190,7 @@ export function new_player(seed) {
         "words_unlocked": [],
         "positions_poked": [],
         "playtime": 0,
-        "avatar": avatar.new_avatar("trial_image"),
+        "avatar": avatar.new_avatar("SVGavatar"),
     };
     CURRENT_PLAYERS[id] = result;
     return result;

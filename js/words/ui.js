@@ -673,12 +673,24 @@ export function canvas_position_of_event(e) {
     if (e.touches) {
         e = e.touches[0];
     }
+    // console.log("x",e.clientX, "y",e.clientY, "l",CTX.bounds.left, "t",CTX.bounds.top);
+    // console.log("w", CTX.cwidth, "h", CTX.cheight);
+    // console.log("cw",CTX.bounds.width, "ch",CTX.bounds.height);
+    // console.log("bounds", CTX.bounds);
+    // console.log("e", e);
     var client_x = e.clientX - CTX.bounds.left;
     var client_y = e.clientY - CTX.bounds.top;
+    console.log("client_x", client_x, "client_y", client_y);
     return [
         client_x * CTX.cwidth / CTX.bounds.width,
         client_y * CTX.cheight / CTX.bounds.height
     ];
+}
+
+export function vpos__hpos(vpos_coord) {
+    var client_x = vpos_coord[0] * CTX.bounds.width / CTX.cwidth;
+    var client_y = vpos_coord[1] * CTX.bounds.height / CTX.cheight;
+    return [ client_x, client_y ];
 }
 
 /**
