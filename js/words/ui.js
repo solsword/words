@@ -109,12 +109,6 @@ var SEL_CLEAR_ANIM = null;
 var EN_CLEAR_ANIM = null;
 
 /**
- * A 2-element array holding tile grid x/y coordinates specifying where
- * the player's most recent interaction happened on the grid.
- */
-export var LAST_POSITION = [0, 0];
-
-/**
  * The number of milliseconds per frame (ideally).
  * TODO: Measure this?
  */
@@ -223,13 +217,17 @@ export function has_ancestor(descendant, query) {
     }
 }
 
-export function get_current_dimension() {
-    let pdk = player.current_input_player().position.dimension;
-    if (pdk) {
-        return dimensions.key__dim(pdk);
-    } else {
-        return undefined;
-    }
+/**
+ * Retrieves the current input player's current dimension.
+ *
+ * @return A dimension key string indicating what dimension the current
+ *     input player is in. Will return undefined before the player has
+ *     been placed somewhere, or when there is no current input player.
+ */
+export function get_current_dimkey() {
+    let pl = player.current_input_player();
+    if (!pl) { return undefined; }
+    return pl.position.dimension;
 }
 
 /**
@@ -265,15 +263,14 @@ export function find_word(dimkey, match, path) {
         glyphs
     );
 
+    // Update the quests list.
+    if (QUEST_MENU) {
+        QUEST_MENU.update();
+    }
+
     // Update the words found list.
     if (WORDS_LIST_MENU) {
-        WORDS_LIST_MENU.add_item(
-            [domname, glyphs, word, player.elapsed(who)]
-        );
-        // Note: this gets very slightly out-of-sync with the player's
-        // recent-finds list (duplicate matches plus no forgetting) but
-        // it should be *way* more efficient not to re-constitute all of
-        // the DOM elements every time we find a word.
+        WORDS_LIST_MENU.update();
     }
 }
 
@@ -336,7 +333,9 @@ export var COMMANDS = {
         MODE = MODES[(MODES.index(MODE) + 1) % MODES.length];
     },
     "d": function (e) {
-        let nbd = dimensions.neighboring_dimension(get_current_dimension(), 1);
+        let cdk = get_current_dimkey();
+        let fd = dimensions.key__dim(cdk);
+        let nbd = dimensions.neighboring_dimension(fd, 1);
         warp_to([0, 0], dimensions.dim__key(nbd));
     },
     // DEBUG
@@ -365,10 +364,13 @@ export var COMMANDS = {
     // tab recenters view on current/last swipe head
     "Tab": function (e) {
         if (e.preventDefault) { e.preventDefault(); }
-        var wpos = grid.world_pos(LAST_POSITION);
-        CTX.viewport_center[0] = wpos[0];
-        CTX.viewport_center[1] = wpos[1];
-        DO_REDRAW = 0;
+        let lp = player.current_input_player().position.pos;
+        if (lp) {
+            var wpos = grid.world_pos(lp);
+            CTX.viewport_center[0] = wpos[0];
+            CTX.viewport_center[1] = wpos[1];
+            DO_REDRAW = 0;
+        }
     },
     // shows 'about' dialog
     "a": function (e) {
@@ -394,8 +396,8 @@ export var COMMANDS = {
     // TODO: DEBUG
     "q": function (e) { // "find' a bunch of words for testing purposes
         for (let w of "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()") {
-            let cd = get_current_dimension(); // TODO: should this return cdk?
-            let cdk = dimensions.dim__key(cd);
+            let cdk = get_current_dimkey();
+            let cd = dimensions.key__dim(cdk);
             find_word(
                 cdk,
                 [
@@ -539,7 +541,8 @@ export function clear_energy(destination, style) {
 export function test_selection() {
     let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
     let domains = new Set();
-    let cd = get_current_dimension();
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
     for (let gp of combined_swipe) {
         let tile = content.tile_at(cd, gp);
         if (tile != null) {
@@ -550,8 +553,6 @@ export function test_selection() {
     }
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (matches.length > 0) { // Found a match
-        let cd = get_current_dimension();
-        let cdk = dimensions.dim__key(cd); // TODO: Have GCD return a dk?
         let in_reach = false; // is this match within reach?
         // TODO: Implement reach > 0
         if (MODE == "free") {
@@ -669,7 +670,8 @@ export function update_canvas_size() {
  */
 export function update_current_glyphs() {
     var glyphs = [];
-    let cd = get_current_dimension();
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
     for (let sw of CURRENT_SWIPES) {
         for (let gp of sw) {
             // TODO: Add code here for handling extra-planar glyphs!
@@ -709,7 +711,8 @@ function handle_primary_down(ctx, e) {
             }
         }
     }
-    let cd = get_current_dimension();
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
     var tile = content.tile_at(cd, gpos);
     if (tile.domain == "__active__") {
         // an active element: just energize it
@@ -724,7 +727,6 @@ function handle_primary_down(ctx, e) {
         ) {
             CURRENT_SWIPES.push([gpos]);
             update_current_glyphs();
-            LAST_POSITION = gpos;
         } else {
             CURRENT_SWIPES.push([]);
         }
@@ -760,8 +762,8 @@ function handle_primary_up(ctx, e) {
     SWIPING = false;
 
     // Get current dimension
-    let cd = get_current_dimension();
-    let cdk = dimensions.dim__key(cd);
+    let cdk = get_current_dimkey();
+    let cd = dimensions.key__dim(cdk);
 
     // Check for double-click/tap:
     let isdbl = false;
@@ -948,7 +950,11 @@ function handle_movement(ctx, e) {
     var vpos = canvas_position_of_event(e);
 
     // Get current dimension
-    let cd = get_current_dimension();
+    let cdk = get_current_dimkey();
+    if (cdk == undefined) {
+        console.log("BAD");
+    }
+    let cd = dimensions.key__dim(cdk);
 
     if (SCROLL_REFERENT != null) {
         // scrolling w/ aux button or two fingers
@@ -989,13 +995,6 @@ function handle_movement(ctx, e) {
                     // only pop from an active swipe
                     latest_swipe.pop();
                     update_current_glyphs();
-                    if (latest_swipe.length > 0) {
-                        LAST_POSITION = latest_swipe[latest_swipe.length - 1];
-                    } else if (combined_swipe.length > 1) {
-                        LAST_POSITION = combined_swipe[
-                            combined_swipe.length - 2
-                        ];
-                    }
                     DO_REDRAW = 0;
                 }
             }
@@ -1015,7 +1014,6 @@ function handle_movement(ctx, e) {
                 // (and not unloaded, and not an object)
                 latest_swipe.push(gpos);
                 update_current_glyphs();
-                LAST_POSITION = gpos;
                 DO_REDRAW = 0;
             }
         }
@@ -1160,8 +1158,9 @@ export function init(starting_dimension) {
     // Quest chain:
     let inner_quest = quests.new_quest(
         "hunt",
-        bonus_words.slice(1,10),
-        bonus_words.slice(10),
+        // bonus_words.slice(0, 3),
+        [ "ZYGOTE" ],
+        bonus_words.slice(3, 8),
         [ // rewards
             [ "exp", ["acuity", 60] ],
             [ "exp", ["dexterity", 60] ],
@@ -1170,8 +1169,8 @@ export function init(starting_dimension) {
                 "quest",
                 quests.new_quest(
                     "big",
-                    [5, 5],
-                    [6, 6],
+                    [5, 3], // length, #
+                    [7, 4],
                     [ // rewards
                         [ "exp", ["concentration", 30] ],
                         [ "exp", ["intuition", 30] ],
@@ -1197,8 +1196,8 @@ export function init(starting_dimension) {
                 "quest",
                 quests.new_quest(
                     "encircle",
-                    20,
-                    25,
+                    8,
+                    16,
                     [ // rewards
                         [ "exp", ["memory", 120] ],
                         [ "portal", [ bdk, [0, 0] ] ],
@@ -1210,7 +1209,11 @@ export function init(starting_dimension) {
     );
     player.activate_quest(
         player.current_input_player(),
-        starting_quest
+        starting_quest,
+        function () {
+            QUEST_MENU.update();
+            DO_REDRAW = 0;
+        }
     );
 
     // kick off animation
@@ -1243,7 +1246,7 @@ export function init(starting_dimension) {
     // claimed?!?
 
     WORDS_LIST_MENU = new menu.WordList(
-        player.recent_words(player.current_input_player()),
+        player.current_input_player(),
         "https://<lang>.wiktionary.org/wiki/<item>",
         "right",
         "words"
@@ -1490,10 +1493,7 @@ export function draw_frame(now) {
     ANIMATION_FRAME %= animate.ANIMATION_FRAME_MAX;
     // TODO: Normalize frame count to passage of time!
 
-    // get current dimension
-    let cd = get_current_dimension();
-
-    // Compute elapsed time
+    // Compute elapsed time (in milliseconds)
     let elapsed;
     if (PREV_FRAME_TIME == undefined ) {
         elapsed = 0; // on first frame we count 0 elapsed
@@ -1503,8 +1503,10 @@ export function draw_frame(now) {
     elapsed = Math.max(0, elapsed); // ensure its not negative
     PREV_FRAME_TIME = now; // update previous value
 
+    let elapsed_seconds = elapsed / 1000;
+
     // Tick players and check whether they want a redraw...
-    if (player.tick_players(elapsed)) {
+    if (player.tick_players(elapsed_seconds)) {
         DO_REDRAW = 0;
     }
 
@@ -1522,70 +1524,77 @@ export function draw_frame(now) {
     // draw the world
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
 
-    // Tiles
-    let visible_tiles = draw.visible_tile_list(cd, CTX);
-    if (!draw.draw_tiles(cd, CTX, visible_tiles)) {
-        if (DO_REDRAW != null) {
-            DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
-        } else {
-            DO_REDRAW = MISSING_TILE_RETRY;
-        }
-    }
+    // get current dimension
+    let cdk = get_current_dimkey();
+    // tiles etc. only if available
+    if (cdk != undefined) {
+        let cd = dimensions.key__dim(cdk);
 
-    // Highlight unlocked:
-    if (TRACE_UNLOCKED) {
-        draw.trace_unlocked(dimensions.dim__key(cd), CTX);
-    }
-
-    // Add energy highlights:
-    draw.draw_energies(cd, CTX, visible_tiles);
-
-    // Swipes
-    let combined = utils.combine_arrays(CURRENT_SWIPES);
-    draw.draw_swipe(CTX, combined, "highlight");
-
-    // Pokes
-    var poke_redraw_after = undefined;
-    var finished_pokes = [];
-    for (let index = 0; index < ACTIVE_POKES.length; ++index) {
-        let poke = ACTIVE_POKES[index];
-        if (dimensions.same(cd, poke[0])) {
-            let initiated_at = poke[2];
-            let age = now - initiated_at;
-            let ticks = Math.floor(age/1000);
-            let until_tick = 1000 - age % 1000;
-
-            draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
-
-            let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
-            if (
-                poke_redraw_after == undefined
-             || poke_redraw_after > frames_left
-            ) {
-                poke_redraw_after = frames_left;
-            }
-            if (ticks >= POKE_DELAY) {
-                finished_pokes.push(index);
+        // Tiles
+        let visible_tiles = draw.visible_tile_list(cd, CTX);
+        if (!draw.draw_tiles(cd, CTX, visible_tiles)) {
+            if (DO_REDRAW != null) {
+                DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
+            } else {
+                DO_REDRAW = MISSING_TILE_RETRY;
             }
         }
-    }
-    if (finished_pokes.length > 0) {
-        // remove & process finished pokes
-        DO_REDRAW = 0;
-        let adj = 0;
-        for (let i = 0; i < finished_pokes.length; ++i) {
-            let poke = ACTIVE_POKES[i - adj];
-            let dk = dimensions.dim__key(poke[0]);
-            player.add_poke(player.current_input_player(), dk, poke[1]);
-            ACTIVE_POKES.splice(i - adj, 1);
-            adj += 1;
+
+        // Highlight unlocked:
+        if (TRACE_UNLOCKED) {
+            draw.trace_unlocked(dimensions.dim__key(cd), CTX);
         }
-    } else if (poke_redraw_after != undefined) {
-        // set up redraw for remaining active pokes
-        DO_REDRAW = Math.max(poke_redraw_after, 0);
+
+        // Add energy highlights:
+        draw.draw_energies(cd, CTX, visible_tiles);
+
+        // Swipes
+        let combined = utils.combine_arrays(CURRENT_SWIPES);
+        draw.draw_swipe(CTX, combined, "highlight");
+
+        // Pokes
+        var poke_redraw_after = undefined;
+        var finished_pokes = [];
+        for (let index = 0; index < ACTIVE_POKES.length; ++index) {
+            let poke = ACTIVE_POKES[index];
+            if (dimensions.same(cd, poke[0])) {
+                let initiated_at = poke[2];
+                let age = now - initiated_at;
+                let ticks = Math.floor(age/1000);
+                let until_tick = 1000 - age % 1000;
+
+                draw.draw_poke(CTX, poke, ticks, POKE_DELAY);
+
+                let frames_left = Math.ceil(until_tick / MS_PER_FRAME);
+                if (
+                    poke_redraw_after == undefined
+                 || poke_redraw_after > frames_left
+                ) {
+                    poke_redraw_after = frames_left;
+                }
+                if (ticks >= POKE_DELAY) {
+                    finished_pokes.push(index);
+                }
+            }
+        }
+        if (finished_pokes.length > 0) {
+            // remove & process finished pokes
+            DO_REDRAW = 0;
+            let adj = 0;
+            for (let i = 0; i < finished_pokes.length; ++i) {
+                let poke = ACTIVE_POKES[i - adj];
+                let dk = dimensions.dim__key(poke[0]);
+                player.add_poke(player.current_input_player(), dk, poke[1]);
+                ACTIVE_POKES.splice(i - adj, 1);
+                adj += 1;
+            }
+        } else if (poke_redraw_after != undefined) {
+            // set up redraw for remaining active pokes
+            DO_REDRAW = Math.max(poke_redraw_after, 0);
+        }
     }
 
-    // Loading bars for domains:
+    // Loading bars for domains (regardless of dimension availability)
     var loading = dict.LOADING;
     var lks = Object.keys(loading);
     if (lks.length > 0) {
@@ -1599,7 +1608,7 @@ export function draw_frame(now) {
         }
     }
 
-    // Animations:
+    // Animations (regardless of dimension availability)
     var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
     if (
         next_horizon != undefined

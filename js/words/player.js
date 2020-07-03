@@ -289,7 +289,7 @@ export function tick_players(elapsed) {
     let result = false;
     for (let pid of Object.keys(CURRENT_PLAYERS)) {
         let agent = CURRENT_PLAYERS[pid];
-        if (tick_player(agent)) {
+        if (tick_player(agent, elapsed)) {
             result = true;
         }
     }
@@ -422,17 +422,23 @@ export function compute_stat(agent, domname, stat) {
 /**
  * Adds a quest to a player's list of active quests. The quest will be
  * initialized using the player as part of that process, so it should not
- * have already been initialized.
+ * have already been initialized. The given claim callback will be called
+ * when the quest reward is claimed.
  *
  * @param agent The player to add the quest to.
  * @param quest The quest object to initialize and start tracking.
+ * @param claim_callback A function to call when the quest reward is
+ *     claimed. Note: if the reward includes a refresh, this callback may
+ *     be called multiple times. It will be given the quest object as an
+ *     argument.
  */
-export function activate_quest(agent, quest) {
+export function activate_quest(agent, quest, claim_callback) {
     quests.initialize_quest(
         quest,
         agent,
         function (completed_quest) {
-            complete_quest(agent, completed_quest);
+            complete_quest(agent, completed_quest, claim_callback);
+            claim_callback(completed_quest);
         }
         // TODO: retroactivity decision...
     );
@@ -450,20 +456,24 @@ export function activate_quest(agent, quest) {
  * @param agent The player that the quest belongs to.
  * @param quest The quest that is now complete. Note that we don't check
  *     whether it's actually complete or not.
+ * @param claim_callback A function to call when a quest is claimed, to
+ *     be applied to any quests activated as quest rewards for this
+ *     quest.
  */
-export function complete_quest(agent, quest) {
+export function complete_quest(agent, quest, claim_callback) {
     // Apply quest rewards
-    console.log("CQ", quest);
-    let refreshes_remaining = claim_rewards(agent, quest.rewards);
+    let refreshes_remaining = claim_rewards(
+        agent,
+        quest.rewards,
+        claim_callback
+    );
 
     if (refreshes_remaining > 0) {
         // Reset all quest progress
         quests.initialize_quest(
             quest,
             agent,
-            function (completed_quest) {
-                complete_quest(agent, completed_quest);
-            },
+            undefined, // use old claim function
             false
         );
         // Reduce remaining refreshes for this quest
@@ -495,12 +505,14 @@ export function complete_quest(agent, quest) {
  * @param rewards An array of rewards, which are 2-element arrays holding
  *     an award type string and a reward value based on that type (see
  *     quests.REWARD_TYPES).
+ * @param claim_callback A function to call when a quest activated as a
+ *     quest reward is claimed.
  *
  * @return An integer number of remaining refreshes based on the presence
  *     of a "refresh" reward in the rewards list, or 0 if there is no
  *     such reward.
  */
-export function claim_rewards(agent, rewards) {
+export function claim_rewards(agent, rewards, claim_callback) {
     let result = 0;
     // TODO: Animations here?
     for (let reward of rewards) {
@@ -508,7 +520,7 @@ export function claim_rewards(agent, rewards) {
         if (type == "exp") {
             earn_exp(agent, value[0], value[1]);
         } else if (type == "quest") {
-            activate_quest(agent, value);
+            activate_quest(agent, value, claim_callback);
         } else if (type == "refresh") {
             result = value - 1;
         } else if (type == "portal") {
@@ -565,6 +577,7 @@ export function remember_dimension(agent, dimkey) {
  */
 export function remember_match(agent, dimkey, path, domname, index, glyphs) {
     let start = path[0]; // start of the path
+    agent.position.pos = start.slice(); // remember this as current position
     let matches = agent.activity.matches;
     let known = agent.activity.words_known;
 
@@ -712,6 +725,7 @@ export function known_words(agent, domname) {
  *     was most recently matched. The array will be grouped by domain and
  *     then sorted by time matched. Words associated with
  *     currently-unloaded domains will be omitted from the result.
+ *     TODO: Group by locale, not by domain!
  */
 export function recent_words(agent, horizon) {
     if (horizon == undefined) { horizon = 3600; }

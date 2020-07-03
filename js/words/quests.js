@@ -43,12 +43,14 @@ export var QUEST_TYPES = [
  * TODO: gettext here!
  */
 export var QUEST_INSTRUCTIONS = {
-    "hunt": "TODO",
-    "big": "TODO",
-    "glyphs": "TODO",
-    "encircle": "TODO",
-    "stretch": "TODO",
-    "branch": "TODO",
+    "hunt": "Find words that match the hints shown below.",
+    "big": "Find a certain number of words of at least a certain length.",
+    "glyphs": (
+        "Match words containing a certain number of copies of specific glyphs."
+    ),
+    "encircle": "Match words to encircle a certain total area.",
+    "stretch": "Match words as far apart as possible.",
+    "branch": "Match words to create y-shaped branch points.",
 };
 
 /**
@@ -170,21 +172,21 @@ export function unlocked_encircled(dimkey) {
         }
     }
     let edges = {};
-    for (let x = bounds[0] - 1; x < bounds[2] + 1; ++x) {
+    for (let x = bounds[0] - 1; x <= bounds[2] + 1; ++x) {
         let k1 = grid.coords__key([x, bounds[1] - 1]);
         let k2 = grid.coords__key([x, bounds[3] + 1]);
         edges[k1] = true;
         edges[k2] = true;
     }
-    for (let y = bounds[1] - 1; y < bounds[3] + 1; ++y) {
+    for (let y = bounds[1] - 1; y <= bounds[3] + 1; ++y) {
         let k1 = grid.coords__key([bounds[0] - 1, y]);
         let k2 = grid.coords__key([bounds[2] + 1, y]);
         edges[k1] = true;
         edges[k2] = true;
     }
     let edge_area = Object.keys(edges).length;
-    let full_width = bounds[2] - 1 - bounds[0] + 1;
-    let full_height = bounds[3] - 1 - bounds[1] + 1;
+    let full_width = (bounds[2] + 1) - (bounds[0] - 1) + 1;
+    let full_height = (bounds[3] + 1) - (bounds[1] - 1) + 1;
     let full_area = full_width * full_height;
 
     // Queue starts containing all edge tiles.
@@ -200,16 +202,16 @@ export function unlocked_encircled(dimkey) {
             let np = grid.neighbor(next, d);
             if (
                 np[0] < bounds[0]
-                || np[0] > bounds[2]
-                || np[1] < bounds[1]
-                || np[1] > bounds[3]
+             || np[0] > bounds[2]
+             || np[1] < bounds[1]
+             || np[1] > bounds[3]
             ) { // neighbor is out-of-bounds
                 continue;
             }
             let nk = grid.coords__key(np);
             if (!edges[nk] && !unlk[nk]) { // not already-visited or in path
                 edges[nk] = true;
-                queue.push(nk);
+                queue.push(np);
                 edge_area += 1;
             }
         }
@@ -382,6 +384,10 @@ export function unlocked_sizes(dimkey) {
  *     key of the same name. In addition to those slots, it has the
  *     following keys:
  *
+ *     status Starts as "unassigned" and becomes "active" when the quest
+ *         is initialized. Once the quest is completed and the reward has
+ *         been claimed, it becomes "completed".
+ *
  *     dimension Initially undefined; used to store the dimension a quest
  *         is bound to (as a dimension key string). If you want a quest
  *         to be dimension-specific, use the bind_dimension function.
@@ -420,6 +426,7 @@ export function new_quest(type, target, bonus, rewards) {
         "target": target,
         "bonus": bonus,
         "rewards": rewards,
+        "status": "unassigned",
         "dimension": undefined,
         "player": undefined,
         "element": undefined,
@@ -453,13 +460,15 @@ export function bind_dimension(quest, dimkey) {
  *     when the quest is complete. It will be given the quest as an
  *     argument when run, and it will be attached to the quest's UI
  *     element as a callback (but only enabled when the quest is
- *     complete).
+ *     complete). May be omitted when re-initializing a quest, in which
+ *     case the previous claim function will be used.
  * @param retroactive (optional) If true, the quest will be initialized
  *     with progress based on the player's current words found. Only
  *     applies to hunt and big quests. TODO: Use this ever?
  */
 export function initialize_quest(quest, agent, claim_function, retroactive) {
-    quest.agent = agent.id;
+    quest.player = agent.id;
+    quest.status = "active";
     let quest_dimension = quest.dimension || agent.position.dimension;
 
     if (quest.type == "hunt") {
@@ -508,6 +517,15 @@ export function initialize_quest(quest, agent, claim_function, retroactive) {
     }
     */
 
+    // Use old claim function if it exists and none is supplied
+    if (
+        !claim_function
+     && quest.element
+     && quest.element.raw_claim_function
+    ) {
+        claim_function = quest.element.raw_claim_function;
+    }
+
     // Construct the quest element
     construct_quest_element(quest, claim_function);
 }
@@ -543,12 +561,12 @@ export function update_quest(
     }
 
     if (quest.type == "hunt") {
-        for (var t of quest.targets) {
+        for (var t of quest.target) {
             if (matches_hint(t, glyphs)) {
                 quest.progress[t] = true;
             }
         }
-        for (var b of quest.bonuses) {
+        for (var b of quest.bonus) {
             if (matches_hint(b, glyphs)) {
                 quest.progress[b] = true;
             }
@@ -600,7 +618,7 @@ export function is_complete(quest) {
         let found = 0;
         for (let idx in quest.progress) { // skips empty slots
             if (idx >= size_req) {
-                found += 1;
+                found += quest.progress[idx];
                 if (found >= n_req) {
                     return true;
                 }
@@ -650,7 +668,7 @@ export function completed_bonus(quest) {
         let found = 0;
         for (let idx in quest.progress) { // skips empty slots
             if (idx >= size_req) {
-                found += 1;
+                found += quest.progress[idx];
                 if (found >= n_req) {
                     return true;
                 }
@@ -689,34 +707,60 @@ export function completed_bonus(quest) {
  */
 export function construct_quest_element(quest, claim_function) {
     quest.element = document.createElement("details");
+    quest.element.raw_claim_function = claim_function;
     quest.element.classList.add("quest");
+    quest.element.classList.add("type_" + quest.type);
     let summary = document.createElement("summary");
     let complete = document.createElement("a");
     complete.innerHTML = "?"; // TODO: empty check box instead?
     // simply attach for now without creating handler
-    complete.claim_function = function () { claim_function(quest); };
+    complete.claim_function = function (e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        if (quest.status == "active") {
+            quest.status = "completed";
+            claim_function(quest);
+        } else {
+            console.warn(
+                (
+                    `Attempt to claim the reward of a non-active`
+                  + ` (${quest.status}) quest:`
+                ),
+                quest
+            );
+        }
+        complete.removeEventListener("click", complete.claim_function);
+    };
     summary.appendChild(complete);
     // TODO: capitalize?
-    summary.appendChild(document.createTextNode(" " + quest.type + " "));
+    let qname = quest.type;
+    if (quest.type == "big") {
+        qname += " (" + quest.target[0] + "+)";
+    }
+    summary.appendChild(document.createTextNode(" " + qname + " "));
     let progress = document.createElement("span");
     progress.innerHTML = "?/?";
     summary.appendChild(progress);
     quest.element.appendChild(summary);
 
     let instructions = document.createElement("div");
-    instructions.innerHTML = QUEST_INSTRUCTIONS[quest.type];
+    instructions.classList.add("instructions");
+    instructions.innerHTML = "🛈 " + QUEST_INSTRUCTIONS[quest.type];
     quest.element.appendChild(instructions);
 
     let details = document.createElement("div");
     details.classList.add("passive");
     quest.element.appendChild(details);
 
-    details.innerHTML = QUEST_INSTRUCTIONS[quest.type];
-
     if (quest.type == "hunt") {
         let target_container = document.createElement("div");
         let bonus_container = document.createElement("div");
+        target_container.classList.add("targets");
+        bonus_container.classList.add("bonuses");
+        details.appendChild(document.createTextNode("Target words:"));
         details.appendChild(target_container);
+        details.appendChild(document.createTextNode("Bonus words:"));
         details.appendChild(bonus_container);
 
         for (let hint of quest.target) {
@@ -743,7 +787,11 @@ export function construct_quest_element(quest, claim_function) {
     } else if (quest.type == "glyphs") {
         let target_container = document.createElement("div");
         let bonus_container = document.createElement("div");
+        target_container.classList.add("targets");
+        bonus_container.classList.add("bonuses");
+        details.appendChild(document.createTextNode("Target glyphs:"));
         details.appendChild(target_container);
+        details.appendChild(document.createTextNode("Bonus glyphs:"));
         details.appendChild(bonus_container);
 
         for (let g of Object.keys(quest.target)) {
@@ -764,29 +812,11 @@ export function construct_quest_element(quest, claim_function) {
             bonus_container.appendChild(elem);
         }
     } else if (quest.type == "encircle") {
-        let details = quest.element.lastChild;
-        details.innerHTML = (
-            `Your matches currently encircle ${quest.progress}`
-          + `/${quest.target} total tiles. Encircle ${quest.bonus} tiles`
-          + ` for a bonus reward.`
-        );
-        // TODO: completion alt text
+        // Nothing to do here
     } else if (quest.type == "stretch") {
-        details.innerHTML = (
-            `Your matches currently include two tiles that are`
-          + ` ${quest.progress} tiles apart. Stretch across ${quest.target}`
-          + ` tiles to complete the quest, or across ${quest.bonus} tiles`
-          + ` for a bonus reward.`
-        );
-        // TODO: completion alt text
+        // Nothing to do here
     } else if (quest.type == "branch") {
-        details.innerHTML = (
-            `Your matches currently form ${quest.progress} Y-shaped`
-          + ` branches. Form ${quest.target} branches to complete`
-          + ` the quest, or form ${quest.bonus} branches for a bonus`
-          + ` reward.`
-        );
-        // TODO: completion alt text
+        // Nothing to do here
     } else {
         throw ("Unknown quest type '" + quest.type + "'.");
     }
@@ -826,7 +856,9 @@ export function display_status(quest) {
         let tfound = 0;
         let bfound = 0;
 
-        let target_hint_elements = quest.element.lastChild.firstChild.children;
+        let target_hint_elements = quest.element.querySelector(
+            ".targets"
+        ).children;
         for (let idx in quest.target) {
             let hint = quest.target[idx];
             if (quest.progress[hint]) {
@@ -836,7 +868,9 @@ export function display_status(quest) {
             }
         }
 
-        let bonus_hint_elements = quest.element.lastChild.lastChild.children;
+        let bonus_hint_elements = quest.element.querySelector(
+            ".bonuses"
+        ).children;
         for (let idx in quest.bonus) {
             let hint = quest.bonus[idx];
             if (quest.progress[hint]) {
@@ -853,15 +887,15 @@ export function display_status(quest) {
         }
     } else if (quest.type == "big") {
         let [size_req, n_req] = quest.target;
-        let [b_size_req, b_n_req] = quest.target;
+        let [b_size_req, b_n_req] = quest.bonus;
         let found = 0;
         let b_found = 0;
         for (let idx in quest.progress) { // skips empty slots
             if (idx >= size_req) {
-                found += 1;
+                found += quest.progress[idx];
             }
             if (idx >= b_size_req) {
-                b_found += 1;
+                b_found += quest.progress[idx];
             }
         }
 
@@ -872,19 +906,23 @@ export function display_status(quest) {
         );
         if (b_n_req > 0) {
             details.innerHTML += (
-                ` Found ${b_found} out of ${b_n_req} words at least`
+                ` Bonus: found ${b_found} out of ${b_n_req} words at least`
               + ` ${b_size_req} glyphs long.`
             );
         }
 
         if (b_found > 0) {
-            summary = found + "+" + b_found + "/" + n_req;
+            summary = found + "/" + n_req + " (+" + b_found + ")";
         } else {
             summary = found + "/" + n_req;
         }
     } else if (quest.type == "glyphs") {
-        let target_elements = quest.element.lastChild.firstChild.children;
-        let bonus_elements = quest.element.lastChild.lastChild.children;
+        let target_elements = quest.element.querySelector(
+            ".targets"
+        ).children;
+        let bonus_elements = quest.element.querySelector(
+            ".bonuses"
+        ).children;
 
         let total_progress = 0;
         let bonus_progress = 0;
@@ -916,15 +954,38 @@ export function display_status(quest) {
         }
 
         if (bonus_progress > 0) {
-            summary = total_progress + "+" + bonus_progress + "/" + total_goal;
+            summary = (
+                total_progress + "/" + total_goal
+              + " (+" + bonus_progress + ")"
+            );
         } else {
             summary = total_progress + "/" + total_goal;
         }
     } else if (quest.type == "encircle") {
+        let details = quest.element.lastChild;
+        details.innerHTML = (
+            `Your matches currently encircle ${quest.progress}`
+          + `/${quest.target} total tiles. Encircle ${quest.bonus} tiles`
+          + ` for a bonus reward.`
+        );
         summary = quest.progress + "/" + quest.target;
     } else if (quest.type == "stretch") {
+        let details = quest.element.lastChild;
+        details.innerHTML = (
+            `Your matches currently include tiles that are`
+          + ` ${quest.progress} tiles apart. Stretch across ${quest.target}`
+          + ` tiles to complete the quest, or across ${quest.bonus} tiles`
+          + ` for a bonus reward.`
+        );
         summary = quest.progress + "/" + quest.target;
     } else if (quest.type == "branch") {
+        let details = quest.element.lastChild;
+        details.innerHTML = (
+            `Your matches currently form ${quest.progress} Y-shaped`
+          + ` branches. Form ${quest.target} branches to complete`
+          + ` the quest, or form ${quest.bonus} branches for a bonus`
+          + ` reward.`
+        );
         summary = quest.progress + "/" + quest.target;
     } else {
         throw ("Unknown quest type '" + quest.type + "'.");

@@ -3736,8 +3736,11 @@ export function merge_glyph_tricounts(gs1, gs2) {
         } else {
             result[g] = {};
             for (let gg of Object.keys(gs2[g])) {
+                if (!result[g].hasOwnProperty(gg)) {
+                    result[g][gg] = {};
+                }
                 for (let ggg of Object.keys(gs2[g][gg])) {
-                    result[g][gg][gg] = gs2[g][gg][ggg] / gs2_total;
+                    result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
                 }
             }
         }

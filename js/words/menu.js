@@ -8,6 +8,7 @@ import * as grid from "./grid.js";
 import * as draw from "./draw.js";
 import * as colors from "./colors.js";
 import * as dict from "./dict.js";
+import * as player from "./player.js";
 
 // TODO: Import this when that becomes possible (see locale.js).
 // import * as locale from "./locale.js";
@@ -732,10 +733,11 @@ export function create_link_list_constructor(
  * @param style Extra style code for this menu (see BaseMenu).
  */
 export function QuestList(agent, pos, classes, style) {
+    this.player = agent;
     ItemList.call(
         this,
         'Quests', // TODO: make this translatable
-        agent.quests.active,
+        this.player.quests.active,
         quest => quest.element,
         pos,
         classes,
@@ -746,6 +748,23 @@ export function QuestList(agent, pos, classes, style) {
 QuestList.prototype = Object.create(ItemList.prototype);
 QuestList.prototype.constructor = QuestList;
 
+/**
+ * Swaps out the player whose quests are to be displayed.
+ *
+ * @param agent The new player to associate with this menu.
+ */
+QuestList.prototype.set_player = function (agent) {
+    this.player = agent;
+};
+
+/**
+ * Updates the quests displayed based on the current quests of the menu's
+ * associated player.
+ */
+QuestList.prototype.update = function () {
+    this.replace_items(this.player.quests.active);
+};
+
 
 /**
  * A WordList is a scrollable list of words which each link to a
@@ -755,21 +774,19 @@ QuestList.prototype.constructor = QuestList;
  * TODO: Include domain info somehow?
  * TODO: Include glyph strings too!
  *
- * @param words An array of 4-element arrays listing the words to be
- *     included. Each entry includes the domain name for the word (might
- *     be "_custom_" or "_personal_"), the word glyphs string, the word
- *     string, and the player timestamp at which the word was most
- *     recently matched.
+ * @param agent A player object to associate with this menu. Words from
+ *     that player's recent-words list will be displayed.
  * @param base_url A URL template that includes the text "<item>".
  * @param pos The position of this menu (see BaseMenu).
  * @param classes CSS classes for this menu (see BaseMenu).
  * @param style Extra style code for this menu (see BaseMenu).
  */
-export function WordList(words, url_template, pos, classes, style) {
+export function WordList(agent, url_template, pos, classes, style) {
+    this.player = agent;
     ItemList.call(
         this,
         'Words',
-        words.map(w => w[2]),
+        player.recent_words(this.player),
         create_link_list_constructor(
             function (entry) {
                 let [dom, glyphs, word, when] = entry;
@@ -808,6 +825,23 @@ export function WordList(words, url_template, pos, classes, style) {
 
 WordList.prototype = Object.create(ItemList.prototype);
 WordList.prototype.constructor = WordList;
+
+/**
+ * Swaps out the player whose words list is to be displayed.
+ *
+ * @param agent The new player to associate with this menu.
+ */
+WordList.prototype.set_player = function (agent) {
+    this.player = agent;
+};
+
+/**
+ * Updates the words displayed based on the recently-found words of the
+ * menu's associated player.
+ */
+WordList.prototype.update = function () {
+    this.replace_items(player.recent_words(this.player));
+};
 
 
 /**

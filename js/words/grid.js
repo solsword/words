@@ -497,6 +497,8 @@ export function world_pos(gp) {
  *
  * @return A 2-element x/y hex grid position array indicating which hex
  *     tile contains the given world position.
+ *
+ * TODO: double-check accuracy here!
  */
 export function grid_pos(wp) {
     // First, compute origin-shifted and jittered square position
