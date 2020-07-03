@@ -150,7 +150,7 @@ export function dim__key(d) {
  */
 export function key__dim(k) {
     let kind = DIMENSION_KINDS[k[0]];
-    let layout = DIMENSION_KINDS[kind][k[2]];
+    let layout = DIMENSION_LAYOUTS[kind][k[2]];
     let result = {
         "kind": kind,
         "layout": layout,

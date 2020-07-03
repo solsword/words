@@ -1,6 +1,6 @@
 // quests.js
 // Quests functionality.
-/* global console */
+/* global console, document */
 
 "use strict";
 
@@ -12,10 +12,72 @@ import * as icons from "./icons.js";
 import * as colors from "./colors.js";
 
 /**
- * Variables that controls spacing of the quest UI elements.
+ * All of the valid type values for quests. They behave roughly as
+ * follows:
+ *
+ * encircle: Fulfilled by matching words such that the resulting unlocked
+ *     tiles completely encircle a certain total area.
+ * stretch: Fulfilled by matching words such that the maximum distance
+ *     between two unlocked tiles is above a certain threshold.
+ * branch: Fulfilled by matching words such that the pattern of unlocked
+ *     tiles contains a certain number of Y-shaped branches.
+ * hunt: Fulfilled by finding words which match each hint from a list of
+ *     hints.
+ * glyphs: Fulfilled by finding words that contain minimum numbers of
+ *     each of a certain list of target glyphs.
+ * big: Fulfilled by finding a certain number of words which are each at
+ *     least a certain length.
  */
-var PADDING = 8;
-var SPACE = 20;
+export var QUEST_TYPES = [
+    "hunt",
+    "big",
+    "glyphs",
+    "encircle",
+    "stretch",
+    "branch",
+];
+
+/**
+ * HTML instructions for each quest type.
+ *
+ * TODO: gettext here!
+ */
+export var QUEST_INSTRUCTIONS = {
+    "hunt": "TODO",
+    "big": "TODO",
+    "glyphs": "TODO",
+    "encircle": "TODO",
+    "stretch": "TODO",
+    "branch": "TODO",
+};
+
+/**
+ * All of the valid reward types for quests. Each reward type will be
+ * paired with a certain kind of reward value, as follows:
+ *
+ * exp: A 2-element array containing an experience-point type and a
+ *     number of experience points to award of that type.
+ * quest: A quest object.
+ * refresh: An integer specifying how many additional times this quest
+ *     may be completed.
+ * portal: A 2-element array containing a dimension key (a string) and a
+ *     position (a 2-element x/y tile coordinate array). The player will
+ *     be transported to that position in that dimension when claiming
+ *     the quest reward.
+ * return: No associated value. In quiz mode, indicates the completion of
+ *     a quiz. When a quest is associated with a pocket dimension,
+ *     indicates that the player should be transported back to their
+ *     previous location outside of that dimension. In other cases,
+ *     transports the player to their most-recent history location if
+ *     they have one. TODO: really that?!?
+ */
+export var REWARD_TYPES = [
+    "exp",
+    "quest",
+    "refresh",
+    "portal",
+    "return",
+];
 
 /**
  * Checks whether a word matches a hint. The hint string may include '_'
@@ -27,7 +89,7 @@ var SPACE = 20;
  * @param hint A string that determines which words can match.
  * @param word The word to check.
  */
-export function matches(hint, word) {
+export function matches_hint(hint, word) {
     let alignments = [[0, 0]];
     while (alignments.length > 0) {
         let next_alignments = [];
@@ -74,16 +136,18 @@ export function matches(hint, word) {
  * Computes how many tiles are encircled within unlocked tiles in a given
  * dimension. Includes unlocked tiles themselves.
  *
- * @param dimension The dimension object to measure in.
+ * @param dimkey The string key of the dimension to measure in.
  *
  * @return The total number of unlocked hexes in the given dimension,
  *     plus the total number of locked hexes which are completely
  *     encircled by unlocked hexes.
  */
-export function unlocked_encircled(dimension) {
+export function unlocked_encircled(dimkey) {
     // Create map for checking whether tiles are in the unlocked region:
-    let dk = dimensions.dim__key(dimension);
-    let unlk = content.unlocked_set(dk);
+    let unlk = content.unlocked_set(dimkey);
+    if (Object.keys(unlk).length == 0) {
+        return 0;
+    }
 
     // Compute bounding box of unlocked region
     let bounds = [undefined, undefined, undefined, undefined];
@@ -159,20 +223,22 @@ export function unlocked_encircled(dimension) {
  * Computes how many tiles are spanned by the unlocked area in the given
  * dimension.
  *
- * @param dimension The dimension object to measure in.
+ * @param dimkey The string key of the dimension to measure in.
  *
  * @return The maximum x-, y-, or z-axis difference between two unlocked
  *     tiles in the given dimension. Because of hex movement
  *     possibilities, this is also the maximum number of steps required
  *     to move between any pair of unlocked tiles.
  */
-export function unlocked_span(dimension) {
+export function unlocked_span(dimkey) {
     // Create map for checking whether tiles are in the unlocked region:
     let xbounds = [undefined, undefined];
     let ybounds = [undefined, undefined];
     let zbounds = [undefined, undefined];
-    let dk = dimensions.dim__key(dimension);
-    let unlk = content.unlocked_set(dk);
+    let unlk = content.unlocked_set(dimkey);
+    if (Object.keys(unlk).length == 0) {
+        return 0;
+    }
     for (var k of Object.keys(unlk)) {
         let pos = grid.key__coords(k);
         if (pos == undefined) {
@@ -213,15 +279,17 @@ export function unlocked_span(dimension) {
  * Computes how many y-shaped branches exist among the unlocked tiles in
  * the given dimension.
  *
- * @param dimension The dimension object to check.
+ * @param dimkey The string key of the dimension to measure in.
  * 
  * @return The number of unlocked tiles in the given dimension which have
  *     unlocked neighbors in one of the two possible y-shaped neighbor
  *     configurations.
  */
-export function unlocked_branches(dimension) {
-    let dk = dimensions.dim__key(dimension);
-    let unlk = content.unlocked_set(dk);
+export function unlocked_branches(dimkey) {
+    let unlk = content.unlocked_set(dimkey);
+    if (Object.keys(unlk).length == 0) {
+        return 0;
+    }
 
     // Check each position to see if it's the center of a branch setup:
     let branches = 0;
@@ -263,7 +331,7 @@ export function unlocked_branches(dimension) {
  * Computes an array containing the number of words unlocked of size i at
  * each index i (up to the length of the longest word found).
  *
- * @param dimension The dimension object to inspect.
+ * @param dimkey The string key of the dimension to measure in.
  *
  * @return An array with one entry at each index for which there is at
  *     least one unlocked word. There may be in-between entries that are
@@ -271,13 +339,13 @@ export function unlocked_branches(dimension) {
  *     each entry that does exist, the value will be the number of
  *     unlocked words of that length.
  */
-export function unlocked_sizes(dimension) {
-    let unlk = content.unlocked_paths(dimension);
+export function unlocked_sizes(dimkey) {
+    let unlk = content.unlocked_entries(dimkey);
     let result = [];
 
     // Record length of each unlocked path:
-    for (let path of unlk) {
-        let l = path.length;
+    for (let entry of unlk) {
+        let l = entry.path.length;
         if (result[l] == undefined) {
             result[l] = 1;
         } else {
@@ -290,439 +358,136 @@ export function unlocked_sizes(dimension) {
 }
 
 /**
- * Takes a stored quest and re-creates a full quest object, re-initializing
- * the object using the given words found list.
+ * Creates a new quest object with the given type, target, bonus, and
+ * reward.
  *
- * @param q The stored quest object to revive.
- * @param words_found An array of words (strings) that the user has found.
+ * @param type The quest type (a string, one of the QUEST_TYPES).
+ * @param target The quest target for most types of quest, this is just
+ *     an integer, but here are exceptions:
  *
- * @return A full quest object with internal state based on the words
- * found list.
+ *     For a "hunt" quest, it's an array of glyph-sequence hint strings.
+ *     For a "big" quest, it's a 2-element array of the minimum size and
+ *     the number of words of at least that size required.
+ *     For a "glyphs" quest, its a mapping from 1-character glyph strings
+ *     to the number of copies of that glyph required for the quest.
+ *
+ * @param bonus The bonus requirement, in the same format as the target.
+ *     TODO: Bonus rewards!
+ *
+ * @param rewards An array of 2-element reward arrays which each contain
+ *     a type and a value. Their types must be one of the REWARD_TYPES,
+ *     and their values depend on their types (see REWARD_TYPES).
+ *
+ * @return A new quest object, which stores each parameter value under a
+ *     key of the same name. In addition to those slots, it has the
+ *     following keys:
+ *
+ *     dimension Initially undefined; used to store the dimension a quest
+ *         is bound to (as a dimension key string). If you want a quest
+ *         to be dimension-specific, use the bind_dimension function.
+ *
+ *     player The player ID of the player who is completing this quest.
+ *
+ *     element The DOM element that represents this quest.
+ *
+ *     progress A number indicating progress towards quest completion, or
+ *         a more complicated data structure for some quest types:
+ *
+ *         For hunt quests, a mapping from hint strings to true for
+ *             fulfilled hints.
+ *         For big quests, an array with partial indices where the
+ *             element at that index indicates that that many words of
+ *             length equal to that index have been matched.
+ *         For glyphs quests, an object that maps glyphs to the number of
+ *             copies found.
+ *
+ *     completed Whether or not the quest has been completed before (a
+ *         boolean). May be true even for a currently-incomplete quest if
+ *         quest progress has lapsed since completion, or if a quest has
+ *         been refreshed.
  */
-export function revive_quest(q, words_found) {
-    let result = undefined;
-    if (q.type == "hunt") {
-        result = new HuntQuest(
-            q.targets,
-            q.bonuses,
-            q.params,
-            q.reward,
-            q.found
-        );
-    } else if (q.type == "encircle") {
-        result = new EncircleQuest(q.target, q.bonus, q.reward);
-    } else if (q.type == "stretch") {
-        result = new StretchQuest(q.target, q.bonus, q.reward);
-    } else if (q.type == "branch") {
-        result = new BranchQuest(q.target, q.bonus, q.reward);
-    } else if (q.type == "glyph") {
-        result = new GlyphQuest(q.targets, q.bonuses, q.reward, q.found);
+export function new_quest(type, target, bonus, rewards) {
+    if (QUEST_TYPES.indexOf(type) < 0) {
+        throw ("Invalid quest type '" + type + "'.");
     }
-    result.initialize(result.dimension, words_found);
-    return result;
-}
-
-
-/**
- * Takes a type and a reward and initializes a quest object.
- *
- * @param type A string indicating the type of quest. One of:
- *     - 'hunt' Find specific words from a list of hints.
- *     - 'encircle' Encircle a certain total area.
- *     - 'stretch' Unlock points a certain distance away from each other.
- *     - 'branch' Create a certain number of y-shaped branches.
- *     - 'glyph' Unlock certain numbers of certain specific glyphs.
- *
- * @param reward TODO: What are these and how do they work?
- */
-export function Quest(type, reward) {
-    this.type = type;
-    this.reward = reward;
-    this.expanded = false;
-    this.icon = icons.unknown;
-}
-
-/**
- * Sets up the quest based on the contents of a specific dimension and a
- * given words-found list.
- *
- * @param dimension The dimension object to associate with the quest.
- * @param words_found The current list of words found.
- */
-Quest.prototype.initialize = function(dimension, words_found) {
-    this.dimension = dimension;
-};
-
-/**
- * Updates the quest state based on the discovery of a specific word
- * along a specific path of tiles.
- *
- * @param dimension The dimension in which the match occurred.
- * @param match A match array TODO: What's that?
- * @param path An array of hex coordinate pairs specifying the layout of
- *     the word that was matched.
- */
-Quest.prototype.find_word = function(dimension, match, path) {
-    console.error("Quest.find_word isn't implemented.");
-};
-
-/**
- * Tests whether the quest is complete. Override this.
- *
- * @return True or false depending on whether the quest is complete or
- * not.
- */
-Quest.prototype.is_complete = function() {
-    console.error("Quest.is_complete isn't implemented.");
-    return false;
-};
-
-/**
- * Returns whether or not the quest bonus condition has been completed.
- * Override this.
- *
- * @return True if the quest bonus condition has been completed; false
- *     otherwise.
- */
-Quest.prototype.got_bonus = function() {
-    console.error("Quest.got_bonus isn't implemented.");
-    return false;
-};
-
-/**
- * Handles taps on the quest UI element in a list of quests.
- *
- * @param rxy A 2-element x/y coordinate array specifying the relative
- *     x/y position of the tap from the upper-left corner of the UI
- *     element.
- */
-Quest.prototype.tap = function(rxy) {
-    let x = rxy[0];
-    let y = rxy[1];
-    if (
-        x >= PADDING
-        && x <= PADDING + icons.WIDTH
-        && y >= PADDING
-        && y <= PADDING + icons.HEIGHT
-    ) {
-        let complete = this.is_complete();
-        if (complete && this.got_bonus()) {
-            // TODO: HERE
-            console.log("QUEST w/ BONUS");
-        } else if (complete) {
-            // TODO: HERE
-            console.log("QUEST");
+    for (let reward of rewards) {
+        if (REWARD_TYPES.indexOf(reward[0]) < 0) {
+            throw ("Invalid reward type '" + reward[0] + "'.");
         }
-    } else {
-        this.expanded = !this.expanded;
     }
-};
-
-/**
- * Returns a summary string indicating the completion state of the quest.
- *
- * @return A string which will be incorporated into the quest UI element.
- */
-Quest.prototype.summary_string = function () {
-    console.warn("summary_string isn't implemented for base Quest.");
-    return "<error>";
-};
-
-/**
- * Returns the canvas width of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring text.
- *
- * @return The natural width of the quest UI element in pixels.
- */
-Quest.prototype.width = function(ctx) {
-    let ss = this.summary_string();
-    let m = draw.measure_text(ctx, ss);
-    return 2*(icons.WIDTH + 2*PADDING) + SPACE + m.width + 2*PADDING;
-};
-
-/**
- * Returns the canvas height of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring text.
- *
- * @return The natural height of the quest UI element.
- */
-Quest.prototype.height = function (ctx) {
-    let ss = this.summary_string();
-    let m = draw.measure_text(ctx, ss);
-    return Math.max(icons.HEIGHT, m.height) + 2*PADDING;
-};
-
-/**
- * Base implementation draws border, summary: completion icon, and quest
- * type icon.
- *
- * @param ctx The canvas context to use for drawing.
- * @param width The desired width to draw at. Will generally be at least
- *     as great as the natural width of the quest.
- */
-Quest.prototype.draw = function (ctx, width) {
-    // Draw border:
-    let tw = Math.max(this.width(ctx), width);
-    let th = this.height(ctx);
-    ctx.beginPath();
-    ctx.fillStyle = colors.scheme_color("menu", "button");
-    ctx.strokeStyle = colors.scheme_color("menu", "border");
-    ctx.rect(PADDING/2, PADDING/2, tw-PADDING, th-PADDING);
-    ctx.stroke();
-    ctx.fill();
-    // Figure out positions & states:
-    let complete = this.is_complete();
-    let perfect = complete && this.got_bonus();
-    let ss = this.summary_string();
-    let m = draw.measure_text(ctx, ss);
-    let h = Math.max(icons.HEIGHT, m.height) + 2*PADDING;
-    let qcpos = [icons.WIDTH/2 + PADDING, h/2];
-    let qipos = [icons.WIDTH*1.5 + 3*PADDING, h/2];
-    let ss_left = icons.WIDTH*2 + 5*PADDING + SPACE;
-    ctx.strokeStyle = colors.scheme_color("menu", "text");
-    // Draw completion icon:
-    if (perfect) {
-        icons.quest_perfect(ctx, qcpos);
-    } else if (complete) {
-        icons.quest_finished(ctx, qcpos);
-    } else {
-        icons.quest_in_progress(ctx, qcpos);
-    }
-    // Draw quest icon:
-    this.icon(ctx, qipos);
-    // Draw summary text:
-    ctx.fillStyle = colors.scheme_color("menu", "text");
-    ctx.textBaseline = "middle";
-    let sspos;
-    if (ss_left + m.width < width) {
-        ctx.textAlign = "right";
-        sspos = width - PADDING;
-    } else {
-        ctx.textAlign = "left";
-        sspos = ss_left;
-    }
-    ctx.fillText(ss, sspos, h/2);
-};
-
-
-/**
- * Generic subtype for quests that just have numerical targets/bonuses.
- * Supplies is_complete, got_bonus, summary_string, full_string,
- * threshold_positions, width, height, and draw functions.
- *
- * @param type The quest type (see Quest).
- * @param target The numeric value to reach to complete the quest.
- * @param bonus The numeric value to reach to earn the quest bonus.
- * @param reward The quest reward (TODO: What is this?!?!)
- */
-export function NumericQuest(type, target, bonus, reward) {
-    Quest.call(this, type, reward);
-    this.icon = icons.unknown;
-    this.target = target;
-    this.bonus = bonus;
-    this.value = 0;
+    return {
+        "type": type,
+        "target": target,
+        "bonus": bonus,
+        "rewards": rewards,
+        "dimension": undefined,
+        "player": undefined,
+        "element": undefined,
+        "progress": undefined,
+        "completed": false,
+    };
 }
 
-NumericQuest.prototype = Object.create(Quest.prototype);
-NumericQuest.prototype.constructor = NumericQuest;
 
 /**
- * For subtypes, this should return a string that describes the state.
+ * Binds the given quest to a specific dimension. Once bound, the quest
+ * will ignore updates which don't happen within that dimension, and the
+ * various numeric quests will use that dimension (instead of their
+ * player's current dimension) as the basis for their progress.
  *
- * @return A string describing quest progress.
+ * @param quest The quest to bind.
+ * @param dimkey The string key of the dimension to bind the quest to.
  */
-NumericQuest.prototype.full_string = function () {
-    console.warn("full_string isn't implemented for base NumericQuest.");
-    return "<error>";
-};
-
-/**
- * @return The positions (on a scale of 0--1) of the current value and
- *     target value relative to the bonus value.
- */
-NumericQuest.prototype.threshold_positions = function () {
-    return [
-        Math.min(1, this.value / this.bonus),
-        Math.min(1, this.target / this.bonus)
-    ];
-};
-
-/**
- * @return True if the current numeric value is greater than or equal to
- *     the target value.
- */
-NumericQuest.prototype.is_complete = function () {
-    return this.value >= this.target; 
-};
-
-/**
- * @return True if the current numeric value is greater than or equal to
- *     the bonus value.
- */
-NumericQuest.prototype.got_bonus = function () {
-    return this.value >= this.bonus; 
-};
-
-/**
- * Indicates the quest progress with the current value in the numerator
- * and the target value in the denominator.
- *
- * @return A summary string.
- */
-NumericQuest.prototype.summary_string = function() {
-    return "" + this.value + "/" + this.target;
-};
-
-/**
- * A string indicating progress which includes the bonus value as well as
- * the current and target values.
- *
- * @return A detailed summary string.
- */
-NumericQuest.prototype.full_string = function() {
-    if (this.bonus > this.target) {
-        return (
-            ""
-            + this.value
-            + "/"
-            + this.target
-            + " (" + this.bonus + ")"
-        );
-    } else {
-        return (
-            ""
-            + this.value
-            + "/"
-            + this.target
-        );
-    }
-};
-
-/**
- * Computes the natural width of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return The UI element's natural width.
- */
-NumericQuest.prototype.width = function (ctx) {
-    let xw = Quest.prototype.width.call(this, ctx);
-    if (this.expanded) {
-        let m = draw.measure_text(ctx, this.full_string());
-        xw = Math.max(xw, m.width + 2*SPACE + 3*PADDING);
-    }
-    return xw;
-};
-
-/**
- * Computes the height of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return The UI element height.
- */
-NumericQuest.prototype.height = function (ctx) {
-    let th = Quest.prototype.height.call(this, ctx);
-    if (this.expanded) {
-        th += draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-    }
-    return th;
-};
-
-/**
- * Draws the numeric quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- * @param width The required width (should be >= the natural width).
- */
-NumericQuest.prototype.draw = function (ctx, width) {
-    Quest.prototype.draw.call(this, ctx, width);
-    let bh = Quest.prototype.height.call(this, ctx);
-    if (this.expanded) {
-        // A line after the summary
-        ctx.beginPath();
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.moveTo(SPACE, bh);
-        ctx.lineTo(width - SPACE, bh);
-        ctx.stroke();
-        // Line height
-        let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-
-        let bar_height = lh - PADDING;
-        let tp = this.threshold_positions();
-
-        // Full bar:
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.fillStyle = colors.scheme_color("menu", "background");
-        ctx.rect(PADDING + SPACE, bh + PADDING, SPACE, bar_height);
-        ctx.fill();
-        ctx.stroke();
-
-        // Filled region:
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.fillStyle = colors.scheme_color("menu", "button_text");
-        ctx.rect(
-            PADDING + SPACE,
-            bh + PADDING + bar_height * (1 - tp[0]),
-            SPACE,
-            bar_height * tp[0]
-        );
-        ctx.fill();
-        ctx.stroke();
-
-        // target level line (pokes out sideways a bit)
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.beginPath();
-        let target_y = bh + PADDING + bar_height * (1 - tp[1]);
-        ctx.moveTo(SPACE, target_y);
-        ctx.lineTo(2*PADDING + 2*SPACE, target_y);
-        ctx.stroke();
-
-        // Draw full string:
-        let txt = this.full_string();
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "left";
-        ctx.fillText(txt, 2*SPACE + 2*PADDING, bh + 0.5*lh);
-    }
-};
-
-/**
- * A Hunt quest asks the user to search for words that match a specific
- * set of hints.
- *
- * @param targets An array of hint strings (see matches).
- * @param bonuses An array of hint strings required to earn the bonus.
- * @param params An object with the following optional keys:
- *     'retroactive' If true, previously-discovered words are used to
- *     initialize quest progress, otherwise the hints have to be
- *     matched after the quest starts.
- * @param reward The quest reward (TODO).
- * @param found (optional) A list of found words, to be used to
- *     initialize progress when 'retroactive' is specified.
- */
-export function HuntQuest(targets, bonuses, params, reward, found) {
-    Quest.call(this, "hunt", reward);
-    this.icon = icons.hunt;
-    this.targets = targets;
-    this.bonuses = bonuses;
-    this.found = found || {};
-    this.params = params || {};
+export function bind_dimension(quest, dimkey) {
+    quest.dimension = dimkey;
 }
 
-HuntQuest.prototype = Object.create(Quest.prototype);
-HuntQuest.prototype.constructor = HuntQuest;
-
 /**
- * Binds the hunt quest to a specific dimension.
+ * Binds the quest to a specific player, and initializes (or resets) all
+ * quest progress. This should be called before taking any other actions
+ * with the quest.
  *
- * @param dimension The dimension object to associate with this quest.
- * @param words_found A list of strings representing words already found.
- *     Used to fill in progress when retroactive mode is enabled.
+ * @param quest The quest to initialize.
+ * @param agent The player object that the quest will be associated with.
+ * @param claim_function The function to run to claim the quest reward
+ *     when the quest is complete. It will be given the quest as an
+ *     argument when run, and it will be attached to the quest's UI
+ *     element as a callback (but only enabled when the quest is
+ *     complete).
+ * @param retroactive (optional) If true, the quest will be initialized
+ *     with progress based on the player's current words found. Only
+ *     applies to hunt and big quests. TODO: Use this ever?
  */
-HuntQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.prototype.initialize.call(this, dimension, words_found);
+export function initialize_quest(quest, agent, claim_function, retroactive) {
+    quest.agent = agent.id;
+    let quest_dimension = quest.dimension || agent.position.dimension;
+
+    if (quest.type == "hunt") {
+        if (retroactive) {
+            // TODO
+        } else {
+            quest.progress = {};
+        }
+    } else if (quest.type == "big") {
+        if (retroactive) {
+            quest.progress = unlocked_sizes(quest_dimension);
+        } else {
+            quest.progress = [];
+        }
+    } else if (quest.type == "glyphs") {
+        quest.progress = {};
+    } else if (quest.type == "encircle") {
+        quest.progress = unlocked_encircled(quest_dimension);
+    } else if (quest.type == "stretch") {
+        quest.progress = unlocked_span(quest_dimension);
+    } else if (quest.type == "branch") {
+        quest.progress = unlocked_branches(quest_dimension);
+    } else {
+        throw ("Unknown quest type '" + quest.type + "'.");
+    }
+
+    // TODO: enable retroactive hunt quests?
+    /* Based on this code?
     // Sets already-found words as discovered for the quest if the
     // "retroactive" parameter is set.
     // TODO: Is this too slow?
@@ -741,822 +506,429 @@ HuntQuest.prototype.initialize = function(dimension, words_found) {
             }
         }
     }
-};
+    */
 
-/**
- * Updates the quest to include a match in the given dimension. Any given
- * word can simultaneously match multiple hints, and all matching hints
- * from the targets and bonus arrays will be checked off.
- *
- * @param dimension the dimension object in which the match occurred.
- * @param match The match array (TODO: What's that?)
- */
-HuntQuest.prototype.find_word = function(dimension, match) {
-    if (!dimensions.same(this.dimension, dimension)) { return; }
-    let word = match[3];
-    for (var t of this.targets) {
-        if (matches(t, word)) {
-            this.found[t] = true;
-        }
-    }
-    for (var b of this.bonuses) {
-        if (matches(b, word)) {
-            this.found[b] = true;
-        }
-    }
-};
-
-/**
- * @return True if the quest is complete.
- */
-HuntQuest.prototype.is_complete = function() {
-    let complete = true;
-    for (var t of this.targets) {
-        if (!this.found[t]) {
-            complete = false;
-        }
-    }
-    return complete;
-};
-
-/**
- * @return True if the bonus is complete.
- */
-HuntQuest.prototype.got_bonus = function() {
-    let bonus = true;
-    for (var b of this.bonuses) {
-        if (!this.found[b]) {
-            bonus = false;
-        }
-    }
-    return bonus;
-};
-
-/**
- * @return A summary string indicating quest progress.
- */
-HuntQuest.prototype.summary_string = function() {
-    let ft = 0;
-    let fb = 0;
-    for (let t of this.targets) {
-        if (this.found[t]) {
-            ft += 1;
-        }
-    }
-    for (let b of this.bonuses) {
-        if (this.found[b]) {
-            fb += 1;
-        }
-    }
-    if (fb > 0) {
-        return ft + "+" + fb + "/" + this.targets.length;
-    } else {
-        return ft + "/" + this.targets.length;
-    }
-};
-
-/**
- * @return A string to represent a target or bonus hint.
- *
- * @param target The hint string to be represented.
- */
-HuntQuest.prototype.ex_string = function (target) {
-    // TODO: Incorporate actual word found?
-    return target;
-};
-
-/**
- * Returns the natural width of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return A width value in canvas units.
- */
-HuntQuest.prototype.width = function (ctx) {
-    let xw = Quest.prototype.width.call(this, ctx);
-    if (this.expanded) {
-        for (let t of this.targets) {
-            let es = this.ex_string(t);
-            let m = draw.measure_text(ctx, es);
-            let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
-            if (w > xw) {
-                xw = w;
-            }
-        }
-        for (let b of this.bonuses) {
-            let es = this.ex_string(b);
-            let m = draw.measure_text(ctx, es);
-            let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
-            if (w > xw) {
-                xw = w;
-            }
-        }
-    } // else nothing; xw from the base call stands.
-    return xw;
-};
-
-/**
- * Returns the height of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return A height value in canvas units.
- */
-HuntQuest.prototype.height = function (ctx) {
-    let bh = Quest.prototype.height.call(this, ctx);
-    let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-    if (this.expanded) {
-        return (
-            bh
-            + (this.targets.length + this.bonuses.length) * lh
-            + 2*PADDING
-        );
-    } else {
-        return bh;
-    }
-};
-
-/**
- * Draws the quest UI element.
- *
- * @param ctx The canvas context to use for drawing.
- * @param width The required width (should be >= the natural width).
- */
-HuntQuest.prototype.draw = function (ctx, width) {
-    Quest.prototype.draw.call(this, ctx, width);
-    let bh = Quest.prototype.height.call(this, ctx);
-    if (this.expanded) {
-        // A line after the summary
-        ctx.beginPath();
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.moveTo(SPACE, bh);
-        ctx.lineTo(width - SPACE, bh);
-        ctx.stroke();
-        // Line height
-        let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-        let line = 0;
-        let c = [];
-        let h;
-        for (let t of this.targets) {
-            h = bh + (line + 0.5) * lh;
-            if (this.found[t]) {
-                ctx.fillStyle = colors.scheme_color("menu", "text");
-                ctx.strokeStyle = colors.scheme_color("menu", "text");
-                icons.item_complete(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, h]
-                );
-            } else {
-                ctx.fillStyle = colors.scheme_color("menu", "button_text");
-                ctx.strokeStyle = colors.scheme_color("menu", "button_text");
-            }
-            let es = this.ex_string(t);
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "left";
-            ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
-            line += 1;
-        }
-        h = bh + PADDING + line*lh;
-        // Draw a separator line before bonus entries
-        // TODO: Make this clearer
-        ctx.beginPath();
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.moveTo(SPACE, h);
-        ctx.lineTo(width - SPACE, h);
-        ctx.stroke();
-        for (let b of this.bonuses) {
-            h = bh + PADDING + (line + 0.5) * lh;
-            if (this.found[b]) {
-                ctx.fillStyle = colors.scheme_color("menu", "text");
-                ctx.strokeStyle = colors.scheme_color("menu", "text");
-                icons.item_complete(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, h]
-                );
-            } else {
-                ctx.fillStyle = colors.scheme_color("menu", "button_text");
-                ctx.strokeStyle = colors.scheme_color("menu", "button_text");
-                icons.item_bonus(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, h]
-                );
-            }
-            let es = this.ex_string(b);
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "left";
-            ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
-            line += 1;
-        }
-    }
-};
-
-
-/**
- * An Encircle quest requires matching words that encircle a certain
- * amount of area. Simply matching that many total tiles works too.
- *
- * @param target An integer area that must be encircled to complete the
- *     quest.
- * @param bonus Another area target (an integer) to complete the quest
- *     bonus.
- * @param reward The quest reward.
- */
-export function EncircleQuest(target, bonus, reward) {
-    NumericQuest.call(this, "encircle", target, bonus, reward);
-    this.icon = icons.encircle;
+    // Construct the quest element
+    construct_quest_element(quest, claim_function);
 }
 
-EncircleQuest.prototype = Object.create(NumericQuest.prototype);
-EncircleQuest.prototype.constructor = EncircleQuest;
-
 /**
- * Sets up the quest for a particular dimension.
+ * Called whenever a match is made by the associated player; updates the
+ * quest state taking that new match into account. This function calls
+ * display_status at the end to make sure that any state changes are
+ * reflected in the quest UI elements.
  *
- * @param dimension The dimension to set the quest in.
- * @param words_found The current words found list.
+ * @param quest The quest to update.
+ * @param glyphs A string containing the glyphs that were matched.
+ * @param path The path along which the match was found, as an array of
+ *     2-element x/y tile position arrays.
+ * @param current_dimension The string key of the dimension that the
+ *     update happens in.
  */
-EncircleQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.prototype.initialize.call(this, dimension, words_found);
-    this.value = unlocked_encircled(this.dimension);
-};
-
-/**
- * Update our measure of encircled area.
- *
- * @param dimension The dimension in which to measure area.
- */
-EncircleQuest.prototype.find_word = function(dimension) {
-    if (!dimensions.same(this.dimension, dimension)) { return; }
-    this.value = unlocked_encircled(this.dimension);
-};
-
-
-/**
- * A Stretch quest involves unlocking cells that are as far apart as
- * possible.
- *
- * @param target The target distance between the two most-distant
- *     unlocked cells.
- * @param bonus The bonus distance threshold.
- * @param reward The quest reward.
- */
-export function StretchQuest(target, bonus, reward) {
-    NumericQuest.call(this, "stretch", target, bonus, reward);
-    this.icon = icons.stretch;
-}
-
-StretchQuest.prototype = Object.create(NumericQuest.prototype);
-StretchQuest.prototype.constructor = StretchQuest;
-
-/**
- * Binds this quest to a particular dimension and updates progress based
- * on the unlocked cells in that dimension.
- *
- * @param dimension The dimension to bind to.
- * @param words_found The current words-found list.
- */
-StretchQuest.prototype.initialize = function(dimension, words_found) {
-    NumericQuest.prototype.initialize.call(this, dimension, words_found);
-    this.value = unlocked_span(this.dimension);
-};
-
-/**
- * Update our span measure.
- *
- * @param dimension The dimension in which a word was found.
- */
-StretchQuest.prototype.find_word = function(dimension) {
-    if (!dimensions.same(this.dimension, dimension)) { return; }
-    this.value = unlocked_span(this.dimension);
-};
-
-
-/**
- * A Branch quest involves creating a certain number of Y-shaped
- * branches.
- *
- * @param target The number of distinct branches that must be created to
- *     complete the quest.
- * @param bonus The number of branches required for the quest bonus.
- * @param reward The quest reward.
- */
-export function BranchQuest(target, bonus, reward) {
-    NumericQuest.call(this, "branch", target, bonus, reward);
-    this.icon = icons.branch;
-}
-
-BranchQuest.prototype = Object.create(NumericQuest.prototype);
-BranchQuest.prototype.constructor = BranchQuest;
-
-/**
- * Binds this quest to a particular dimension and updates progress based
- * on the unlocked cells in that dimension.
- *
- * @param dimension The dimension to bind to.
- * @param words_found The current words-found list.
- */
-BranchQuest.prototype.initialize = function(dimension, words_found) {
-    NumericQuest.prototype.initialize.call(this, dimension, words_found);
-    this.value = unlocked_branches(this.dimension);
-};
-
-/**
- * Update our branches measure.
- *
- * @param dimension The dimension in which a word was found.
- */
-BranchQuest.prototype.find_word = function(dimension) {
-    if (!dimensions.same(this.dimension, dimension)) { return; }
-    this.value = unlocked_branches(this.dimension);
-};
-
-
-/**
- * A BigQuest involves finding a certain number of words each above a
- * certain minimum length.
- *
- * @param target A 2-element array containing a length and a number. That
- *     many words of that length or longer must be found to complete the
- *     quest.
- * @param bonus The bonus requirement, with the same format as the
- *     target.
- * @param reward The quest reward.
- */
-export function BigQuest(target, bonus, reward) {
-    Quest.call(this, reward);
-    this.icon = icons.big;
-    this.target = target;
-    this.bonus = bonus;
-    this.sizes = [];
-}
-
-BigQuest.prototype = Object.create(Quest.prototype);
-BigQuest.prototype.constructor = BigQuest;
-
-/**
- * Binds this quest to a particular dimension and updates progress based
- * on the unlocked cells in that dimension.
- *
- * @param dimension The dimension to bind to.
- * @param words_found The current words-found list.
- */
-BigQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.prototype.initialize.call(this, dimension, words_found);
-    this.sizes = unlocked_sizes(this.dimension);
-};
-
-/**
- * Updates the quest when a word is found.
- *
- * @param dimension The dimension in which the word was found.
- * @param match The match object for the word that was found.
- * @param path The path of cells along which the word was found.
- */
-BigQuest.prototype.find_word = function(dimension, match, path) {
-    // Update our sizes array.
-    if (!dimensions.same(this.dimension, dimension)) { return; }
-    let l = path.length;
-    if (this.sizes[l] == undefined) {
-        this.sizes[l] = 1;
-    } else {
-        this.sizes[l] += 1;
+export function update_quest(
+    quest,
+    glyphs,
+    path,
+    current_dimension
+) {
+    if (quest.dimension && current_dimension != quest.dimension) {
+        // no update for activity in another dimension if the quest is
+        // bound to a particular dimension.
+        return;
     }
-};
 
-/**
- * Computes the current number of words at or above the target threshold
- * length for this quest.
- *
- * @return The number of words at least as long as this quest's target's
- *     length requirement.
- */
-BigQuest.prototype.target_count = function () {
-    let count = 0;
-    for (let i = this.target[0]; i < this.sizes.length; ++i) {
-        count += this.sizes[i] || 0;
+    let quest_dimension = quest.dimension || current_dimension;
+    if (quest_dimension == undefined) {
+        throw "No current dimension for quest update.";
     }
-    return count;
-};
 
-
-/**
- * As target_count, but for the quest's bonus threshold.
- *
- * @return The number of words at least as long as this quest's bonus's
- *     length requirement.
- */
-BigQuest.prototype.bonus_count = function () {
-    let count = 0;
-    for (let i = this.bonus[0]; i < this.sizes.length; ++i) {
-        count += this.sizes[i] || 0;
-    }
-    return count;
-};
-
-/**
- * Determines if the quest is complete.
- *
- * @return True if the quest's target has been met.
- */
-BigQuest.prototype.is_complete = function () {
-    return this.target_count() >= this.target[1];
-};
-
-
-/**
- * Determines if the quest's bonus is complete.
- *
- * @return True if the quest's bonus criterion has been met.
- */
-BigQuest.prototype.got_bonus = function () {
-    return this.bonus_count() >= this.bonus[1];
-};
-
-/**
- * @return A short summary string of goal progress.
- */
-BigQuest.prototype.summary_string = function () {
-    return "" + this.target_count() + "/" + this.target[1];
-    // TODO: Include bonus info somehow?
-};
-
-/**
- * @return A short string showing the target length as well as progress
- *     towards the required number of words of that length.
- */
-BigQuest.prototype.target_string = function () {
-    return (
-        "" + this.target[0] + "+: "
-        + this.target_count() + "/" + this.target[1]
-    );
-};
-
-/**
- * @return A short string showing the bonus length as well as progress
- *     towards the required number of words of that length.
- */
-BigQuest.prototype.bonus_string = function () {
-    return (
-        "" + this.bonus[0] + "+: "
-        + this.bonus_count() + "/" + this.bonus[1]
-    );
-};
-
-/**
- * Returns the natural width of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return A width value in canvas units.
- */
-BigQuest.prototype.width = function(ctx) {
-    let xw = Quest.prototype.width.call(this, ctx);
-    if (this.expanded) {
-        let tw = draw.measure_text(this.target_string()).width;
-        tw += SPACE + icons.WIDTH + 2*PADDING;
-        let bw = draw.measure_text(this.bonus_string()).width;
-        bw += SPACE + icons.WIDTH + 2*PADDING;
-        xw = Math.max(xw, tw, bw);
-    }
-    return xw;
-};
-
-/**
- * Returns the height of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return A height value in canvas units.
- */
-BigQuest.prototype.height = function(ctx) {
-    let bh = Quest.prototype.height.call(this, ctx);
-    let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-    let result = bh + lh + PADDING;
-    if (this.bonus[0] != this.target[0] || this.bonus[1] != this.target[1]) {
-        result += lh;
-    }
-    return result;
-};
-
-/**
- * Draws the quest UI element.
- *
- * @param ctx The canvas context to use for drawing.
- * @param width The required width (should be >= the natural width).
- */
-BigQuest.prototype.draw = function (ctx, width) {
-    Quest.prototype.draw.call(this, ctx, width);
-    let bh = Quest.prototype.height.call(this, ctx);
-    if (this.expanded) {
-        // A line after the summary
-        ctx.beginPath();
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.moveTo(SPACE, bh);
-        ctx.lineTo(width - SPACE, bh);
-        ctx.stroke();
-        // Line height
-        let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-        if (this.is_complete()) {
-            // Draw check mark
-            ctx.fillStyle = colors.scheme_color("menu", "text");
-            ctx.strokeStyle = colors.scheme_color("menu", "text");
-            icons.item_complete(
-                ctx,
-                [SPACE + icons.WIDTH/2, bh + 0.5*lh]
-            );
+    if (quest.type == "hunt") {
+        for (var t of quest.targets) {
+            if (matches_hint(t, glyphs)) {
+                quest.progress[t] = true;
+            }
+        }
+        for (var b of quest.bonuses) {
+            if (matches_hint(b, glyphs)) {
+                quest.progress[b] = true;
+            }
+        }
+    } else if (quest.type == "big") {
+        if (quest.progress[path.length] == undefined) {
+            quest.progress[path.length] = 1;
         } else {
-            ctx.fillStyle = colors.scheme_color("menu", "button_text");
-            ctx.strokeStyle = colors.scheme_color("menu", "button_text");
+            quest.progress[path.length] += 1;
         }
-        // Draw target text:
-        let ts = this.target_string();
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "left";
-        ctx.fillText(ts, PADDING + SPACE + icons.WIDTH, bh + 0.5*lh);
-
-        if (
-            this.bonus[0] != this.target[0]
-         || this.bonus[1] != this.target[1]
-        ) {
-            // draw bonus info too
-            if (this.got_bonus()) {
-                // Draw check mark
-                ctx.fillStyle = colors.scheme_color("menu", "text");
-                ctx.strokeStyle = colors.scheme_color("menu", "text");
-                icons.item_complete(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, bh + 1.5*lh]
-                );
+    } else if (quest.type == "glyphs") {
+        for (let g of glyphs) {
+            if (quest.progress[g] == undefined) {
+                quest.progress[g] = 1;
             } else {
-                ctx.fillStyle = colors.scheme_color("menu", "button_text");
-                ctx.strokeStyle = colors.scheme_color("menu", "button_text");
+                quest.progress[g] += 1;
             }
-            // Draw bonus text:
-            let bs = this.bonus_string();
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "left";
-            ctx.fillText(bs, PADDING + SPACE + icons.WIDTH, bh + 0.5*lh);
         }
+    } else if (quest.type == "encircle") {
+        quest.progress = unlocked_encircled(quest_dimension);
+    } else if (quest.type == "stretch") {
+        quest.progress = unlocked_span(quest_dimension);
+    } else if (quest.type == "branch") {
+        quest.progress = unlocked_branches(quest_dimension);
+    } else {
+        throw ("Unknown quest type '" + quest.type + "'.");
     }
-};
 
-
-/**
- * A Glyph quest requires the player to unlock certain numbers of each of
- * certain types of glyphs.
- *
- * @param targets An object whose keys are glyphs (one-character strings)
- *     and whose values are integers (how many of that glyph must be
- *     unlocked).
- * @param bonuses The same format as targets.
- * @param reward The quest reward.
- * @param found (optional) An object containing glyphs as keys and
- *     integer amounts as values, which will be used to initialize quest
- *     progress if present.
- */
-export function GlyphQuest(targets, bonuses, reward, found) {
-    Quest.call(this, "glyph", reward);
-    this.icon = icons.glyphs;
-    this.targets = targets;
-    this.bonuses = bonuses;
-    this.found = found || {};
+    // Make sure changes are visible to the player:
+    display_status(quest);
 }
 
-GlyphQuest.prototype = Object.create(Quest.prototype);
-GlyphQuest.prototype.constructor = GlyphQuest;
-
 /**
- * Binds this quest to a particular dimension and updates progress based
- * on the unlocked cells in that dimension.
+ * Tests whether a quest is complete.
  *
- * @param dimension The dimension to bind to.
- * @param words_found The current words-found list.
+ * @param quest The quest object to test.
+ * @return True if that quest is completed; false otherwise.
  */
-GlyphQuest.prototype.initialize = function(dimension, words_found) {
-    Quest.prototype.initialize.call(this, dimension, words_found);
-    // Already-discovered glyphs are *not* counted, because unlocked areas
-    // might possibly be unloaded.
-};
-
-/**
- * Updates the quest's state when a word is found. Updates found counts
- * for each glyph in that word.
- *
- * TODO: Should multiple word matches which re-use the same hex cell
- * count towards glyph totals? Probably not? (but they do currently)
- *
- * @param dimension The dimension in which the glyph was found.
- * @param match The match array for the found word.
- */
-GlyphQuest.prototype.find_word = function(dimension, match) {
-    // Look for target glyph(s)
-    if (!dimensions.same(this.dimension, dimension)) { return; }
-    let glyphs = match[2];
-    for (var g of glyphs) {
-        if (this.targets[g] || this.bonuses[g]) {
-            if (this.found.hasOwnProperty(g)) {
-                this.found[g] += 1;
-            } else {
-                this.found[g] = 1;
+export function is_complete(quest) {
+    if (quest.type == "hunt") {
+        for (let hint of quest.target) {
+            if (!quest.progress[hint]) {
+                return false;
             }
         }
-    }
-};
-
-/**
- * @return True if the quest is complete (if for each required target
- *     glyph, the corresponding number of copies have been unlocked.)
- */
-GlyphQuest.prototype.is_complete = function () {
-    let missing = false;
-    for (let g of Object.keys(this.targets)) {
-        if (!this.found[g] || this.found[g] < this.targets[g]) {
-            missing = true;
+        return true;
+    } else if (quest.type == "big") {
+        let [size_req, n_req] = quest.target;
+        let found = 0;
+        for (let idx in quest.progress) { // skips empty slots
+            if (idx >= size_req) {
+                found += 1;
+                if (found >= n_req) {
+                    return true;
+                }
+            }
         }
-    }
-    return !missing;
-};
-
-/**
- * @return As is_complete, true when the quest's bonus criterion has been
- *     met.
- */
-GlyphQuest.prototype.got_bonus = function () {
-    for (let g of Object.keys(this.bonuses)) {
-        if (!this.found[g] || this.found[g] < this.bonuses[g]) {
-            return false;
+        return false;
+    } else if (quest.type == "glyphs") {
+        for (let g of Object.keys(quest.target)) {
+            if (!quest.progress[g] || quest.progress[g] < quest.target[g]) {
+                return false;
+            }
         }
-    }
-    return true;
-};
-
-/**
- * @return A short string summarizing quest progress.
- */
-GlyphQuest.prototype.summary_string = function() {
-    let ft = 0;
-    let fb = 0;
-    for (let t of Object.keys(this.targets)) {
-        if (this.found[t] != undefined && this.found[t] >= this.targets[t]) {
-            ft += 1;
-        }
-    }
-    for (let b of Object.keys(this.bonuses)) {
-        if (this.found[b] != undefined && this.found[b] >= this.bonuses[b]) {
-            fb += 1;
-        }
-    }
-    if (fb > 0) {
-        return ft + "+" + fb + "/" + this.targets.length;
+        return true;
+    } else if (quest.type == "encircle") {
+        return quest.progress >= quest.target;
+    } else if (quest.type == "stretch") {
+        return quest.progress >= quest.target;
+    } else if (quest.type == "branch") {
+        return quest.progress >= quest.target;
     } else {
-        return ft + "/" + this.targets.length;
+        throw ("Unknown quest type '" + quest.type + "'.");
     }
-};
+}
 
 /**
- * Summarizes progress towards the required count for an individual
- * target glyph count goal.
+ * Tests whether a quest's bonus condition has been met. This will always
+ * return false if the quest's completion condition has not been met,
+ * even if the bonus condition has technically been satisfied.
  *
- * @param The glyph to display information about.
- * @return A string summarizing progress.
+ * @param quest The quest to test.
+ * @return True if the bonus condition has been met; false otherwise.
  */
-GlyphQuest.prototype.ex_tstring = function (t) {
-    return "" + t + ": " + (this.found[t] || 0) + "/" + this.targets[t];
-};
+export function completed_bonus(quest) {
+    if (!is_complete(quest)) {
+        return false;
+    }
 
-/**
- * Summarizes progress towards the required count for an individual
- * bonus glyph count goal.
- *
- * @param The glyph to display information about.
- * @return A string summarizing progress.
- */
-GlyphQuest.prototype.ex_bstring = function (b) {
-    return "" + b + ": " + (this.found[b] || 0) + "/" + this.bonuses[b];
-};
-
-/**
- * Returns the natural width of the quest UI element.
- *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return A width value in canvas units.
- */
-GlyphQuest.prototype.width = function (ctx) {
-    let xw = Quest.prototype.width.call(this, ctx);
-    if (this.expanded) {
-        for (let t of Object.keys(this.targets)) {
-            let es = this.ex_tstring(t);
-            let m = draw.measure_text(ctx, es);
-            let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
-            if (w > xw) {
-                xw = w;
+    if (quest.type == "hunt") {
+        for (let hint of quest.bonus) {
+            if (!quest.progress[hint]) {
+                return false;
             }
         }
-        for (let b of Object.keys(this.bonuses)) {
-            let es = this.ex_bstring(b);
-            let m = draw.measure_text(ctx, es);
-            let w = m.width + 2*PADDING + SPACE + icons.WIDTH;
-            if (w > xw) {
-                xw = w;
+        return true;
+    } else if (quest.type == "big") {
+        let [size_req, n_req] = quest.bonus;
+        let found = 0;
+        for (let idx in quest.progress) { // skips empty slots
+            if (idx >= size_req) {
+                found += 1;
+                if (found >= n_req) {
+                    return true;
+                }
             }
         }
-    } // else nothing; xw from the base call stands.
-    return xw;
-};
+        return false;
+    } else if (quest.type == "glyphs") {
+        for (let g of Object.keys(quest.bonus)) {
+            if (!quest.progress[g] || quest.progress[g] < quest.target[g]) {
+                return false;
+            }
+        }
+        return true;
+    } else if (quest.type == "encircle") {
+        return quest.progress >= quest.bonus;
+    } else if (quest.type == "stretch") {
+        return quest.progress >= quest.bonus;
+    } else if (quest.type == "branch") {
+        return quest.progress >= quest.bonus;
+    } else {
+        throw ("Unknown quest type '" + quest.type + "'.");
+    }
+}
 
 /**
- * Returns the height of the quest UI element.
- * TODO: complete this?
+ * Constructs a DOM element that can represent the quest in a quests
+ * list. Builds a details element that summarizes the quest state, and
+ * stores it as quest.element. Calls display_status to make sure the
+ * element reflects the quest's current status.
  *
- * @param ctx The canvas context to use for measuring strings.
- *
- * @return A height value in canvas units.
+ * @param quest The quest object to construct an element for.
+ * @param claim_function The function to run when the quest is complete
+ *     and the player wants to claim the reward. Will be attached to the
+ *     element's completion indicator and activated by display_status
+ *     only when the quest is complete.
  */
-GlyphQuest.prototype.height = function (ctx) {
-    let bh = Quest.prototype.height.call(this, ctx);
-    let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-    if (this.expanded) {
-        return (
-            bh
-            + (this.targets.length + this.bonuses.length) * lh
-            + 2*PADDING
+export function construct_quest_element(quest, claim_function) {
+    quest.element = document.createElement("details");
+    quest.element.classList.add("quest");
+    let summary = document.createElement("summary");
+    let complete = document.createElement("a");
+    complete.innerHTML = "?"; // TODO: empty check box instead?
+    // simply attach for now without creating handler
+    complete.claim_function = function () { claim_function(quest); };
+    summary.appendChild(complete);
+    // TODO: capitalize?
+    summary.appendChild(document.createTextNode(" " + quest.type + " "));
+    let progress = document.createElement("span");
+    progress.innerHTML = "?/?";
+    summary.appendChild(progress);
+    quest.element.appendChild(summary);
+
+    let instructions = document.createElement("div");
+    instructions.innerHTML = QUEST_INSTRUCTIONS[quest.type];
+    quest.element.appendChild(instructions);
+
+    let details = document.createElement("div");
+    details.classList.add("passive");
+    quest.element.appendChild(details);
+
+    details.innerHTML = QUEST_INSTRUCTIONS[quest.type];
+
+    if (quest.type == "hunt") {
+        let target_container = document.createElement("div");
+        let bonus_container = document.createElement("div");
+        details.appendChild(target_container);
+        details.appendChild(bonus_container);
+
+        for (let hint of quest.target) {
+            let elem = document.createElement("div");
+            let found_span = document.createElement("span");
+            found_span.classList.add("icon");
+            found_span.innerHTML = "&nbsp;";
+            elem.appendChild(found_span);
+            elem.appendChild(document.createTextNode(hint));
+            target_container.appendChild(elem);
+        }
+
+        for (let hint of quest.bonus) {
+            let elem = document.createElement("div");
+            let found_span = document.createElement("span");
+            found_span.classList.add("icon");
+            found_span.innerHTML = "&nbsp;";
+            elem.appendChild(found_span);
+            elem.appendChild(document.createTextNode(hint));
+            bonus_container.appendChild(elem);
+        }
+    } else if (quest.type == "big") {
+        // Nothing special here
+    } else if (quest.type == "glyphs") {
+        let target_container = document.createElement("div");
+        let bonus_container = document.createElement("div");
+        details.appendChild(target_container);
+        details.appendChild(bonus_container);
+
+        for (let g of Object.keys(quest.target)) {
+            let elem = document.createElement("div");
+            let nspan = document.createElement("span");
+            elem.innerHTML = g + ":";
+            elem.appendChild(nspan);
+            nspan.innerHTML = (quest.progress[g] || 0) + "/" + quest.target[g];
+            target_container.appendChild(elem);
+        }
+
+        for (let g of Object.keys(quest.bonus)) {
+            let elem = document.createElement("div");
+            let nspan = document.createElement("span");
+            elem.innerHTML = g + ":";
+            elem.appendChild(nspan);
+            nspan.innerHTML = (quest.progress[g] || 0) + "/" + quest.bonus[g];
+            bonus_container.appendChild(elem);
+        }
+    } else if (quest.type == "encircle") {
+        let details = quest.element.lastChild;
+        details.innerHTML = (
+            `Your matches currently encircle ${quest.progress}`
+          + `/${quest.target} total tiles. Encircle ${quest.bonus} tiles`
+          + ` for a bonus reward.`
         );
+        // TODO: completion alt text
+    } else if (quest.type == "stretch") {
+        details.innerHTML = (
+            `Your matches currently include two tiles that are`
+          + ` ${quest.progress} tiles apart. Stretch across ${quest.target}`
+          + ` tiles to complete the quest, or across ${quest.bonus} tiles`
+          + ` for a bonus reward.`
+        );
+        // TODO: completion alt text
+    } else if (quest.type == "branch") {
+        details.innerHTML = (
+            `Your matches currently form ${quest.progress} Y-shaped`
+          + ` branches. Form ${quest.target} branches to complete`
+          + ` the quest, or form ${quest.bonus} branches for a bonus`
+          + ` reward.`
+        );
+        // TODO: completion alt text
     } else {
-        return bh;
+        throw ("Unknown quest type '" + quest.type + "'.");
     }
-};
+
+    display_status(quest);
+}
 
 /**
- * Draws the quest UI element.
+ * Updates the UI element for the given quest according to the quest's
+ * current status. Updates progress information as well as the completion
+ * indicator, and turns that into a link when the quest is completed.
  *
- * @param ctx The canvas context to use for drawing.
- * @param width The required width (should be >= the natural width).
+ * @param quest The quest to update status for.
  */
-GlyphQuest.prototype.draw = function (ctx, width) {
-    Quest.prototype.draw.call(this, ctx, width);
-    let bh = Quest.prototype.height.call(this, ctx);
-    if (this.expanded) {
-        // A line after the summary
-        ctx.beginPath();
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.moveTo(SPACE, bh);
-        ctx.lineTo(width - SPACE, bh);
-        ctx.stroke();
-        // Line height
-        let lh = draw.FONT_SIZE * ctx.viewport_scale + PADDING;
-        let line = 0;
-        let c = [];
-        let h;
-        for (let t of Object.keys(this.targets)) {
-            h = bh + (line + 0.5) * lh;
-            if (this.found[t]) {
-                ctx.fillStyle = colors.scheme_color("menu", "text");
-                ctx.strokeStyle = colors.scheme_color("menu", "text");
-                icons.item_complete(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, h]
-                );
-            } else {
-                ctx.fillStyle = colors.scheme_color("menu", "button_text");
-                ctx.strokeStyle = colors.scheme_color("menu", "button_text");
-            }
-            let es = this.ex_tstring(t);
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "left";
-            ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
-            line += 1;
+export function display_status(quest) {
+    let completion = quest.element.firstChild.firstChild;
+    let claim_function = completion.claim_function;
+
+    if (is_complete(quest)) {
+        quest.element.classList.add("complete");
+        completion.addEventListener("click", claim_function);
+        if (completed_bonus(quest)) {
+            completion.innerHTML = "✓+";
+        } else {
+            completion.innerHTML = "✓";
         }
-        h = bh + PADDING + line*lh;
-        // Draw a separator line before bonus entries
-        // TODO: Make this clearer
-        ctx.beginPath();
-        ctx.strokeStyle = colors.scheme_color("menu", "text");
-        ctx.moveTo(SPACE, h);
-        ctx.lineTo(width - SPACE, h);
-        ctx.stroke();
-        for (let b of Object.keys(this.bonuses)) {
-            h = bh + PADDING + (line + 0.5) * lh;
-            if (this.found[b]) {
-                ctx.fillStyle = colors.scheme_color("menu", "text");
-                ctx.strokeStyle = colors.scheme_color("menu", "text");
-                icons.item_complete(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, h]
-                );
-            } else {
-                ctx.fillStyle = colors.scheme_color("menu", "button_text");
-                ctx.strokeStyle = colors.scheme_color("menu", "button_text");
-                icons.item_bonus(
-                    ctx,
-                    [SPACE + icons.WIDTH/2, h]
-                );
-            }
-            let es = this.ex_bstring(b);
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "left";
-            ctx.fillText(es, SPACE + icons.WIDTH + PADDING, h);
-            line += 1;
-        }
+    } else {
+        quest.element.classList.remove("complete");
+        // It's fine if this misses
+        completion.removeEventListener("click", claim_function);
+        completion.innerHTML = "○";
     }
-};
+
+    let progress = quest.element.firstChild.lastChild;
+    let summary;
+    if (quest.type == "hunt") {
+        let tfound = 0;
+        let bfound = 0;
+
+        let target_hint_elements = quest.element.lastChild.firstChild.children;
+        for (let idx in quest.target) {
+            let hint = quest.target[idx];
+            if (quest.progress[hint]) {
+                tfound += 1;
+                target_hint_elements[idx].classList.add("complete");
+                target_hint_elements[idx].firstChild.innerHTML = "✓";
+            }
+        }
+
+        let bonus_hint_elements = quest.element.lastChild.lastChild.children;
+        for (let idx in quest.bonus) {
+            let hint = quest.bonus[idx];
+            if (quest.progress[hint]) {
+                bfound += 1;
+                bonus_hint_elements[idx].classList.add("complete");
+                bonus_hint_elements[idx].firstChild.innerHTML = "✓";
+            }
+        }
+
+        if (bfound > 0) {
+            summary = tfound + "+" + bfound + "/" + quest.target.length;
+        } else {
+            summary = tfound + "/" + quest.target.length;
+        }
+    } else if (quest.type == "big") {
+        let [size_req, n_req] = quest.target;
+        let [b_size_req, b_n_req] = quest.target;
+        let found = 0;
+        let b_found = 0;
+        for (let idx in quest.progress) { // skips empty slots
+            if (idx >= size_req) {
+                found += 1;
+            }
+            if (idx >= b_size_req) {
+                b_found += 1;
+            }
+        }
+
+        let details = quest.element.lastChild;
+        details.innerHTML = (
+            `Found ${found} out of ${n_req} words at least`
+          + ` ${size_req} glyphs long.`
+        );
+        if (b_n_req > 0) {
+            details.innerHTML += (
+                ` Found ${b_found} out of ${b_n_req} words at least`
+              + ` ${b_size_req} glyphs long.`
+            );
+        }
+
+        if (b_found > 0) {
+            summary = found + "+" + b_found + "/" + n_req;
+        } else {
+            summary = found + "/" + n_req;
+        }
+    } else if (quest.type == "glyphs") {
+        let target_elements = quest.element.lastChild.firstChild.children;
+        let bonus_elements = quest.element.lastChild.lastChild.children;
+
+        let total_progress = 0;
+        let bonus_progress = 0;
+        let total_goal = 0;
+
+        let idx = 0;
+        for (let g of Object.keys(quest.target)) {
+            let elem = target_elements[idx];
+            let nspan = elem.lastChild;
+            nspan.innerHTML = (quest.progress[g] || 0) + "/" + quest.target[g];
+            total_progress += quest.progress[g];
+            total_goal += quest.target[g];
+            idx += 1;
+        }
+
+        idx = 0;
+        for (let g of Object.keys(quest.bonus)) {
+            let elem = bonus_elements[idx];
+            let nspan = elem.lastChild;
+            nspan.innerHTML = (quest.progress[g] || 0) + "/" + quest.bonus[g];
+            // TODO: simpler here?
+            if (quest.bonus[g] > (quest.target[g] || 0)) {
+                bonus_progress += Math.max(
+                    0,
+                    quest.progress[g] - (quest.target[g] || 0)
+                );
+            }
+            idx += 1;
+        }
+
+        if (bonus_progress > 0) {
+            summary = total_progress + "+" + bonus_progress + "/" + total_goal;
+        } else {
+            summary = total_progress + "/" + total_goal;
+        }
+    } else if (quest.type == "encircle") {
+        summary = quest.progress + "/" + quest.target;
+    } else if (quest.type == "stretch") {
+        summary = quest.progress + "/" + quest.target;
+    } else if (quest.type == "branch") {
+        summary = quest.progress + "/" + quest.target;
+    } else {
+        throw ("Unknown quest type '" + quest.type + "'.");
+    }
+
+    progress.innerHTML = summary;
+}

@@ -132,11 +132,6 @@ export var PREV_FRAME_TIME = undefined;
 export var TRACE_UNLOCKED = true;
 
 /**
- * The current dimension object.
- */
-export var CURRENT_DIMENSION;
-
-/**
  * Mouse scroll correction factors:
  */
 var PIXELS_PER_LINE = 18;
@@ -170,11 +165,6 @@ export var CTX;
  */
 export var ANIMATION_FRAME = 0;
 
-/**
- * An array of the player's currently active quests.
- */
-export var QUESTS = [];
-
 
 /**
  * The node that ultimately holds all menu elements.
@@ -185,7 +175,6 @@ export var MENUS_NODE = null;
  * All of the different menu objects that make up the core UI.
  */
 export var QUEST_MENU = null;
-export var QUEST_SIDEBAR = null;
 export var WORDS_LIST_MENU = null;
 export var WORDS_SIDEBAR = null;
 export var ABOUT_BUTTON = null;
@@ -234,10 +223,20 @@ export function has_ancestor(descendant, query) {
     }
 }
 
+export function get_current_dimension() {
+    let pdk = player.current_input_player().position.dimension;
+    if (pdk) {
+        return dimensions.key__dim(pdk);
+    } else {
+        return undefined;
+    }
+}
+
 /**
  * Updates the game state when a word has been found.
  *
- * @param dimension The dimension object within which the match occurred.
+ * @param dimkey The dimension key string within which the match
+ *     occurred.
  * @param match A 5-element array containing:
  *     0: The string name of the domain that the matched word belongs to.
  *     1: The index of the entry for that word in its domain.
@@ -251,46 +250,31 @@ export function has_ancestor(descendant, query) {
  *     of those positions may be undefined if extra-planar glyphs are
  *     involved in the match.
  */
-export function find_word(dimension, match, path) {
+export function find_word(dimkey, match, path) {
     DO_REDRAW = 0;
-    let word = match[3];
+    let [domname, widx, glyphs, word, freq] = match;
 
     // Have the current player remember this word.
     let who = player.current_input_player();
     player.remember_match(
         who,
-        dimensions.dim__key(dimension),
-        path[0],
-        match[0],
-        match[1]
+        dimkey,
+        path,
+        domname,
+        widx,
+        glyphs
     );
 
     // Update the words found list.
     if (WORDS_LIST_MENU) {
         WORDS_LIST_MENU.add_item(
-            [match[0], match[2], match[3], player.elapsed(who)]
+            [domname, glyphs, word, player.elapsed(who)]
         );
         // Note: this gets very slightly out-of-sync with the player's
         // recent-finds list (duplicate matches plus no forgetting) but
         // it should be *way* more efficient not to re-constitute all of
         // the DOM elements every time we find a word.
     }
-
-    // Update active quests:
-    for (var q of QUESTS) {
-        q.find_word(dimension, match, path);
-    }
-}
-
-/**
- * Adds the given quest to the list of active quests.
- *
- * @param q A Quest object (see quests.js).
- */
-export function add_quest(q) {
-    // TODO: This should be per-player!
-    q.initialize(CURRENT_DIMENSION, []);
-    QUESTS.push(q);
 }
 
 /**
@@ -327,36 +311,18 @@ export function home_view() {
  * the given destination.
  *
  * @param coordinates The coordinates to move to.
- * @param dimension (optional) A dimension object to swap to.
+ * @param dimkey (optional) The string key for the dimension to swap to.
  */
-export function warp_to(coordinates, dimension) {
-    if (dimension) {
-        CURRENT_DIMENSION = dimension;
-        player.remember_dimension(player.current_input_player(), dimension);
-    }
-    // TODO: Update base URL?
+export function warp_to(coordinates, dimkey) {
+    player.teleport(
+        player.current_input_player(),
+        coordinates,
+        dimkey,
+        MODE != "free"
+    );
     let wpos = grid.world_pos(coordinates);
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];
-    if (MODE != "free") {
-        let x = coordinates[0];
-        let y = coordinates[1];
-        let nearby = [
-            [x, y],
-            [x, y+1],
-            [x-1, y],
-            [x-1, y-1],
-            [x, y-1],
-            [x+1, y],
-            [x+1, y+1],
-        ];
-        // TODO: Unlock these as unremembered tiles instead of as a path.
-        player.add_unlocked(
-            player.current_input_player(),
-            dimensions.dim__key(CURRENT_DIMENSION),
-            nearby
-        );
-    }
     DO_REDRAW = 0;
 }
 
@@ -370,8 +336,8 @@ export var COMMANDS = {
         MODE = MODES[(MODES.index(MODE) + 1) % MODES.length];
     },
     "d": function (e) {
-        let nbd = dimensions.neighboring_dimension(CURRENT_DIMENSION,1);
-        warp_to([0, 0], nbd);
+        let nbd = dimensions.neighboring_dimension(get_current_dimension(), 1);
+        warp_to([0, 0], dimensions.dim__key(nbd));
     },
     // DEBUG
     "s": function (e) { generate.toggle_socket_colors(); },
@@ -428,10 +394,12 @@ export var COMMANDS = {
     // TODO: DEBUG
     "q": function (e) { // "find' a bunch of words for testing purposes
         for (let w of "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()") {
+            let cd = get_current_dimension(); // TODO: should this return cdk?
+            let cdk = dimensions.dim__key(cd);
             find_word(
-                CURRENT_DIMENSION,
+                cdk,
                 [
-                    dimensions.natural_domain(CURRENT_DIMENSION),
+                    dimensions.natural_domain(cd),
                     undefined,
                     [w],
                     w,
@@ -571,24 +539,26 @@ export function clear_energy(destination, style) {
 export function test_selection() {
     let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
     let domains = new Set();
-    combined_swipe.forEach(function (gp) {
-        let tile = content.tile_at(CURRENT_DIMENSION, gp);
+    let cd = get_current_dimension();
+    for (let gp of combined_swipe) {
+        let tile = content.tile_at(cd, gp);
         if (tile != null) {
-            generate.domains_list(tile.domain).forEach(function (d) {
-                domains.add(d);
-            });
+            for (let domain of generate.domains_list(tile.domain)) {
+                domains.add(domain);
+            }
         }
-    });
+    }
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (matches.length > 0) { // Found a match
+        let cd = get_current_dimension();
+        let cdk = dimensions.dim__key(cd); // TODO: Have GCD return a dk?
         let in_reach = false; // is this match within reach?
         // TODO: Implement reach > 0
         if (MODE == "free") {
             in_reach = true;
         } else {
-            let dk = dimensions.dim__key(CURRENT_DIMENSION);
             for (let gp of combined_swipe) {
-                if (content.is_unlocked(dk, gp)) {
+                if (content.is_unlocked(cdk, gp)) {
                     in_reach = true;
                     break;
                 }
@@ -598,11 +568,11 @@ export function test_selection() {
             // clear our swipes and glyphs and add to our words found
             player.add_unlocked(
                 player.current_input_player(),
-                dimensions.dim__key(CURRENT_DIMENSION),
+                cdk,
                 combined_swipe
             );
             for (let m of matches) {
-                find_word(CURRENT_DIMENSION, m, combined_swipe);
+                find_word(cdk, m, combined_swipe);
             }
             clear_selection(
                 [ CTX.cwidth/2, CTX.cheight ],
@@ -699,10 +669,11 @@ export function update_canvas_size() {
  */
 export function update_current_glyphs() {
     var glyphs = [];
+    let cd = get_current_dimension();
     for (let sw of CURRENT_SWIPES) {
         for (let gp of sw) {
             // TODO: Add code here for handling extra-planar glyphs!
-            let g = content.tile_at(CURRENT_DIMENSION, gp).glyph;
+            let g = content.tile_at(cd, gp).glyph;
             if (g == undefined) { // should never happen in theory:
                 console.warn(
                     "Internal Error: update_current_glyphs found"
@@ -738,11 +709,12 @@ function handle_primary_down(ctx, e) {
             }
         }
     }
-    var tile = content.tile_at(CURRENT_DIMENSION, gpos);
+    let cd = get_current_dimension();
+    var tile = content.tile_at(cd, gpos);
     if (tile.domain == "__active__") {
         // an active element: just energize it
         // TODO: Energize preconditions
-        content.energize_tile(CURRENT_DIMENSION, gpos);
+        content.energize_tile(cd, gpos);
     } else {
         // a normal tile: select it
         if (
@@ -786,6 +758,10 @@ function handle_primary_up(ctx, e) {
 
     // No matter what, we're not swiping any more
     SWIPING = false;
+
+    // Get current dimension
+    let cd = get_current_dimension();
+    let cdk = dimensions.dim__key(cd);
 
     // Check for double-click/tap:
     let isdbl = false;
@@ -894,10 +870,9 @@ function handle_primary_up(ctx, e) {
                 valid = false;
             } else {
                 // TODO: Use reach here
-                let dk = dimensions.dim__key(CURRENT_DIMENSION);
                 for (let d = 0; d < 6; ++d) {
                     let np = grid.neighbor(gp, d);
-                    if (content.is_unlocked(dk, np)) {
+                    if (content.is_unlocked(cdk, np)) {
                         valid = true;
                         break;
                     }
@@ -909,7 +884,7 @@ function handle_primary_up(ctx, e) {
                 CURRENT_SWIPES.pop();
                 update_current_glyphs();
                 // Check for already-active poke here
-                let entry = [ CURRENT_DIMENSION, gp, window.performance.now() ];
+                let entry = [ cd, gp, window.performance.now() ];
                 let found = undefined;
                 for (let i = 0; i < ACTIVE_POKES.length; ++i) {
                     if (
@@ -969,8 +944,12 @@ function handle_tertiary_up(ctx, e) {
  * @param e The event being handled.
  */
 function handle_movement(ctx, e) {
-    // dispatch to menu system first:
+    // position of the event
     var vpos = canvas_position_of_event(e);
+
+    // Get current dimension
+    let cd = get_current_dimension();
+
     if (SCROLL_REFERENT != null) {
         // scrolling w/ aux button or two fingers
         var dx = vpos[0] - SCROLL_REFERENT[0];
@@ -1023,9 +1002,9 @@ function handle_movement(ctx, e) {
             // else do nothing, we're on a tile that's already part of the
             // current swipe.
         } else {
-            // for tiles that aren't part of the swipe already, and which *are*
-            // loaded:
-            var tile = content.tile_at(CURRENT_DIMENSION, gpos);
+            // for tiles that aren't part of the swipe already, and
+            // which *are* loaded:
+            var tile = content.tile_at(cd, gpos);
             if (
                 (head == null || grid.is_neighbor(head, gpos))
                 && tile.glyph != undefined
@@ -1136,17 +1115,102 @@ export function init(starting_dimension) {
     // Unlock initial tiles
     // TODO: Better/different here?
     // TODO: Add starting place?
-    warp_to([0, 0], starting_dimension);
+    warp_to([0, 0], dimensions.dim__key(starting_dimension));
+
+    // TODO: This is just a demo...
+    let bonus_words = [
+        "ABACUS",
+        "BENEVOLENCE",
+        "CONCEPTUALIZATION",
+        "DECADENT",
+        "ENDOMETRIUM",
+        "FUNCTION",
+        "GABBRO",
+        "HYPHENATION",
+        "INFLORESCENCE",
+        "JUBILEE",
+        "KIDNEY",
+        "LEAVENING",
+        "MONGOOSE",
+        "NIQAB",
+        "OATH",
+        "PHALANX",
+        "QUADRILATERAL",
+        "RADIUM",
+        "SEVERANCE",
+        "TRANSCENDENCE",
+        "ULNA",
+        "VACCINE",
+        "WIZARDRY",
+        "XENOPHOBIA",
+        "YUCCA",
+        "ZYGOTE",
+    ];
+
+    let bonus_dimension = {
+        "kind": "custom",
+        "layout": "dense",
+        "flavor": "bare",
+        "domain": "English",
+        "seed": 10985,
+        "words": bonus_words
+    };
+    let bdk = dimensions.dim__key(bonus_dimension);
+
+    // Quest chain:
+    let inner_quest = quests.new_quest(
+        "hunt",
+        bonus_words.slice(1,10),
+        bonus_words.slice(10),
+        [ // rewards
+            [ "exp", ["acuity", 60] ],
+            [ "exp", ["dexterity", 60] ],
+            [ "return" ],
+            [
+                "quest",
+                quests.new_quest(
+                    "big",
+                    [5, 5],
+                    [6, 6],
+                    [ // rewards
+                        [ "exp", ["concentration", 30] ],
+                        [ "exp", ["intuition", 30] ],
+                        [ "exp", ["compassion", 30] ],
+                        [ "refresh", 3 ],
+                    ]
+                )
+            ],
+        ]
+    );
+    quests.bind_dimension(inner_quest, bdk);
 
     // Grant starting quest
     // TODO: Better/different here?
-    add_quest(
-        new quests.HuntQuest(
-            ["F__D", "S_N", "S*R"],
-            ["D__*__R"],
-            undefined, // params
-            undefined // reward
-        )
+    let starting_quest = quests.new_quest(
+        "stretch",
+        3,
+        15,
+        [ // rewards
+            [ "exp", ["creativity", 100] ],
+            [ "exp", ["leadership", 100] ],
+            [
+                "quest",
+                quests.new_quest(
+                    "encircle",
+                    20,
+                    25,
+                    [ // rewards
+                        [ "exp", ["memory", 120] ],
+                        [ "portal", [ bdk, [0, 0] ] ],
+                        [ "quest", inner_quest ],
+                    ]
+                )
+            ],
+        ]
+    );
+    player.activate_quest(
+        player.current_input_player(),
+        starting_quest
     );
 
     // kick off animation
@@ -1170,13 +1234,13 @@ export function init(starting_dimension) {
     });
 
     // set up menus:
-    /*
     QUEST_MENU = new menu.QuestList(
-        QUESTS, // TODO: Track these?
+        player.current_input_player(),
         "right",
         "quests"
     );
-    */
+    // TODO: How to make sure items are updated when a reward is
+    // claimed?!?
 
     WORDS_LIST_MENU = new menu.WordList(
         player.recent_words(player.current_input_player()),
@@ -1356,7 +1420,7 @@ export function init_test(starting_dimension, supertiles) {
     setup_canvas();
 
     // put ourselves in the test dimension
-    warp_to([0, 0], starting_dimension);
+    warp_to([0, 0], dimensions.dim__key(starting_dimension));
 
     // kick off animation
     window.requestAnimationFrame(make_test_animator(supertiles));
@@ -1426,6 +1490,9 @@ export function draw_frame(now) {
     ANIMATION_FRAME %= animate.ANIMATION_FRAME_MAX;
     // TODO: Normalize frame count to passage of time!
 
+    // get current dimension
+    let cd = get_current_dimension();
+
     // Compute elapsed time
     let elapsed;
     if (PREV_FRAME_TIME == undefined ) {
@@ -1456,8 +1523,8 @@ export function draw_frame(now) {
     CTX.clearRect(0, 0, CTX.cwidth, CTX.cheight);
 
     // Tiles
-    let visible_tiles = draw.visible_tile_list(CURRENT_DIMENSION, CTX);
-    if (!draw.draw_tiles(CURRENT_DIMENSION, CTX, visible_tiles)) {
+    let visible_tiles = draw.visible_tile_list(cd, CTX);
+    if (!draw.draw_tiles(cd, CTX, visible_tiles)) {
         if (DO_REDRAW != null) {
             DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
         } else {
@@ -1467,11 +1534,11 @@ export function draw_frame(now) {
 
     // Highlight unlocked:
     if (TRACE_UNLOCKED) {
-        draw.trace_unlocked(dimensions.dim__key(CURRENT_DIMENSION), CTX);
+        draw.trace_unlocked(dimensions.dim__key(cd), CTX);
     }
 
     // Add energy highlights:
-    draw.draw_energies(CURRENT_DIMENSION, CTX, visible_tiles);
+    draw.draw_energies(cd, CTX, visible_tiles);
 
     // Swipes
     let combined = utils.combine_arrays(CURRENT_SWIPES);
@@ -1482,7 +1549,7 @@ export function draw_frame(now) {
     var finished_pokes = [];
     for (let index = 0; index < ACTIVE_POKES.length; ++index) {
         let poke = ACTIVE_POKES[index];
-        if (dimensions.same(CURRENT_DIMENSION, poke[0])) {
+        if (dimensions.same(cd, poke[0])) {
             let initiated_at = poke[2];
             let age = now - initiated_at;
             let ticks = Math.floor(age/1000);

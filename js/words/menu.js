@@ -726,17 +726,17 @@ export function create_link_list_constructor(
  * A QuestList is a scrollable list of quests, which displays summary
  * information about each one.
  *
- * @param quests An array of quests.Quest objects to display in the menu.
+ * @param agent A player object to retrieve quests from.
  * @param pos The position of this menu (see BaseMenu).
  * @param classes CSS classes for this menu (see BaseMenu).
  * @param style Extra style code for this menu (see BaseMenu).
  */
-export function QuestList(quests, pos, classes, style) {
+export function QuestList(agent, pos, classes, style) {
     ItemList.call(
         this,
         'Quests', // TODO: make this translatable
-        quests,
-        undefined,
+        agent.quests.active,
+        quest => quest.element,
         pos,
         classes,
         style

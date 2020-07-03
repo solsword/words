@@ -11,6 +11,8 @@ import * as dimensions from "./dimensions.js";
 import * as generate from "./generate.js";
 import * as dict from "./dict.js";
 import * as utils from "./utils.js";
+import * as grid from "./grid.js";
+import * as quests from "./quests.js";
 
 /**
  * All current players by ID
@@ -145,6 +147,11 @@ function next_id() {
  *         visited: Tracks which dimensions a player has visited. This is
  *             an array where each entry is a dimension key string (see
  *             dim__key).
+ *         locations: Tracks the positions (and dimensions) that the
+ *             player has teleported from, so that the player can return
+ *             to a previous position. An array of 2-element arrays
+ *             containing a dimension string and a position (which is a
+ *             2-element tile coordinate array).
  *
  *     stats: A sub-object which keeps track of quantities that the
  *         player can upgrade permanently, including:
@@ -192,6 +199,11 @@ function next_id() {
  *     personal_words: An array of two-element arrays that contain a
  *         glyph-sequence string and a word string for words that the
  *         player supplies themselves.
+ *     quests: A sub-object with 'active' and 'completed' attributes,
+ *         each of which are arrays of Quest objects.
+ *     position: A sub-object with 'dimension' and 'pos' slots that hold
+ *         the string key for the player's current dimension and a
+ *         2-element x/y tile position within that dimension.
  */
 export function new_player(seed) {
     let id = next_id();
@@ -216,6 +228,7 @@ export function new_player(seed) {
             "matches": {},
             "words_known": {},
             "visited": [],
+            "locations": [],
         },
         "stats": {
             "memory_limit": 100,
@@ -238,6 +251,8 @@ export function new_player(seed) {
         "experience": exp,
         "playtime": 0,
         "personal_words": [],
+        "quests": { "active": [], "completed": [] },
+        "position": { "dimension": undefined, "pos": undefined },
     };
     CURRENT_PLAYERS[id] = result;
     return result;
@@ -405,20 +420,126 @@ export function compute_stat(agent, domname, stat) {
 }
 
 /**
+ * Adds a quest to a player's list of active quests. The quest will be
+ * initialized using the player as part of that process, so it should not
+ * have already been initialized.
+ *
+ * @param agent The player to add the quest to.
+ * @param quest The quest object to initialize and start tracking.
+ */
+export function activate_quest(agent, quest) {
+    quests.initialize_quest(
+        quest,
+        agent,
+        function (completed_quest) {
+            complete_quest(agent, completed_quest);
+        }
+        // TODO: retroactivity decision...
+    );
+    agent.quests.active.push(quest);
+}
+
+/**
+ * Moves the given quest to the completed quests list and redeems its
+ * associated rewards. If the quest has refreshes remaining, it will
+ * remain on the active quests list but all progress will be reset (and
+ * when re-initialized, retroactivity will be disabled). Note that for
+ * some quest types, resetting progress is relatively meaningless, so
+ * they should not be offered with refreshes as a reward.
+ *
+ * @param agent The player that the quest belongs to.
+ * @param quest The quest that is now complete. Note that we don't check
+ *     whether it's actually complete or not.
+ */
+export function complete_quest(agent, quest) {
+    // Apply quest rewards
+    console.log("CQ", quest);
+    let refreshes_remaining = claim_rewards(agent, quest.rewards);
+
+    if (refreshes_remaining > 0) {
+        // Reset all quest progress
+        quests.initialize_quest(
+            quest,
+            agent,
+            function (completed_quest) {
+                complete_quest(agent, completed_quest);
+            },
+            false
+        );
+        // Reduce remaining refreshes for this quest
+        for (let reward of quest.rewards) {
+            if (reward[0] == "refresh") {
+                reward[1] = refreshes_remaining;
+            }
+        }
+        // Note completion
+        quest.completed = true;
+    } else {
+        // Remove from active list
+        let idx = agent.quests.active.indexOf(quest);
+        agent.quests.active.splice(idx, 1);
+        // Add to completed list
+        agent.quests.completed.push(quest);
+        // Note completion
+        quest.completed = true;
+    }
+}
+
+/**
+ * Applies a series of rewards to this player. Note that if there are
+ * multiple portal and/or return rewards, the player will potentially
+ * gain location history entries, but will only be placed at the last of
+ * the positions they're supposed to be transported to.
+ *
+ * @param agent The player to apply rewards to.
+ * @param rewards An array of rewards, which are 2-element arrays holding
+ *     an award type string and a reward value based on that type (see
+ *     quests.REWARD_TYPES).
+ *
+ * @return An integer number of remaining refreshes based on the presence
+ *     of a "refresh" reward in the rewards list, or 0 if there is no
+ *     such reward.
+ */
+export function claim_rewards(agent, rewards) {
+    let result = 0;
+    // TODO: Animations here?
+    for (let reward of rewards) {
+        let [type, value] = reward;
+        if (type == "exp") {
+            earn_exp(agent, value[0], value[1]);
+        } else if (type == "quest") {
+            activate_quest(agent, value);
+        } else if (type == "refresh") {
+            result = value - 1;
+        } else if (type == "portal") {
+            // TODO: always true? Move MODE into the player?
+            teleport(agent, value[1], value[0], true);
+        } else if (type == "return") {
+            let n_hist = agent.activity.locations.length;
+            if (n_hist > 0) {
+                let prev = agent.activity.locations[n_hist-1];
+                // TODO: always true?
+                teleport(agent, prev[1], prev[0], true);
+            }
+        } else {
+            throw `Invalid reward type ${type}.`;
+        }
+    }
+    return result;
+}
+
+/**
  * Adds a dimension to the given player's list of visited dimensions.
  * Does nothing if the player has already visited that dimension.
  *
  * @param agent The player to modify.
- * @param dimension The dimension object that should be remembered.
- *
- * TODO: Maybe store a player's current dimension and use that instead of
- * CURRENT_DIMENSION in ui.js?
+ * @param dimension The string key of the dimension that should be
+ *     remembered.
  */
-export function remember_dimension(agent, dimension) {
-    let key = dimensions.dim__key(dimension);
+export function remember_dimension(agent, dimkey) {
     let vis = agent.activity.visited;
-    if (vis.indexOf(key) < 0) {
-        vis.push(key);
+    if (vis.indexOf(dimkey) < 0) {
+        vis.push(dimkey);
     }
 }
 
@@ -426,13 +547,13 @@ export function remember_dimension(agent, dimension) {
  * Add a matched word to the player's memory, including separate entries
  * for the position of the match and for the word itself. Depending on
  * memory limits, will cause the player to forget their oldest match
- * location and/or word from the same dimension.
+ * position and/or word from the same dimension.
  *
  * @param agent The player object to use (e.g., current_input_player()).
  * @param dimkey The string key of the dimension object where the match
  *     was made.
- * @param gp The tile position (a 2-element x/y coordinate array) of the
- *     first glyph in the match.
+ * @param path The path of the match (an array of 2-element x/y
+ *     coordinate arrays).
  * @param domain The name of the domain that the matched word belongs to,
  *     or "_custom_" if it's a word in a custom dimension that doesn't
  *     belong to the underlying domain, or "_personal_" if it's a word
@@ -442,7 +563,8 @@ export function remember_dimension(agent, dimension) {
  *     personal_words array, while for non-domain words in custom
  *     dimensions, it must be an index into that dimension's words list.
  */
-export function remember_match(agent, dimkey, gp, domname, index) {
+export function remember_match(agent, dimkey, path, domname, index, glyphs) {
+    let start = path[0]; // start of the path
     let matches = agent.activity.matches;
     let known = agent.activity.words_known;
 
@@ -454,7 +576,7 @@ export function remember_match(agent, dimkey, gp, domname, index) {
     }
     let dim_idx = agent.activity.visited.indexOf(dimkey);
     // TODO: check for duplicates here?
-    matches[domname].push([index, dim_idx, gp, now]);
+    matches[domname].push([index, dim_idx, start, now]);
 
     // Forget old words
     // TODO: Not just by age?
@@ -508,6 +630,11 @@ export function remember_match(agent, dimkey, gp, domname, index) {
     over = known[domname].length - mlim;
     if (over > 0) {
         known[domname] = known[domname].slice(over);
+    }
+
+    // Update our active quests
+    for (let quest of agent.quests.active) {
+        quests.update_quest(quest, glyphs, path, agent.position.dimension);
     }
 }
 
@@ -734,4 +861,54 @@ export function limit_pokes(agent) {
         result = agent.activity.pokes.splice(0, over).map(x => [x[0], x[1]]);
     }
     return result;
+}
+
+/**
+ * Changes the player's current position and possibly which dimension
+ * they're in. The player's position and dimension before the teleport
+ * will be remembered in the player's location history.
+ *
+ * Swaps dimensions and moves the viewport to center the given
+ * coordinates. Except in "free" mode, also unlocks a few tiles around
+ * the given destination.
+ *
+ * @param agent The player to move.
+ * @param coordinates The coordinates to move to.
+ * @param dimkey (optional) The string key of the dimension to swap to.
+ * @param unlock_nearby (optional) If true, a 7-tile area centered on the
+ *      destination will be unlocked.
+ */
+export function teleport(agent, coordinates, dimkey, unlock_nearby) {
+    if (
+        agent.position.dimension != undefined
+     && agent.position.pos != undefined
+    ) {
+        agent.activity.locations.push(
+            [agent.position.dimension, agent.position.pos.slice()]
+        );
+    }
+
+    if (dimkey) {
+        agent.position.dimension = dimkey;
+        remember_dimension(agent, dimkey);
+    }
+    if (unlock_nearby) {
+        let x = coordinates[0];
+        let y = coordinates[1];
+        let nearby = [
+            [x, y],
+            [x, y+1],
+            [x-1, y],
+            [x-1, y-1],
+            [x, y-1],
+            [x+1, y],
+            [x+1, y+1],
+        ];
+        // TODO: Unlock these as unremembered tiles instead of as a path.
+        add_unlocked(
+            agent,
+            agent.position.dimension,
+            nearby
+        );
+    }
 }
