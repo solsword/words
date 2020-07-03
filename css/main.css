@@ -55,6 +55,7 @@ body {
 }
 
 .menu_area {
+    /* Must not have any z-index assigned */
     position: absolute;
     padding: 4pt;
     box-sizing: border-box;
