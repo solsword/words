@@ -400,6 +400,7 @@ export var COMMANDS = {
                 CURRENT_SWIPES.pop();
             }
             CURRENT_GLYPHS_BUTTON.remove_glyph();
+            // put avatar on last valid glyph
             if(CURRENT_SWIPES.length > 0){
                 place_avatar(CURRENT_SWIPES[CURRENT_SWIPES.length - 1][0]);
             }
@@ -630,10 +631,17 @@ export function canvas_position_of_event(e) {
     ];
 }
 
+/**
+ * Converts from viewport coordinates to html coordinates
+ *
+ * @param vpos_coord A 2-element array with viewport x/y coordinates
+ *
+ * @return A 2-element array with html x/y coordinates
+ */
 export function vpos__hpos(vpos_coord) {
     var client_x = vpos_coord[0] * CTX.bounds.width / CTX.cwidth;
     var client_y = vpos_coord[1] * CTX.bounds.height / CTX.cheight;
-    return [ client_x, client_y ];
+    return [client_x, client_y];
 }
 
 /**
@@ -1138,7 +1146,6 @@ export function init(starting_dimension) {
     // Display the current player's avatar
     avatar.init_avatar(player.current_input_player()); 
     rescale_avatar();
-    // avatar.set_avatar_position(CTX.bounds.width * 0.025, CTX.bounds.height * 0.75);
     place_avatar([0, 0]);
 
     // Unlock initial tiles
@@ -1711,24 +1718,39 @@ export function make_test_animator(supertiles) {
  * Places avatar into world using html coordinates. Updates the
  * LAST_AVATAR_POSITION with this new position.
  *
- * @param
+ * @param gpos A 2-element array with tile grid x/y coordinates
  */
 function place_avatar(gpos) {
+    // convert from grid coordinates to html coordinates
     let wp = grid.world_pos(gpos);
     let vp = draw.view_pos(CTX, wp);
     let hp = vpos__hpos(vp);
+
+    // save the position in the LAST_AVATAR_POSITION and update avatar position
     LAST_AVATAR_POSITION = gpos;
     avatar.set_avatar_position(hp[0], hp[1]);
 }
 
+/**
+ * Rescales the avatar to a position that fits the canvas
+ */
 function rescale_avatar(){
     avatar.set_avatar_size(CTX.viewport_scale * grid.GRID_SIZE, CTX.viewport_scale * grid.GRID_SIZE);
 }
 
+/**
+ * Puts the avatar at the last position it remembers (used when the page
+ * is zoomed in or out so that the avatar scales with it).
+ */
 function replace_avatar(){
     place_avatar(LAST_AVATAR_POSITION);
 }
 
+/**
+ * Resets the viewport and re-intializes the avatar's position.
+ * 
+ * @param wpos A 2-element array with world x/y coordinates
+ */
 function place_viewport(wpos) {
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];

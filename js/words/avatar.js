@@ -85,6 +85,8 @@ function get_anim_img_src(base_image_name, anim) {
 
 /**
  * Initializes the avatar and creates the base HTML for it to work
+ * 
+ * @param current_player The current player using the game
  */
 export function init_avatar(current_player) {
     // create an img element in the index.html document to hold the avatar
@@ -96,14 +98,34 @@ export function init_avatar(current_player) {
     avatar_div.appendChild(AVATAR);
 }
 
+/**
+ * Sets the avatar size given a width and height
+ * 
+ * @param width The desired width for the avatar
+ * @param height The desired height for the avatar
+ */
 export function set_avatar_size(width, height) {
     AVATAR.style.width = width + "px";
     AVATAR.style.height = height + "px";
 }
 
+/**
+ * Sets the avatar's position with given left and top coordinates.
+ * Usually, the top and left are at the top left corner of the image, so 
+ * this function also moves the avatar image so it is horizontally
+ * centered on a tile and slightly above the vertical center of
+ * the tile.
+ *
+ * @param left The left position of the avatar in html coordinates
+ * @param top The top position of the avatar in html coordinates
+ */
 export function set_avatar_position(left, top) {
+    // sets the left and top position so that the avatar is 
+    // positioned as described on the tile
     left -= parseFloat(AVATAR.style.width)/2;
     top -= parseFloat(AVATAR.style.height);
+
+    // sets the position in CSS 
     AVATAR.style.left = left + "px";
     AVATAR.style.top = top + "px";
 }
