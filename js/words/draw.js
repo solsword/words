@@ -1645,7 +1645,8 @@ export function draw_poke(ctx, poke, ticks, max_ticks) {
  *
  * @param ctx The canvas context to use.
  * @param gplist An array of 2-element tile coordinate x/y arrays which
- *     defines the path of a swipe.
+ *     defines the path of a swipe. Some entries may be string/index
+ *     arrays which will be skipped.
  * @param method A drawing method (one of "trail", "highlight", or
  *     "line").
  * @param color (optional) A color to use for the swipe highlight instead
@@ -1662,14 +1663,34 @@ export function draw_swipe(ctx, gplist, method, color) {
     // Highlight hexes:
     let hc = color || colors.scheme_color("ui", "trail");
     for (let i = 0; i < gplist.length - 1; ++i) {
-        draw_highlight(ctx, gplist[i], hc);
+        if (typeof gplist[i][0] != "string") {
+            draw_highlight(ctx, gplist[i], hc);
+        }
     }
-    if (method == "highlight") {
+
+    // Figure out last real position in path (might be undefined)
+    let last_pos;
+    for (let i = gplist.length - 1; i >= 0; --i) {
+        last_pos = gplist[i];
+        if (typeof last_pos[0] != "string") {
+            break;
+        }
+    }
+    if (method == "highlight" && last_pos) {
         let lhc = color || colors.scheme_color("ui", "highlight");
-        draw_highlight(ctx, gplist[gplist.length-1], lhc);
-    } else {
+        draw_highlight(ctx, last_pos, lhc);
+    } else if (last_pos) {
         let lhc = color || colors.scheme_color("ui", "trail");
-        draw_highlight(ctx, gplist[gplist.length-1], lhc);
+        draw_highlight(ctx, last_pos, lhc);
+    }
+
+    // Figure out first real position in path (might be undefined)
+    let first_pos;
+    for (let i = 0; i < gplist.length; ++i) {
+        first_pos = gplist[i];
+        if (typeof first_pos[0] != "string") {
+            break;
+        }
     }
 
     // Draw line:
@@ -1677,7 +1698,6 @@ export function draw_swipe(ctx, gplist, method, color) {
         (method == "highlight" || method == "line")
         && gplist.length > 1
     ) {
-
         ctx.strokeStyle = color || colors.scheme_color("ui", "trail");
         ctx.fillStyle = ctx.strokeStyle;
         if (method == "line") {
@@ -1686,41 +1706,51 @@ export function draw_swipe(ctx, gplist, method, color) {
             ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
         }
         // dots at ends:
-        ctx.save();
-        transform_to_tile(ctx, gplist[0]);
-        ctx.beginPath();
-        ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
-        ctx.fill();
-        ctx.restore();
+        if (first_pos) {
+            ctx.save();
+            transform_to_tile(ctx, first_pos);
+            ctx.beginPath();
+            ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.restore();
+        }
 
-        ctx.save();
-        transform_to_tile(ctx, gplist[gplist.length - 1]);
-        ctx.beginPath();
-        ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
-        ctx.fill();
-        ctx.restore();
+        if (last_pos) {
+            ctx.save();
+            transform_to_tile(ctx, last_pos);
+            ctx.beginPath();
+            ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.restore();
+        }
 
         // curves along the path (without using transform_to_tile):
-        ctx.beginPath();
-        let vpos = view_pos(ctx, grid.world_pos(gplist[0]));
-        ctx.moveTo(vpos[0], vpos[1]);
-        let nvpos = view_pos(ctx, grid.world_pos(gplist[1]));
-        ctx.lineTo((vpos[0] + nvpos[0])/2, (vpos[1] + nvpos[1])/2);
-        for (let i = 1; i < gplist.length - 1; ++i) {
-            let vcp = view_pos(ctx, grid.world_pos(gplist[i]));
-            let vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
-            ctx.quadraticCurveTo(
-                vcp[0],
-                vcp[1],
-                (vcp[0] + vncp[0])/2,
-                (vcp[1] + vncp[1])/2
-            );
+        if (first_pos) { // if there's at least one valid position
+            ctx.beginPath();
+            let vpos = view_pos(ctx, grid.world_pos(gplist[0]));
+            ctx.moveTo(vpos[0], vpos[1]);
+            let nvpos = view_pos(ctx, grid.world_pos(gplist[1]));
+            ctx.lineTo((vpos[0] + nvpos[0])/2, (vpos[1] + nvpos[1])/2);
+            for (let i = 1; i < gplist.length - 1; ++i) {
+                if (typeof gplist[i][0] == "string") {
+                    continue; // a non-grid glyph
+                    // TODO: Some kind of indicator of these?
+                }
+                let vcp = view_pos(ctx, grid.world_pos(gplist[i]));
+                let vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
+                ctx.quadraticCurveTo(
+                    vcp[0],
+                    vcp[1],
+                    (vcp[0] + vncp[0])/2,
+                    (vcp[1] + vncp[1])/2
+                );
+            }
+            // line to the last point:
+            let wpos = grid.world_pos(gplist[gplist.length - 1]);
+            vpos = view_pos(ctx, wpos);
+            ctx.lineTo(vpos[0], vpos[1]);
+            ctx.stroke();
         }
-        // line to the last point:
-        let wpos = grid.world_pos(gplist[gplist.length - 1]);
-        vpos = view_pos(ctx, wpos);
-        ctx.lineTo(vpos[0], vpos[1]);
-        ctx.stroke();
     }
 }
 

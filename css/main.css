@@ -113,7 +113,7 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr;
-    align-items: middle;
+    align-items: center;
     justify-items: center;
 }
 
@@ -167,6 +167,18 @@ details.menu summary .closed {
 
 details.menu[open] summary .losed {
     display: none;
+}
+
+@media only screen and (max-width: 500px) {
+  details.menu.horizontal summary {
+    display: inline;
+  }
+}
+
+@media only screen and (max-height: 400px) {
+  details.menu.vertical summary {
+    display: inline;
+  }
 }
 
 .menu .button {
@@ -226,4 +238,23 @@ details.menu[open] summary .losed {
     padding: 4pt;
     border-radius: 6pt;
     border: 1pt solid #68f;
+}
+
+.slot {
+    text-align: center;
+    display: block;
+    padding: 5pt;
+    margin: 5pt;
+    min-width: 1em;
+    min-height: 1em;
+    /* Same as glyphs in the grid TODO: Synch up!*/
+    border: 4pt solid #555;
+    color: #bbb;
+    background: #444;
+}
+
+.slot.selected {
+    border-color: #eee;
+    color: #fff;
+    background: #777;
 }

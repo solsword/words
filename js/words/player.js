@@ -204,6 +204,9 @@ function next_id() {
  *     position: A sub-object with 'dimension' and 'pos' slots that hold
  *         the string key for the player's current dimension and a
  *         2-element x/y tile position within that dimension.
+ *     glyphs_mastered: A mapping from domain names or combo names to
+ *         arrays of glyphys avaiable to the player to choose from when
+ *         splice.
  */
 export function new_player(seed) {
     let id = next_id();
@@ -253,6 +256,7 @@ export function new_player(seed) {
         "personal_words": [],
         "quests": { "active": [], "completed": [] },
         "position": { "dimension": undefined, "pos": undefined },
+        "glyphs_mastered": {},
     };
     CURRENT_PLAYERS[id] = result;
     return result;
@@ -925,4 +929,33 @@ export function teleport(agent, coordinates, dimkey, unlock_nearby) {
             nearby
         );
     }
+}
+
+/**
+ * Call this to add a glyph to a player's list of mastered glyphs for a
+ * certain domain. If the player has already mastered the glyph, a
+ * warning will appear in the console.
+ *
+ * @param agent The player mastering the glyph
+ * @param glyph The letter being mastered
+ * @param domain_name The name of a domain or combo to master the glyph
+ *     in.
+ *     TODO: Should this be a locale instead?
+ *
+ * @return The array of strings representing glyphs mastered in the given
+ *     domain by the player, which now includes the given glyph at the
+ *     end.
+ */
+export function master_glyph(agent, glyph, domain_name) {
+    let domain_mastered = agent.glyphs_mastered[domain_name];
+
+    if (domain_mastered === undefined){
+        domain_mastered = [glyph];
+        agent.glyphs_mastered[domain_name] = domain_mastered;
+    } else if (domain_mastered.includes(glyph)) {
+        console.log("glyph already mastered!");
+    } else{
+        domain_mastered.push(glyph);
+    }
+    return domain_mastered;
 }

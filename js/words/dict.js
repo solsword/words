@@ -131,7 +131,7 @@ export function name_of(domain) {
  *     entries: An array of domain entries, which are 3-element arrays
  *         that include (by index):
  *         0: Either a string or a list of strings specifying the glyphs
- *             for a word, 
+ *             for a word,
  *         1: A string specifying the canonical appearance of that word.
  *         2: An integer indicating the frequency of that entry within
  *            the corpus used to construct the domain.
@@ -230,7 +230,8 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
-    // TODO: Use this version when worker module import support is
+
+    //TODO: Use this version when worker module import support is
     // available.
     // var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
     var worker = new window.Worker(FINALIZE_URL);
