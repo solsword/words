@@ -162,9 +162,9 @@ var DOMAIN_COMBOS = {
  *
  * ```
  *                2
- *            1    
+ *            1
  *        0       3
- *            4    
+ *            4
  *                5
  * ```
  */
@@ -1706,7 +1706,7 @@ export function ultratile_context(domain_name, ugp, seed) {
 }
 // register ultratile_context as a caching domain:
 caching.register_domain(
-    "ultratile_context", 
+    "ultratile_context",
     function (ds, ugp, seed) {
         return ds + ":" + ugp[0] + "," + ugp[1] + ":" + seed;
     },
@@ -1732,7 +1732,7 @@ caching.register_domain(
  *     ultratile.
  * @param world_seed An integer world seed that helps determine the
  *     result.
- *  
+ *
  * @return A 4-element array containing:
  *     x, y - assignment grid position
  *     n - assignment index
@@ -1996,7 +1996,7 @@ export function punctuated_overlength_lookup(dimension, arp, world_seed) {
     // fetch utcontext or fail:
     let utseed = ultratile_seed(ugp, dimension, world_seed);
     var utcontext = caching.cached_value(
-        "ultratile_context", 
+        "ultratile_context",
         [ domain_name, [ ugp[0], ugp[1] ], utseed ]
     );
     if (utcontext == null) {
@@ -2224,6 +2224,113 @@ export function pick_word(domains, arp, seed, only_socketable) {
 /**
  * Alias for pick_word with only_socketable set to true.
  */
+
+
+ /**
+  * Given a word from the given domain object (not name) list and a seed
+  * returns its corresponding assignment position (assignment grid x/y and
+  * assignment index)
+  * If only_socketable is given as true, only socketable
+  * words will be used.
+  *
+  * @param domains An array of domain objects (not names).
+  * @param arp A 3-element assignment region position containing
+  *     assignment region x/y coordinates and a socket index within that
+  *     region.
+  * @param seed An integer seed that determines the outcome.
+  * @param only_socketable (optional) If given as true, only words that
+  *     fit in a standard socket will be eligible for selection.
+  *
+  * @return a domain entry, which is a [glyphs, word, frequency] triple.
+  */
+export function invert_pick_word(domains, arp, only_socketable,word, seed){
+    let any_missing = false;
+    let grand_total = 0;
+    let lesser_total = 0;
+    let greater_counttable = [];
+    let lesser_counttable = [];
+
+    for(i = 0; i<word.length-1;i++){
+        var firstGlyph = word[0];
+        var glyph = word[i+1];
+
+    }
+
+    let r = sghash(seed, arp);
+
+    let idx = anarchy.cohort_shuffle(
+        arp[2],
+        grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
+        r
+    );
+    r = anarchy.lfsr(r);
+
+    if (idx < lesser_total) { // one of the per-entry assignments
+        let ct_idx = 0;
+        // Figure out which domain we're in using our counttable:
+        for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
+            let here = lesser_counttable[ct_idx];
+            if (idx < here) {
+                break;
+            }
+            idx -= here;
+        }
+        let dom;
+        if (ct_idx == lesser_counttable.length) {
+            if (WARNINGS) {
+                console.warn(
+                    "Warning: lesser counttable loop failed to break!"
+                );
+            }
+            ct_idx = lesser_counttable.length - 1;
+            dom = domains[ct_idx];
+            if (only_socketable) {
+                idx %= dom.normlength.length;
+            } else {
+                idx %= dom.entries.length;
+            }
+        } else {
+            dom = domains[ct_idx];
+        }
+        // all words get equal representation
+        if (only_socketable) {
+            return dom.entries[dom.normlength[idx]];
+        } else {
+            return dom.entries[idx];
+        }
+    } else { // one of the per-count assignments
+        idx -= lesser_total;
+        idx %= grand_total;
+        // Figure out which domain we're in using our counttable:
+        let ct_idx = 0;
+        for (ct_idx = 0; ct_idx < greater_counttable.length; ++ct_idx) {
+            let here = greater_counttable[ct_idx];
+            if (idx < here) {
+                break;
+            }
+            idx -= here;
+        }
+        let dom;
+        if (ct_idx == greater_counttable.length) {
+            if (WARNINGS) {
+                console.warn(
+                    "Warning: greater counttable loop failed to break!"
+                );
+            }
+            ct_idx = greater_counttable.length - 1;
+            dom = domains[ct_idx];
+        } else {
+            dom = domains[ct_idx];
+        }
+        // representation according to frequency
+        if (only_socketable) {
+            return dict.unrolled_short_word(idx, dom);
+        } else {
+            return dict.unrolled_word(idx, dom);
+        }
+    }
+
+}
 export function pick_short_word(domains, arp, seed) {
     return pick_word(domains, arp, seed, true);
 }
@@ -3390,7 +3497,7 @@ export function attempt_to_add_glyph_sequence(
                     continue;
                 }
             } else {
-                // An open spot 
+                // An open spot
                 fresh.push(np);
             }
         }
@@ -3456,7 +3563,7 @@ export function generate_pocket_layout(dimension) {
 
 // Register generate_pocket_layout as a caching domain
 caching.register_domain(
-    "pocket_layout", 
+    "pocket_layout",
     dimension => "" + dimension,
     generate_pocket_layout,
     POCKET_LAYOUT_CACHE_SIZE
@@ -3534,7 +3641,7 @@ export function generate_pocket_supertile(dimension, sgp, world_seed) {
             touched = true;
             let idx = grid.igp__index(sub_gp);
             result.glyphs[idx] = g;
-            result.domains[idx] = domain; 
+            result.domains[idx] = domain;
         }
     }
     if (!touched && flavor != "round") {
