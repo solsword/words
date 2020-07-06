@@ -103,7 +103,7 @@ export function set_avatar_size(width, height) {
 
 export function set_avatar_position(left, top) {
     left -= parseFloat(AVATAR.style.width)/2;
-    top -= parseFloat(AVATAR.style.height)/2;
+    top -= parseFloat(AVATAR.style.height);
     AVATAR.style.left = left + "px";
     AVATAR.style.top = top + "px";
 }

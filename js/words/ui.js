@@ -394,11 +394,15 @@ export var COMMANDS = {
         if (e.preventDefault) { e.preventDefault(); }
         if (CURRENT_SWIPES.length > 0) {
             let last_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
+            console.log("1", last_swipe);
             last_swipe.pop();
             if (last_swipe.length == 0) {
                 CURRENT_SWIPES.pop();
             }
             CURRENT_GLYPHS_BUTTON.remove_glyph();
+            if(CURRENT_SWIPES.length > 0){
+                place_avatar(CURRENT_SWIPES[CURRENT_SWIPES.length - 1][0]);
+            }
         }
         DO_REDRAW = 0;
     },
@@ -704,6 +708,7 @@ export function update_current_glyphs() {
                 g = "?";
             }
             glyphs.push(g);
+            place_avatar(gp);
         }
     }
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
@@ -1702,6 +1707,12 @@ export function make_test_animator(supertiles) {
     return animate_grid_test;
 }
 
+/**
+ * Places avatar into world using html coordinates. Updates the
+ * LAST_AVATAR_POSITION with this new position.
+ *
+ * @param
+ */
 function place_avatar(gpos) {
     let wp = grid.world_pos(gpos);
     let vp = draw.view_pos(CTX, wp);

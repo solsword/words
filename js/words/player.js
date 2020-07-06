@@ -259,7 +259,7 @@ export function new_player(seed) {
         "domain_adjustments": {},
         "experience": exp,
         "playtime": 0,
-        "avatar": avatar.new_avatar("SVGavatar"),
+        "avatar": avatar.new_avatar("avatar"),
         "personal_words": [],
         "quests": { "active": [], "completed": [] },
         "position": { "dimension": undefined, "pos": undefined },
