@@ -2120,11 +2120,13 @@ export function pick_word(domains, arp, seed, only_socketable) {
     let greater_counttable = [];
     let lesser_counttable = [];
     domains.forEach(function (d) {
+        console.log(d , "****here is the domain ");
         if (only_socketable) {
             let socketable_count = d.short_count_sums[
                 d.short_count_sums.length - 1
             ];
             greater_counttable.push(socketable_count);
+            console.log(greater_counttable);
             grand_total += socketable_count;
             let socketable_entries = d.normlength.length;
             lesser_counttable.push(socketable_entries);
@@ -2243,94 +2245,94 @@ export function pick_word(domains, arp, seed, only_socketable) {
   *
   * @return a domain entry, which is a [glyphs, word, frequency] triple.
   */
-export function invert_pick_word(domains, arp, only_socketable,word, seed){
-    let any_missing = false;
-    let grand_total = 0;
-    let lesser_total = 0;
-    let greater_counttable = [];
-    let lesser_counttable = [];
-
-    for(i = 0; i<word.length-1;i++){
-        var firstGlyph = word[0];
-        var glyph = word[i+1];
-
-    }
-
-    let r = sghash(seed, arp);
-
-    let idx = anarchy.cohort_shuffle(
-        arp[2],
-        grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
-        r
-    );
-    r = anarchy.lfsr(r);
-
-    if (idx < lesser_total) { // one of the per-entry assignments
-        let ct_idx = 0;
-        // Figure out which domain we're in using our counttable:
-        for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
-            let here = lesser_counttable[ct_idx];
-            if (idx < here) {
-                break;
-            }
-            idx -= here;
-        }
-        let dom;
-        if (ct_idx == lesser_counttable.length) {
-            if (WARNINGS) {
-                console.warn(
-                    "Warning: lesser counttable loop failed to break!"
-                );
-            }
-            ct_idx = lesser_counttable.length - 1;
-            dom = domains[ct_idx];
-            if (only_socketable) {
-                idx %= dom.normlength.length;
-            } else {
-                idx %= dom.entries.length;
-            }
-        } else {
-            dom = domains[ct_idx];
-        }
-        // all words get equal representation
-        if (only_socketable) {
-            return dom.entries[dom.normlength[idx]];
-        } else {
-            return dom.entries[idx];
-        }
-    } else { // one of the per-count assignments
-        idx -= lesser_total;
-        idx %= grand_total;
-        // Figure out which domain we're in using our counttable:
-        let ct_idx = 0;
-        for (ct_idx = 0; ct_idx < greater_counttable.length; ++ct_idx) {
-            let here = greater_counttable[ct_idx];
-            if (idx < here) {
-                break;
-            }
-            idx -= here;
-        }
-        let dom;
-        if (ct_idx == greater_counttable.length) {
-            if (WARNINGS) {
-                console.warn(
-                    "Warning: greater counttable loop failed to break!"
-                );
-            }
-            ct_idx = greater_counttable.length - 1;
-            dom = domains[ct_idx];
-        } else {
-            dom = domains[ct_idx];
-        }
-        // representation according to frequency
-        if (only_socketable) {
-            return dict.unrolled_short_word(idx, dom);
-        } else {
-            return dict.unrolled_word(idx, dom);
-        }
-    }
-
-}
+// export function invert_pick_word(domains, arp, only_socketable,word, seed){
+//     let any_missing = false;
+//     let grand_total = 0;
+//     let lesser_total = 0;
+//     let greater_counttable = [];
+//     let lesser_counttable = [];
+//
+//     for(i = 0; i<word.length-1;i++){
+//         var firstGlyph = word[0];
+//         var glyph = word[i+1];
+//
+//     }
+//
+//     let r = sghash(seed, arp);
+//
+//     let idx = anarchy.cohort_shuffle(
+//         arp[2],
+//         grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
+//         r
+//     );
+//     r = anarchy.lfsr(r);
+//
+//     if (idx < lesser_total) { // one of the per-entry assignments
+//         let ct_idx = 0;
+//         // Figure out which domain we're in using our counttable:
+//         for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
+//             let here = lesser_counttable[ct_idx];
+//             if (idx < here) {
+//                 break;
+//             }
+//             idx -= here;
+//         }
+//         let dom;
+//         if (ct_idx == lesser_counttable.length) {
+//             if (WARNINGS) {
+//                 console.warn(
+//                     "Warning: lesser counttable loop failed to break!"
+//                 );
+//             }
+//             ct_idx = lesser_counttable.length - 1;
+//             dom = domains[ct_idx];
+//             if (only_socketable) {
+//                 idx %= dom.normlength.length;
+//             } else {
+//                 idx %= dom.entries.length;
+//             }
+//         } else {
+//             dom = domains[ct_idx];
+//         }
+//         // all words get equal representation
+//         if (only_socketable) {
+//             return dom.entries[dom.normlength[idx]];
+//         } else {
+//             return dom.entries[idx];
+//         }
+//     } else { // one of the per-count assignments
+//         idx -= lesser_total;
+//         idx %= grand_total;
+//         // Figure out which domain we're in using our counttable:
+//         let ct_idx = 0;
+//         for (ct_idx = 0; ct_idx < greater_counttable.length; ++ct_idx) {
+//             let here = greater_counttable[ct_idx];
+//             if (idx < here) {
+//                 break;
+//             }
+//             idx -= here;
+//         }
+//         let dom;
+//         if (ct_idx == greater_counttable.length) {
+//             if (WARNINGS) {
+//                 console.warn(
+//                     "Warning: greater counttable loop failed to break!"
+//                 );
+//             }
+//             ct_idx = greater_counttable.length - 1;
+//             dom = domains[ct_idx];
+//         } else {
+//             dom = domains[ct_idx];
+//         }
+//         // representation according to frequency
+//         if (only_socketable) {
+//             return dict.unrolled_short_word(idx, dom);
+//         } else {
+//             return dict.unrolled_word(idx, dom);
+//         }
+//     }
+//
+// }
 export function pick_short_word(domains, arp, seed) {
     return pick_word(domains, arp, seed, true);
 }
