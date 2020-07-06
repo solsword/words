@@ -1731,13 +1731,12 @@ export function draw_swipe(ctx, gplist, method, color) {
             ctx.moveTo(vpos[0], vpos[1]);
             let nvpos = view_pos(ctx, grid.world_pos(gplist[1]));
             ctx.lineTo((vpos[0] + nvpos[0])/2, (vpos[1] + nvpos[1])/2);
-            for (let i = 1; i < gplist.length - 1; ++i) {
-                if (typeof gplist[i][0] == "string") {
-                    continue; // a non-grid glyph
-                    // TODO: Some kind of indicator of these?
-                }
-                let vcp = view_pos(ctx, grid.world_pos(gplist[i]));
-                let vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
+            // Filter out non-grid positions
+            // TODO: Mark them somehow?
+            let valid = gplist.filter(e => typeof e[0] != "string");
+            for (let i = 1; i < valid.length - 1; ++i) {
+                let vcp = view_pos(ctx, grid.world_pos(valid[i]));
+                let vncp = view_pos(ctx, grid.world_pos(valid[i+1]));
                 ctx.quadraticCurveTo(
                     vcp[0],
                     vcp[1],
@@ -1746,7 +1745,7 @@ export function draw_swipe(ctx, gplist, method, color) {
                 );
             }
             // line to the last point:
-            let wpos = grid.world_pos(gplist[gplist.length - 1]);
+            let wpos = grid.world_pos(last_pos);
             vpos = view_pos(ctx, wpos);
             ctx.lineTo(vpos[0], vpos[1]);
             ctx.stroke();
