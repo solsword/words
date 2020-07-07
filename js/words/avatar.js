@@ -94,6 +94,20 @@ export function init_avatar(current_player) {
     AVATAR.classList.add("avatar");
     AVATAR.setAttribute("type", "image/svg+xml"); 
     AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
+
+    // load the svg object and get the svg
+    window.addEventListener("load", function() {
+        let svgObject = AVATAR.contentDocument;
+        let customizable_elements = svgObject.getElementsByClassName("customizable");
+        for(let element of customizable_elements){
+            element.setAttribute("stroke", "blue");
+            element.setAttribute("fill", "blue");
+        }
+        let fill_custom_elmnts = svgObject.getElementsByClassName("fill_customizable");
+        for(let element of fill_custom_elmnts){
+            element.setAttribute("fill", "blue");
+        }
+    });
     
     let avatar_div = document.getElementById("avatar_div");
     avatar_div.appendChild(AVATAR);
