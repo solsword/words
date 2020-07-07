@@ -44,6 +44,18 @@ export var MODES = [
 export var MODE = "quiz";
 
 /**
+ * Sets the mode value.
+ *
+ * @param mode The new mode. Must be one of the MODES.
+ */
+export function set_mode(mode) {
+    if (!MODES.includes(mode)) {
+        throw ("Invalid mode '" + mode + "'!");
+    }
+    MODE = mode;
+}
+
+/**
  * Words used in the example finite domain.
  */
 export const EXAMPLE_WORDS = [
@@ -610,14 +622,17 @@ export function test_selection() {
     // If we didn't find any matches, consider custom words from the
     // current domain
     if (matches.length == 0 && dimensions.kind(cd) == "custom") {
-        matches = dimensions.pocket_matches(cd, CURRENT_GLYPHS_BUTTON.glyphs);
+        matches = dimensions.pocket_matches(
+            cd,
+            CURRENT_GLYPHS_BUTTON.glyphs.join("")
+        );
     }
 
     // If we didn't find any custom matches, consider personal matches
     if (matches.length == 0) {
         matches = player.personal_matches(
             player.current_input_player(),
-            CURRENT_GLYPHS_BUTTON.glyphs
+            CURRENT_GLYPHS_BUTTON.glyphs.join("")
         );
     }
 
@@ -1247,8 +1262,7 @@ export function init(starting_dimension) {
                             "text": "New Game",
                             "action": function () {
                                 // go back to the quiz builder page
-                                window.location.href = "/start_quiz.html";
-                                window.location.reload();
+                                window.location.assign("/start_quiz.html");
                             }
                         },
                         {
@@ -1345,7 +1359,7 @@ export function init(starting_dimension) {
                                 "action": function () {
                                     cleanup_back();
                                     // go back to the quiz builder page
-                                    window.location.href = "/start_quiz.html";
+                                    window.location.assign("/start_quiz.html");
                                 }
                             },
                             { "text": "Cancel", "action": cleanup_back }

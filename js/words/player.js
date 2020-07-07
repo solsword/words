@@ -662,7 +662,7 @@ export function remember_match(agent, dimkey, path, domname, index, glyphs) {
  *
  * @param agent The player that the word is known by.
  * @param domname The name of the domain associated with the entry.
- *     "_custom_" and "_private" have special meanings.
+ *     "_custom_" and "_personal_" have special meanings.
  * @param known_entry The entry from the words_known list to look up; see
  *     the new_player documentation.
  *

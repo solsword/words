@@ -78,7 +78,7 @@ function finish_setup(mode, domname, seed, wordlist) {
     }
 
     // Set the global MODE variable in ui.js
-    ui.MODE = mode;
+    ui.set_mode(mode);
 
     // Sort out words vs. definitions
     let words = [];
@@ -140,7 +140,7 @@ function finish_setup(mode, domname, seed, wordlist) {
 *     whenever the domain value becomes available. It will be given an
 *     array containing word strings.
 */
-function determine_wordlist(emode, dom_name, raw_wordlist, continuation) {
+function determine_wordlist(dom_name, raw_wordlist, continuation) {
     let dom_names = generate.domains_list(dom_name);
     let is_case_sensitive = false;
     let only_locale = undefined;
@@ -175,7 +175,7 @@ function determine_wordlist(emode, dom_name, raw_wordlist, continuation) {
     let processed = window.unescape(raw_wordlist);
 
     if (!is_case_sensitive) {
-        processed = locale.lc_upper(processed,only_locale);
+        processed = locale.lc_upper(processed, only_locale);
     }
 
     continuation(processed.split(';'));

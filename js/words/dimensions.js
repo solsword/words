@@ -358,7 +358,7 @@ export function pocket_matches(dimension, glyphs) {
         let entry = dimension.words[idx];
         let eglyphs = entry;
         let word = eglyphs;
-        if (Array.prototype.isArray(entry)) {
+        if (Array.isArray(entry)) {
             [eglyphs, word] = entry;
         }
         if (glyphs == eglyphs) {

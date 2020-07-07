@@ -49,13 +49,15 @@ function eventually_process_word_list(element) {
  *
  * @param file_name The name of the file that was uploaded.
  * @param text The raw text of the file. Words in the file should be
- *     separated by whitespace, for example, you could put each word on
- *     its own line, but you could also have some lines with multiple
- *     words separated by spaces or tabs. If using a case-insensitive
- *     domain, the words will eventually be uppercased automatically.
+ *     separated by tilde characters, and each may optionally have a
+ *     definition separated from the word by a `. If using a
+ *     case-insensitive domain, the words will eventually be uppercased
+ *     automatically.
+ *     TODO Better word list format...
  */
 function handle_uploaded_word_list(file_name, text) {
-    let words = text.split(/\s+/);
+    //let words = text.split(/\s+/);
+    let words = text.split('~').map(w => w.trim());
     if(words[words.length-1] == ""){
         words.pop();
     }
