@@ -334,6 +334,40 @@ export function pocket_words(dimension) {
     return result;
 }
 
+
+/**
+ * Returns an array of matches for the given glyph sequence against
+ * custom words in this dimension. Returns an empty array if there are no
+ * matches and/or if the domain doesn't have a custom words list.
+ *
+ * @param dimension The dimension object to look for matches in.
+ * @param glyphs The glyph sequence to look for (as a string).
+ *
+ * @return A possibly-empty array of matches, each of which is a
+ *     5-element array containing the string "_custom_", the index within
+ *     this dimension domain of the word that matched, the glyphs string
+ *     for the matching word, the word string for the matching word,
+ *     and the number 1 (representing the word frequency).
+ */
+export function pocket_matches(dimension, glyphs) {
+    if (!dimension.words) {
+        return [];
+    }
+    let result = [];
+    for (let idx = 0; idx < dimension.words.length; ++idx) {
+        let entry = dimension.words[idx];
+        let eglyphs = entry;
+        let word = eglyphs;
+        if (Array.isArray(entry)) {
+            [eglyphs, word] = entry;
+        }
+        if (glyphs == eglyphs) {
+            result.push(["_custom_", idx, glyphs, word, 1]);
+        }
+    }
+    return result;
+}
+
 /**
  * Returns a fresh dimension object representing the dimension that
  * neighbors the given dimension at the given offset. Neighboring

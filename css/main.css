@@ -184,6 +184,11 @@ details.menu[open] summary .losed {
   }
 }
 
+.dialog div {
+    margin: 8pt 4pt;
+    /* TODO: Why is this necessary?!? */
+}
+
 .menu .button {
     border: 3pt solid #0af;
     color: #0af;
@@ -191,7 +196,7 @@ details.menu[open] summary .losed {
     background: #057;
     padding: 4pt;
     margin: 6pt;
-    box-sizing: content-box;
+    box-sizing: border-box;
     width: max-content;
     height: max-content;
     text-align: center;

@@ -816,15 +816,20 @@ export function WordList(agent, url_template, pos, classes, style) {
             "📖",
             function (entry) {
                 let [dom, glyphs, word, when] = entry;
-                let dobj = dict.lookup_domain(dom);
-                let loc = "???";
-                if (dobj) {
-                    loc = dobj.locale;
+                let dobj;
+                let loc = " (???)";
+                if (dom != "_custom_" && dom != "_personal_") {
+                    dobj = dict.lookup_domain(dom);
+                    if (dobj) {
+                        loc = " (" + dobj.locale + ")";
+                    }
+                } else {
+                    loc = "";
                 }
                 if (glyphs == word) {
-                    return `${glyphs} (${loc})`;
+                    return `${glyphs}${loc}`;
                 } else {
-                    return `${glyphs} → ${word} (${loc})`;
+                    return `${glyphs} → ${word}${loc}`;
                 }
             }
         ),

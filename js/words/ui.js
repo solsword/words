@@ -16,6 +16,8 @@ import * as utils from "./utils.js";
 import * as quests from "./quests.js";
 import * as player from "./player.js";
 import * as avatar from "./avatar.js";
+import * as env from "./env.js";
+import * as anarchy from "../anarchy.mjs";
 
 /**
  * Different game modes.
@@ -30,6 +32,7 @@ import * as avatar from "./avatar.js";
  */
 export var MODES = [
     "free",
+    "example",
     "normal",
     "quiz"
 ];
@@ -38,7 +41,52 @@ export var MODES = [
  * The current game mode.
  * TODO: Toggle this!
  */
-export var MODE = "normal";
+// export var MODE = "free";
+export var MODE = "quiz";
+
+/**
+ * Sets the mode value.
+ *
+ * @param mode The new mode. Must be one of the MODES.
+ */
+export function set_mode(mode) {
+    if (!MODES.includes(mode)) {
+        throw ("Invalid mode '" + mode + "'!");
+    }
+    MODE = mode;
+}
+
+/**
+ * Words used in the example finite domain.
+ */
+export const EXAMPLE_WORDS = [
+    "ABACUS",
+    "BENEVOLENCE",
+    "CONCEPTUALIZATION",
+    "DECADENT",
+    "ENDOMETRIUM",
+    "FUNCTION",
+    "GABBRO",
+    "HYPHENATION",
+    "INFLORESCENCE",
+    "JUBILEE",
+    "KIDNEY",
+    "LEAVENING",
+    "MONGOOSE",
+    "NIQAB",
+    "OATH",
+    "PHALANX",
+    "QUADRILATERAL",
+    "RADIUM",
+    "SEVERANCE",
+    "TRANSCENDENCE",
+    "ULNA",
+    "VACCINE",
+    "WIZARDRY",
+    "XENOPHOBIA",
+    "YUCCA",
+    "ZYGOTE",
+];
 
 /**
  * Is the user currently in the middle of dragging out a swipe path?
@@ -181,6 +229,7 @@ export var CLEAR_SELECTION_BUTTON = null;
 export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
 export var SLOTS_MENU = null;
+export var BACK_BUTTON = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -328,7 +377,7 @@ export function warp_to(coordinates, dimkey) {
         player.current_input_player(),
         coordinates,
         dimkey,
-        MODE != "free"
+        MODE != "free" && MODE != "quiz"
     );
     let wpos = grid.world_pos(coordinates);
     place_viewport(wpos);
@@ -385,7 +434,7 @@ export var COMMANDS = {
         }
     },
     // shows 'about' dialog
-    "a": function (e) {
+    "?": function (e) {
         ABOUT_BUTTON.press();
         DO_REDRAW = 0;
     },
@@ -560,6 +609,7 @@ export function test_selection() {
     let domains = new Set();
     let cdk = get_current_dimkey();
     let cd = dimensions.key__dim(cdk);
+
     // determine all domains involved
     for (let gp of SELECTION_PATH) {
         if (typeof gp[0] == "string") {
@@ -581,10 +631,28 @@ export function test_selection() {
     }
 
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
+
+    // If we didn't find any matches, consider custom words from the
+    // current domain
+    if (matches.length == 0 && dimensions.kind(cd) == "custom") {
+        matches = dimensions.pocket_matches(
+            cd,
+            CURRENT_GLYPHS_BUTTON.glyphs.join("")
+        );
+    }
+
+    // If we didn't find any custom matches, consider personal matches
+    if (matches.length == 0) {
+        matches = player.personal_matches(
+            player.current_input_player(),
+            CURRENT_GLYPHS_BUTTON.glyphs.join("")
+        );
+    }
+
     if (matches.length > 0) { // Found a match
         let in_reach = false; // is this match within reach?
         // TODO: Implement reach > 0
-        if (MODE == "free") {
+        if (MODE == "free" || MODE == "quiz") {
             in_reach = true;
         } else {
             for (let gp of SELECTION_PATH) {
@@ -620,24 +688,23 @@ export function test_selection() {
     DO_REDRAW = 0;
 }
 
+
 /**
- * Determines the primary canvas coordinates for a mouse click/move or
+ * determines the primary canvas coordinates for a mouse click/move or
  * touch event.
  *
- * @param e A mouse or touch event object.
- * @return A 2-element array containing x/y canvas coordinates for the
- *     primary location of the given event. For multi-touch events, the
+ * @param e a mouse or touch event object.
+ * @return a 2-element array containing x/y canvas coordinates for the
+ *     primary location of the given event. for multi-touch events, the
  *     location of the first touch is used.
  */
 export function canvas_position_of_event(e) {
     if (e.touches) {
         e = e.touches[0];
     }
-    // console.log("x",e.clientX, "y",e.clientY, "l",CTX.bounds.left, "t",CTX.bounds.top);
-    // console.log("w", CTX.cwidth, "h", CTX.cheight);
-    // console.log("cw",CTX.bounds.width, "ch",CTX.bounds.height);
-    // console.log("bounds", CTX.bounds);
-    // console.log("e", e);
+    if (e.clientX == undefined || e.clientY == undefined) {
+        throw "Bad event position";
+    }
     var client_x = e.clientX - CTX.bounds.left;
     var client_y = e.clientY - CTX.bounds.top;
     return [
@@ -663,13 +730,13 @@ export function vpos__hpos(vpos_coord) {
  * Function for determining which kind of "click" an event is, including
  * touch events.
  *
- * @param e A touch or click event.
+ * @param e a touch or click event.
  *
- * @return A string; one of "primary", "secondary", "tertiary", or
- *     "auxiliary", based on the type of click. With a mouse, left-click
+ * @return a string; one of "primary", "secondary", "tertiary", or
+ *     "auxiliary", based on the type of click. with a mouse, left-click
  *     (for a right-handed setup) is primary, right-click is secondary,
  *     middle-click is tertiary, and anything else is auxiliary.
- *     For a touch event, a single touch is primary and any kind of
+ *     for a touch event, a single touch is primary and any kind of
  *     multi-touch is tertiary.
  */
 export function which_click(e) {
@@ -889,7 +956,7 @@ function handle_primary_up(ctx, e) {
             let wp = draw.world_pos(ctx, vpos);
             let gp = grid.grid_pos(wp);
             let valid = false;
-            if (MODE == "free") {
+            if (MODE == "free" || MODE == "quiz") {
                 valid = false;
             } else {
                 // TODO: Use reach here
@@ -1133,106 +1200,125 @@ export function init(starting_dimension) {
     // TODO: Add starting place?
     warp_to([0, 0], dimensions.dim__key(starting_dimension));
 
-    // TODO: This is just a demo...
-    let bonus_words = [
-        "ABACUS",
-        "BENEVOLENCE",
-        "CONCEPTUALIZATION",
-        "DECADENT",
-        "ENDOMETRIUM",
-        "FUNCTION",
-        "GABBRO",
-        "HYPHENATION",
-        "INFLORESCENCE",
-        "JUBILEE",
-        "KIDNEY",
-        "LEAVENING",
-        "MONGOOSE",
-        "NIQAB",
-        "OATH",
-        "PHALANX",
-        "QUADRILATERAL",
-        "RADIUM",
-        "SEVERANCE",
-        "TRANSCENDENCE",
-        "ULNA",
-        "VACCINE",
-        "WIZARDRY",
-        "XENOPHOBIA",
-        "YUCCA",
-        "ZYGOTE",
-    ];
+    if (MODE == "example") {
+        // Demo quests
+        let bonus_dimension = {
+            "kind": "custom",
+            "layout": "dense",
+            "flavor": "bare",
+            "domain": "English",
+            "seed": 10985,
+            "words": EXAMPLE_WORDS
+        };
+        let bdk = dimensions.dim__key(bonus_dimension);
 
-    let bonus_dimension = {
-        "kind": "custom",
-        "layout": "dense",
-        "flavor": "bare",
-        "domain": "English",
-        "seed": 10985,
-        "words": bonus_words
-    };
-    let bdk = dimensions.dim__key(bonus_dimension);
+        // Quest chain:
+        let inner_quest = quests.new_quest(
+            "hunt",
+            // bonus_words.slice(0, 3),
+            [ "ZYGOTE" ],
+            EXAMPLE_WORDS.slice(3, 8),
+            [ // rewards
+                [ "exp", ["acuity", 60] ],
+                [ "exp", ["dexterity", 60] ],
+                [ "return" ],
+                [
+                    "quest",
+                    quests.new_quest(
+                        "big",
+                        [5, 3], // length, #
+                        [7, 4],
+                        [ // rewards
+                            [ "exp", ["concentration", 30] ],
+                            [ "exp", ["intuition", 30] ],
+                            [ "exp", ["compassion", 30] ],
+                            [ "refresh", 3 ],
+                        ]
+                    )
+                ],
+            ]
+        );
+        quests.bind_dimension(inner_quest, bdk);
 
-    // Quest chain:
-    let inner_quest = quests.new_quest(
-        "hunt",
-        // bonus_words.slice(0, 3),
-        [ "ZYGOTE" ],
-        bonus_words.slice(3, 8),
-        [ // rewards
-            [ "exp", ["acuity", 60] ],
-            [ "exp", ["dexterity", 60] ],
-            [ "return" ],
-            [
-                "quest",
-                quests.new_quest(
-                    "big",
-                    [5, 3], // length, #
-                    [7, 4],
-                    [ // rewards
-                        [ "exp", ["concentration", 30] ],
-                        [ "exp", ["intuition", 30] ],
-                        [ "exp", ["compassion", 30] ],
-                        [ "refresh", 3 ],
+        // Default quest
+        // Grant starting quest
+        // TODO: Better/different here?
+        let starting_quest = quests.new_quest(
+            "stretch",
+            3,
+            15,
+            [ // rewards
+                [ "exp", ["creativity", 100] ],
+                [ "exp", ["leadership", 100] ],
+                [
+                    "quest",
+                    quests.new_quest(
+                        "encircle",
+                        8,
+                        16,
+                        [ // rewards
+                            [ "exp", ["memory", 120] ],
+                            [ "portal", [ bdk, [0, 0] ] ],
+                            [ "quest", inner_quest ],
+                        ]
+                    )
+                ],
+            ]
+        );
+        player.activate_quest(
+            player.current_input_player(),
+            starting_quest,
+            function () {
+                QUEST_MENU.update();
+                DO_REDRAW = 0;
+            }
+        );
+    } else if (MODE == "quiz") {
+        // Adds a hunt quest for quiz mode with the given word list
+        let quiz_quest = quests.new_quest(
+            "hunt",
+            starting_dimension.words.slice(),
+            [],
+            [ [ "return" ] ] // TODO: should we even use this reward?
+        );
+        // TODO: build an grant_quest function for this boilerplate?
+        player.activate_quest(
+            player.current_input_player(),
+            quiz_quest,
+            function () {
+                let continue_dialog = new menu.Dialog(
+                    (
+                        "Congratulations, you finished the challenge! Do"
+                      + " you want to start a new game or reshuffle the"
+                      + " current list?"
+                    ),
+                    undefined, // do nothing on cancel
+                    [
+                        {
+                            "text": "New Game",
+                            "action": function () {
+                                // go back to the quiz builder page
+                                window.location.assign("/start_quiz.html");
+                            }
+                        },
+                        {
+                            "text": "Play Again",
+                            "action": function() {
+                                let seed = anarchy.scramble_seed(
+                                    starting_dimension.seed
+                                );
+                                env.update_environment({"seed": "" + seed});
+                                window.location.reload();
+                            }
+                        },
+                        { "text": "Cancel" }
                     ]
-                )
-            ],
-        ]
-    );
-    quests.bind_dimension(inner_quest, bdk);
-
-    // Grant starting quest
-    // TODO: Better/different here?
-    let starting_quest = quests.new_quest(
-        "stretch",
-        3,
-        15,
-        [ // rewards
-            [ "exp", ["creativity", 100] ],
-            [ "exp", ["leadership", 100] ],
-            [
-                "quest",
-                quests.new_quest(
-                    "encircle",
-                    8,
-                    16,
-                    [ // rewards
-                        [ "exp", ["memory", 120] ],
-                        [ "portal", [ bdk, [0, 0] ] ],
-                        [ "quest", inner_quest ],
-                    ]
-                )
-            ],
-        ]
-    );
-    player.activate_quest(
-        player.current_input_player(),
-        starting_quest,
-        function () {
-            QUEST_MENU.update();
-            DO_REDRAW = 0;
-        }
-    );
+                );
+                QUEST_MENU.update();
+                DO_REDRAW = 0;
+            }
+        );
+    }
 
     // kick off animation
     window.requestAnimationFrame(draw_frame);
@@ -1274,7 +1360,6 @@ export function init(starting_dimension) {
 
     // Adding slots menu, the contents are currently predetermined.
     // TODO: How to add/remove glyphs based on player progression
-    //TODO: REWRITE this code...
     SLOTS_MENU = new menu.SlotsMenu(
         ["A", "E", "I", "O", "U"],
         function (menu, index) { // select function
@@ -1287,11 +1372,49 @@ export function init(starting_dimension) {
         "left"
     );
 
-    HOME_BUTTON = new menu.ButtonMenu(
-        "🏠",
-        home_view,
-        "left"
-    );
+    // In quiz mode, add a button to return to the quiz builder
+    if (MODE == "quiz") {
+        // Back dialog and toggle button for quiz mode
+        let back_dialog = null;
+        let cleanup_back = function () { back_dialog = null; };
+        BACK_BUTTON = new menu.ButtonMenu(
+            "↶",
+            function () {
+                if (back_dialog == null) {
+                    // Create a dialog
+                    back_dialog = new menu.Dialog(
+                        (
+                            "If you go back, your progress will be lost."
+                          + " Are you sure you want to return to the puzzle"
+                          + " builder page?"
+                        ),
+                        cleanup_back,
+                        [
+                            {
+                                "text": "Yes",
+                                "action": function () {
+                                    cleanup_back();
+                                    // go back to the quiz builder page
+                                    window.location.assign("/start_quiz.html");
+                                }
+                            },
+                            { "text": "Cancel", "action": cleanup_back }
+                        ]
+                    );
+                } else {
+                    // Remove the existing dialog
+                    back_dialog.cancel();
+                }
+            },
+            "left"
+        );
+    } else { // in non-quiz modes, add a home button
+        HOME_BUTTON = new menu.ButtonMenu(
+            "🏠",
+            home_view,
+            "left"
+        );
+    }
 
     ZOOM_IN_BUTTON = new menu.ButtonMenu(
         "+",
@@ -1330,7 +1453,30 @@ export function init(starting_dimension) {
         "current_glyphs"
     );
 
-    // TODO: prevent dialog stacking?
+    let about_text;
+    if (MODE == "quiz") {
+        about_text = (
+            "This is Words, version 0.2 in quiz mode. Use the Quests menu"
+          + " on the right to list target words, and click the check that"
+          + " appears there once you have found them all to move on. To"
+          + " find a word, select it by dragging your mouse or finger"
+          + " acros the letters, and then press SPACE or click on the"
+          + " word that appears at the bottom of the screen. Double-tap"
+          + " or use backspace to delete part of a selection, or use"
+          + " ESCAPE to clear your selection."
+        );
+    } else {
+        about_text = (
+            "This is Words, version 0.2. Select words and tap the"
+          + " word that appears below, or press SPACE. You can scroll to"
+          + " see more of the grid. Use the ⊗ at the bottom-left or"
+          + " ESCAPE to clear the selection, or double-tap to remove a"
+          + " glyph. Review words with the 'Words' button on the"
+          + " right-hand side. The 🏠 button takes you back to the"
+          + " start."
+        );
+    }
+
     let about_dialog = null;
     let cleanup_about = function () { about_dialog = null; };
     ABOUT_BUTTON = new menu.ButtonMenu(
@@ -1339,15 +1485,7 @@ export function init(starting_dimension) {
             if (about_dialog == null) {
                 // Create a dialog
                 about_dialog = new menu.Dialog(
-                    (
-                        "This is Words, version 0.2. Select words and tap"
-                      + " the word that appears below, or press SPACE. You can"
-                      + " scroll to see more of the grid. Use the ⊗ at the"
-                      + " bottom-left or ESCAPE to clear the selection, or"
-                      + " double-tap to remove a glyph. Review words with the"
-                      + " 'Words' button on the right-hand side. The 🏠 button"
-                      + " takes you back to the start."
-                    ),
+                    about_text,
                     cleanup_about,
                     [ { "text": "Got it.", "action": cleanup_about } ]
                 );
@@ -1358,6 +1496,7 @@ export function init(starting_dimension) {
         },
         "bottom"
     );
+
 
 
     // set up event handlers

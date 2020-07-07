@@ -272,7 +272,7 @@ for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
  *
  * @param domain_or_combo A string naming either a domain or a combo.
  *
- * @return An array of the names of all the domains in that group or combo.
+ * @return An array of the names of all domains in that group or combo.
  */
 export function domains_list(domain_or_combo) {
     if (DOMAIN_COMBOS.hasOwnProperty(domain_or_combo)) {
@@ -3736,9 +3736,7 @@ export function merge_glyph_tricounts(gs1, gs2) {
         } else {
             result[g] = {};
             for (let gg of Object.keys(gs2[g])) {
-                if (!result[g].hasOwnProperty(gg)) {
-                    result[g][gg] = {};
-                }
+                result[g][gg] = {};
                 for (let ggg of Object.keys(gs2[g][gg])) {
                     result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
                 }

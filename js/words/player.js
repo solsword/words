@@ -672,7 +672,7 @@ export function remember_match(agent, dimkey, path, domname, index, glyphs) {
  *
  * @param agent The player that the word is known by.
  * @param domname The name of the domain associated with the entry.
- *     "_custom_" and "_private" have special meanings.
+ *     "_custom_" and "_personal_" have special meanings.
  * @param known_entry The entry from the words_known list to look up; see
  *     the new_player documentation.
  *
@@ -968,4 +968,29 @@ export function master_glyph(agent, glyph, domain_name) {
         domain_mastered.push(glyph);
     }
     return domain_mastered;
+}
+
+/**
+ * Returns an array of 5-element match entries specifying any matches
+ *
+ * @param agent The player to ask for matches.
+ * @param glyphs The glyph sequence to match.
+ *
+ * @return An array of 5-element match entries containing:
+ *     0: The string "_personal_"
+ *     1: The index of the match within the player's known_words array.
+ *     2: The glyph string that matched.
+ *     3: The associated word.
+ *     4: The number 1 (default frequency).
+ * between the given glyph sequence and a player's personal words list.
+ */
+export function personal_matches(agent, glyphs) {
+    let result = [];
+    for (let idx = 0; idx < agent.personal_words.length; ++idx) {
+        let entry = agent.personal_words[idx];
+        if (entry[0] == glyphs) {
+            result.push(["_personal_", idx, entry[0], entry[1], 1]);
+        }
+    }
+    return result;
 }

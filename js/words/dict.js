@@ -59,11 +59,15 @@ var STRINGIFY_URL = "js/words/workers/stringify.js";
  * @return Undefined if the given domain has not been fully loaded yet,
  *     or the domain object with the given name. If there is no such
  *     domain, a warning will be printed in the console and undefined
- *     will be returned.
+ *     will be returned. The special domain names _custom_ and
+ *     _personal_ always return undefined.
  */
 export function lookup_domain(name) {
     if (name == undefined) {
         throw "Internal Error: Undefined name in lookup_domain.";
+    }
+    if (name == "_custom_" || name == "_personal_") {
+        return undefined;
     }
     if (DOMAINS.hasOwnProperty(name)) {
         return DOMAINS[name];
@@ -357,6 +361,9 @@ export function load_dictionary(domain, is_simple) {
  *     asynchronously when the HTTP request it makes is complete.
  */
 export function load_json_or_list(name) {
+    if (name == "_custom_" || name == "_personal_") {
+        console.error("Attempted to load _personal_ or _custom_ domain.");
+    }
     var xobj = new window.XMLHttpRequest();
     xobj.overrideMimeType("application/json");
     var url = window.location.href;
