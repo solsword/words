@@ -719,6 +719,7 @@ export function update_current_glyphs() {
     var glyphs = [];
     let cdk = get_current_dimkey();
     let cd = dimensions.key__dim(cdk);
+    let last_pos;
     for (let gp_or_index of SELECTION_PATH) {
         let g;
         if (typeof gp_or_index[0] == "string") {
@@ -738,9 +739,12 @@ export function update_current_glyphs() {
                 );
                 g = "?";
             }
+            last_pos = gp_or_index;
         }
         glyphs.push(g);
-        place_avatar(gp);
+    }
+    if(last_pos){
+        place_avatar(last_pos);
     }
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
 }
