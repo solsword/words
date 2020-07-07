@@ -34,11 +34,11 @@ export function new_avatar(base_image_name, anim_names) {
     let static_img_src = get_static_img_src(base_image_name);
 
     // get the filenames of the animations for this avatar and add them to list
-    let animation_srcs = [];
+    let animation_srcs = {};
     if(anim_names){
         for(let anim of anim_names){
            let anim_src = get_anim_img_src(base_image_name, anim);
-           animation_srcs.push(anim_src);
+           animation_srcs[anim] = anim_src;
         }
     }
 
@@ -90,9 +90,10 @@ function get_anim_img_src(base_image_name, anim) {
  */
 export function init_avatar(current_player) {
     // create an img element in the index.html document to hold the avatar
-    AVATAR = document.createElement("img");
+    AVATAR = document.createElement("object");
     AVATAR.classList.add("avatar");
-    AVATAR.src = current_player.avatar.static_img_src; 
+    AVATAR.setAttribute("type", "image/svg+xml"); 
+    AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
     
     let avatar_div = document.getElementById("avatar_div");
     avatar_div.appendChild(AVATAR);
@@ -131,11 +132,9 @@ export function set_avatar_position(left, top) {
 }
 
 export function play_static_img(current_player) {
-    AVATAR.src = current_player.avatar.static_img_src;
-    console.log(AVATAR.src);
+    AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
 }
 
-export function play_jump_animation(current_player) {
-    AVATAR.src = current_player.avatar.animation_srcs[0];
-    console.log(AVATAR.src);
+export function play_animation(current_player, anim) {
+    AVATAR.setAttribute("data", current_player.avatar.animation_srcs[anim]); 
 }
