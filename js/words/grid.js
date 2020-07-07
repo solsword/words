@@ -141,11 +141,11 @@ export function index__igp(idx) {
  *          .       @       @
  *              @       @       @
  *   0,3 -> @       @       @       @ <- 6,6
- *              @       @       @    
+ *              @       @       @
  *          @       @       @       @
- *              @      3,3      @    
+ *              @      3,3      @
  *          @       @       @       @
- *              @       @       @    
+ *              @       @       @
  *   0,0 -> @       @       @       @
  *              @       @       @
  *                  @       @       .
@@ -153,7 +153,7 @@ export function index__igp(idx) {
  *                          .       .
  *                              .
  *                                  .
- *                        
+ *
  *                                  ^
  *                                  |
  *                                 6,0
@@ -185,7 +185,7 @@ export function is_valid_subindex(igp) {
  * inside of.
  *
  * @param sgp A 2-element x/y array specifying the position of a
- *     supertile relative to the global origin. 
+ *     supertile relative to the global origin.
  *
  * @return An integer index for a supertile within an ultratile.
  */
@@ -269,7 +269,7 @@ export function sgap__sidx(sgap) {
 /**
  * Hex index & linear index of the center of a supergrid tile:
  */
-export var SG_CENTER = [3, 3]; 
+export var SG_CENTER = [3, 3];
 export var SG_CENTER_IDX = igp__index(SG_CENTER);
 
 /**
@@ -422,7 +422,7 @@ export function rotate(direction, amount) {
  * Rotates an array of directions. Returns a new array without modifying the
  * original.
  *
- * @param directions An array containing direction constants. 
+ * @param directions An array containing direction constants.
  * @param amount The number of steps clockwise to rotate each entry in
  *     the directions list.
  *
@@ -680,8 +680,8 @@ export function z_coord(pos) {
  *          |             |             |
  *  -2      |     -1      |      0      |      1
  *          |             |             |
- *        -- --         -- --         -- --    
- *      --     --     --     --     --     --  
+ *        -- --         -- --         -- --
+ *      --     --     --     --     --     --
  *    --         -- --         -- --         --
  *   |             |             |             |
  *   |     -1      |      0      |      1      |
@@ -704,8 +704,8 @@ export function z_coord(pos) {
  *         |             |             |
  *  1      |      1      |      1      |      1
  *         |             |             |
- *       -- --         -- --         -- --    
- *     --     --     --     --     --     --  
+ *       -- --         -- --         -- --
+ *     --     --     --     --     --     --
  *   --         -- --         -- --         --
  *  |             |             |             |
  *  |      0      |      0      |      0      |
@@ -728,8 +728,8 @@ export function z_coord(pos) {
  *         |             |             |
  * -1      |      0      |      1      |      2
  *         |             |             |
- *       -- --         -- --         -- --    
- *     --     --     --     --     --     --  
+ *       -- --         -- --         -- --
+ *     --     --     --     --     --     --
  *   --         -- --         -- --         --
  *  |             |             |             |
  *  |     -1      |      0      |      1      |
@@ -845,11 +845,11 @@ export function is_neighbor(from, to) {
  *            /      x          .       @       @       #
  *           /                      @       @       @
  *          /            0,3 -> @       @       @       @ <- 6,6
- *         v                        @       @       @    
+ *         v                        @       @       @
  *                              @       @       @       @
- *                                  @      3,3      @    
+ *                                  @      3,3      @
  *                              @       @       @       @
- *                                  @       @       @    
+ *                                  @       @       @
  *                       0,0 -> @       @       @       @
  *                                  @       @       @
  *                              &       @       @       .
@@ -857,7 +857,7 @@ export function is_neighbor(from, to) {
  *                      &       &       &       .       .
  *                  &       &       &       &       .
  *                      &       &       &               .
- *                  &       &       &       & 
+ *                  &       &       &       &
  *                      &       &       &               ^
  *                  &       &       &       &           |
  *                      &       &       &              6,0
@@ -874,17 +874,17 @@ export function is_neighbor(from, to) {
  *
  *  v1 = (7, 4)
  *  v2 = (3, 7)
- * 
+ *
  * Coordinate equations:
  *
  *  7 c1 + 3 c2 = x
  *  4 c1 + 7 c2 = y
- * 
+ *
  * Solved for c2:
  *
  *  c2 = 1/3 x - 7/3 c1
  *  c2 = 1/7 y - 4/7 c1
- * 
+ *
  * Substituting those into c2 = c2 and solving for c1:
  *
  *  1/3 x - 7/3 c1 = 1/7 y - 4/7 c1
@@ -898,7 +898,7 @@ export function is_neighbor(from, to) {
  *     supertile containing the given grid position, followed by interior
  *     x/y coordinates of the given tile within its supertile. For
  *     example, (4, 3) is simply tile (4, 3) within supertile (0, 0), so
- *     the result would be [0, 0, 4, 3]. Meanwhile, grid tile (4, 8) is 
+ *     the result would be [0, 0, 4, 3]. Meanwhile, grid tile (4, 8) is
  *     in supertile (0, 1) at position (1, 1), so the return value would
  *     be [0, 1, 1, 1].
  */
@@ -968,7 +968,7 @@ export function sgp__gp(sgp) {
     var gx = ox * vx[0] + oy * vy[0] + ix;
     var gy = ox * vx[1] + oy * vy[1] + iy;
 
-    return [gx, gy]; 
+    return [gx, gy];
 }
 
 /**
@@ -1367,7 +1367,7 @@ export function sg_neighbor(sgp, dir) {
  *     in those supertiles that identify the shared socket. Three of
  *     those (west=0, northwest=1, and northeast=2) are canonical, and
  *     the other three should generally be identified using their
- *     canonical duals. 
+ *     canonical duals.
  */
 export function is_canonical(socket) {
     return (socket >= 0 && socket <= 2);
@@ -1404,7 +1404,7 @@ for (let x = 0; x < 7; ++x) {
  *                0 #         6         # 3
  *                  #                   #
  *                  #                   #
- *                   ##               ## 
+ *                   ##               ##
  *                     ###         ###
  *                        ###   ###
  *                      5    ###     4
