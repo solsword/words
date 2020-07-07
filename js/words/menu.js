@@ -191,7 +191,7 @@ BaseMenu.prototype.hide = function() {
 /**
  * After using hide, use this function to re-enable a menu.
  */
-BaseMenu.prototype.show = function() {
+BaseMenu.prototype.show = function () {
     this.element.style.display = this.normal_display;
 };
 
@@ -199,8 +199,19 @@ BaseMenu.prototype.show = function() {
  * Removes the menu from the game permanently. Use hide instead to
  * temporarily hide a menu.
  */
-BaseMenu.prototype.remove = function() {
+BaseMenu.prototype.remove = function () {
     this.element.parentElement.removeChild(this.element);
+};
+
+/**
+ * Determines the center of the menu in HTML coordinates.
+ *
+ * @return A 2-element array containing HTML x/y coordinates for the
+ *     center of the menu.
+ */
+BaseMenu.prototype.view_center = function () {
+    // TODO: HERE
+    return [0, 0];
 };
 
 
@@ -1017,7 +1028,191 @@ GlyphsMenu.prototype.animate_flash = function() {
           + (3 * this.orig_border_width * this.fade)
         ) + "pt";
     }
-
     // Continue animating
     this.flash_in_progress = window.requestAnimationFrame(this.animate);
+};
+
+
+/**
+ * A SlotsMenu has an adjustable number of slots which can hold glyphs,
+ * and each slot can be filled or emptied, and can be selected to toggle
+ * it on or off. Slots may trigger an action when toggled on or off: The
+ * selected callback is called with the menu and the index of the slot
+ * that was clicked on when one is toggled on, and the deselected
+ * callback is called with the same arguments when one is toggled off.
+ * The initial number of slots will be determined by the length of the
+ * contents iterable, along with their initial values. null, false,
+ * undefined or other false-values may be used to represent
+ * initially-empty slots.
+ *
+ * Currently the SlotsMenu is used to let players add custom letters from
+ * outside the grid to the words that they're making (see ui.js).
+ *
+ * @param contents A string or an array of length-one glyph strings.
+ *     Undefined entries in this array represent empty slots.
+ * @param select The function to call when a slot is toggled on. It will
+ *     be given the menu object and the index of the selected slot as
+ *     arguments.
+ * @param deselect The function to call when a slot is toggled off. It
+ *     will be given the menu object and the index of the selected slot
+ *     as arguments.
+ * @param icon The icon to use when the menu is collapsed (see
+ *     AutoExpandMenu)
+ * @param pos The position of this menu (see BaseMenu).
+ * @param classes CSS classes for this menu (see BaseMenu).
+ * @param style Extra style code for this menu (see BaseMenu).
+ *
+ * TODO: This menu type has not yet been fully implemented.
+ *
+ * TODO:
+ *
+ * - Connect it with a rewards system.
+ * - Ensure that it automatically expands/contracts as the screen size
+ *   changes.
+ * - Make sure that backspace works to deselect slots.
+ * - Clear selection after a word is completed.
+ */
+export function SlotsMenu(
+    contents,
+    select,
+    deselect,
+    icon,
+    pos,
+    classes,
+    style
+) {
+    AutoExpandMenu.call(this, icon, pos, classes, style);
+    this.select = select;
+    this.deselect = deselect;
+    this.contents = []; // will be filled in later
+    this.selected = [];
+
+    // Create an HTML element to hold the slots
+    this.slots = document.createElement("div");
+    this.slots.classList.add("slots");
+    this.element.appendChild(this.slots);
+
+    // add slots
+    for (let glyph of contents) {
+        this.add_slot(glyph);
+    }
+}
+SlotsMenu.prototype = Object.create(AutoExpandMenu.prototype);
+SlotsMenu.prototype.constructor = SlotsMenu;
+
+/**
+ * Adds a slot to this menu. Omit the glyph argument to add an empty
+ * slot.
+ *
+ * @param glyph The glyph to put in the new slot. Use undefined or omit
+ *     this argument to add an empty slot.
+ *
+ */
+SlotsMenu.prototype.add_slot = function(glyph) {
+    let index = this.contents.length;
+    this.contents.push(glyph);
+    this.selected.push(false);
+
+    // Create an HTML element for the slot
+    let slot = document.createElement("a");
+    slot.classList.add("slot");
+
+    // Adds glyph into slot
+    if (glyph != undefined) {
+        slot.innerHTML = glyph;
+    }
+
+    let the_menu = this;
+    function click_handler(e) {
+        the_menu.toggle_slot(index);
+        e.stopPropagation();
+    }
+    //adding click function
+    slot.addEventListener("click", click_handler, {"capture": true});
+    the_menu.slots.appendChild(slot);
+};
+
+/**
+ * Removes the last slot from the SlotsMenu.
+ */
+SlotsMenu.prototype.remove_last_slot = function() {
+    this.contents.pop();
+    this.selected.pop();
+    this.slots.removeChild(this.slots.lastChild);
+};
+
+/**
+ * Toggles the slot from selected to deselected or vice versa, depending
+ * on its current state. Calls the appropriate callback function with the
+ * menu and the index as arguments.
+ *
+ * @param index The index of the slot to be toggled.
+*/
+SlotsMenu.prototype.toggle_slot = function (index) {
+    if (this.selected[index]){
+        this._deselect(index);
+    } else {
+        this._select(index);
+    }
+};
+
+/**
+ * Sets a slot to the selected state, and calls the selection callback
+ * function if the slot was not already selected.
+ *
+ * @param index The index of the slot to select.
+ * @param skip_callback (optional) If true, the callback will be skipped
+ *     whether or not the slot changes state.
+ */
+SlotsMenu.prototype._select = function (index, skip_callback) {
+    if (this.selected[index]) {
+        return;
+    }
+
+    this.selected[index] = true;
+    this.slots.children[index].classList.add("selected");
+    if (!skip_callback) {
+        this.select(this, index);
+    }
+};
+
+/**
+ * Sets a slot to the deselected state, and calls the deselection
+ * callback function if the slot was not already selected.
+ *
+ * @param index The index of the slot to deselect.
+ * @param skip_callback (optional) If true, the callback will be skipped
+ *     whether or not the slot changes state.
+ */
+SlotsMenu.prototype._deselect = function (index, skip_callback) {
+    if (!this.selected[index]) {
+        return;
+    }
+
+    this.selected[index] = false;
+    this.slots.children[index].classList.remove("selected");
+    if (!skip_callback) {
+        this.deselect(this, index);
+    }
+};
+
+/**
+ * Deselects all slots, without triggering the deselect callback.
+ */
+SlotsMenu.prototype.clear_selection = function () {
+    let slot_elements = this.slots.children;
+    for (let index = 0; index < this.contents.length; ++index) {
+        this.selected[index] = false;
+        slot_elements[index].classList.remove("selected");
+    }
+};
+
+/**
+ * Retrieves a glyph from the menu.
+ *
+ * @param index The index of the glyph to retrieve.
+ * @return A glyph from the menu. Undefined if the chosen slot is empty.
+ */
+SlotsMenu.prototype.get_glyph = function (index) {
+    return this.contents[index];
 };

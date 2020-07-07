@@ -1,3 +1,4 @@
 .nfs*
 *.swp
 domains-backup
+*/.DS_Store

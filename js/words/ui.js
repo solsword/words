@@ -75,11 +75,12 @@ export var DBL_DIST = 10;
 var SCROLL_REFERENT = null;
 
 /**
- * An array holding zero or more arrays which each hold 2-element tile
- * grid x/y coordinate pairs to indicate a path. These are the
- * currently-active path(s) that the user has selected.
+ * An array holding 2-element tile grid x/y coordinate pairs to indicate
+ * the path of the current selection. Entries could also be two element
+ * arrays containing a string and an index which corresponds to the
+ * glyphs that don't come from the grid.
  */
-var CURRENT_SWIPES = [];
+var SELECTION_PATH = [];
 
 /**
  * An array holding 3-element [dimension, position, time] arrays that
@@ -113,7 +114,7 @@ var EN_CLEAR_ANIM = null;
  * The number of milliseconds per frame (ideally).
  * TODO: Measure this?
  */
-export const MS_PER_FRAME = 1000/60;
+export const MS_PER_FRAME = 1000 / 60;
 
 /**
  * The millisecond timestamp at the time of the previous animation
@@ -179,6 +180,7 @@ export var ZOOM_OUT_BUTTON = null;
 export var CLEAR_SELECTION_BUTTON = null;
 export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
+export var SLOTS_MENU = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -296,7 +298,7 @@ export function zoom_in() {
  * Zooms out a bit (exact inverse of zoom_in up to rounding error).
  */
 export function zoom_out() {
-    CTX.viewport_scale *= 1/1.25;
+    CTX.viewport_scale *= 1 / 1.25;
     DO_REDRAW = 0;
     rescale_avatar();
     replace_avatar();
@@ -391,19 +393,18 @@ export var COMMANDS = {
     "0": home_view,
     "Home": home_view,
     // Pops a letter from the current swipe set
+    //TODO handle external entries
     "Backspace": function (e) {
         if (e.preventDefault) { e.preventDefault(); }
-        if (CURRENT_SWIPES.length > 0) {
-            let last_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length - 1];
-            console.log("1", last_swipe);
-            last_swipe.pop();
-            if (last_swipe.length == 0) {
-                CURRENT_SWIPES.pop();
-            }
+        if (SELECTION_PATH.length > 0) {
             CURRENT_GLYPHS_BUTTON.remove_glyph();
-            // put avatar on last valid glyph
-            if(CURRENT_SWIPES.length > 0){
-                place_avatar(CURRENT_SWIPES[CURRENT_SWIPES.length - 1][0]);
+            let removed = SELECTION_PATH.pop();
+            if (removed[0] == "slots") {
+                // deselect that letter from the slots menu
+                SLOTS_MENU._deselect(removed[1], true);
+            }
+            if (SELECTION_PATH.length > 0) {
+                place_avatar(SELECTION_PATH[SELECTION_PATH.length - 1]);
             }
         }
         DO_REDRAW = 0;
@@ -448,13 +449,13 @@ var GRID_TEST_COMMANDS = {
  */
 export function clear_selection(destination, style) {
     if (destination == undefined) {
-        CURRENT_SWIPES = [];
+        SELECTION_PATH = [];
         CURRENT_GLYPHS_BUTTON.set_glyphs([]);
+        SLOTS_MENU.clear_selection();
         if (SEL_CLEAR_ANIM != null) {
             animate.stop_animation(SEL_CLEAR_ANIM);
             SEL_CLEAR_ANIM = null;
         }
-        DO_REDRAW = 0;
     } else {
         if (SEL_CLEAR_ANIM != null) {
             if (!animate.is_active(SEL_CLEAR_ANIM)) {
@@ -463,31 +464,33 @@ export function clear_selection(destination, style) {
                 return; // there's a clear animation already in-flight
             }
         }
-        var combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
-        var lines = [];
-        for (let gp of combined_swipe) {
-            var wp = grid.world_pos(gp);
-            var vp = draw.view_pos(CTX, wp);
-            lines.push(
-                new animate.MotionLine(
-                    animate.MOMENT,
-                    undefined,
-                    vp,
-                    destination,
-                    style
-                )
-            );
+        let lines = [];
+        for (let gp of SELECTION_PATH) {
+            if (typeof gp[0] != "string") {
+                var wp = grid.world_pos(gp);
+                var vp = draw.view_pos(CTX, wp);
+                lines.push(
+                    new animate.MotionLine(
+                        animate.MOMENT,
+                        undefined,
+                        vp,
+                        destination,
+                        style
+                    )
+                );
+            }
         }
         SEL_CLEAR_ANIM = new animate.AnimGroup(
             lines,
             function () {
-                CURRENT_SWIPES = [];
+                SELECTION_PATH = [];
                 CURRENT_GLYPHS_BUTTON.set_glyphs([]);
+                SLOTS_MENU.clear_selection();
             }
         );
         animate.activate_animation(SEL_CLEAR_ANIM);
-        DO_REDRAW = 0;
     }
+    DO_REDRAW = 0;
 }
 
 /**
@@ -554,11 +557,14 @@ export function clear_energy(destination, style) {
  * will also be emptied in that case as the match is recorded).
  */
 export function test_selection() {
-    let combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
     let domains = new Set();
     let cdk = get_current_dimkey();
     let cd = dimensions.key__dim(cdk);
-    for (let gp of combined_swipe) {
+    // determine all domains involved
+    for (let gp of SELECTION_PATH) {
+        if (typeof gp[0] == "string") {
+            continue; // skip non-grid entries
+        }
         let tile = content.tile_at(cd, gp);
         if (tile != null) {
             for (let domain of generate.domains_list(tile.domain)) {
@@ -566,6 +572,14 @@ export function test_selection() {
             }
         }
     }
+    // backup in case there are no domains from tiles
+    if (domains.size == 0) {
+        let natural_domain = (dimensions.natural_domain(cd));
+        for (let component of generate.domains_list(natural_domain)) {
+            domains.add(component);
+        }
+    }
+
     let matches = dict.check_word(CURRENT_GLYPHS_BUTTON.glyphs, domains);
     if (matches.length > 0) { // Found a match
         let in_reach = false; // is this match within reach?
@@ -573,7 +587,7 @@ export function test_selection() {
         if (MODE == "free") {
             in_reach = true;
         } else {
-            for (let gp of combined_swipe) {
+            for (let gp of SELECTION_PATH) {
                 if (content.is_unlocked(cdk, gp)) {
                     in_reach = true;
                     break;
@@ -585,10 +599,10 @@ export function test_selection() {
             player.add_unlocked(
                 player.current_input_player(),
                 cdk,
-                combined_swipe
+                SELECTION_PATH.filter(e => typeof e[0] != "string")
             );
             for (let m of matches) {
-                find_word(cdk, m, combined_swipe);
+                find_word(cdk, m, SELECTION_PATH.slice());
             }
             clear_selection(
                 [ CTX.cwidth/2, CTX.cheight ],
@@ -705,23 +719,32 @@ export function update_current_glyphs() {
     var glyphs = [];
     let cdk = get_current_dimkey();
     let cd = dimensions.key__dim(cdk);
-    for (let sw of CURRENT_SWIPES) {
-        for (let gp of sw) {
-            // TODO: Add code here for handling extra-planar glyphs!
-            let g = content.tile_at(cd, gp).glyph;
+    for (let gp_or_index of SELECTION_PATH) {
+        let g;
+        if (typeof gp_or_index[0] == "string") {
+            if (gp_or_index[0] == "slots") {
+                g = SLOTS_MENU.get_glyph(gp_or_index[1]); //TO DO
+                if (g == undefined) {
+                    //TODO maybe clean up the entry?
+                    continue;
+                }
+            }
+        } else {
+            g = content.tile_at(cd, gp_or_index).glyph;
             if (g == undefined) { // should never happen in theory:
                 console.warn(
                     "Internal Error: update_current_glyphs found"
-                  + " undefined glyph at: " + gp
+                    + " undefined glyph at: " + gp_or_index
                 );
                 g = "?";
             }
-            glyphs.push(g);
-            place_avatar(gp);
         }
+        glyphs.push(g);
+        place_avatar(gp);
     }
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
 }
+
 
 /**
  * Event handler for the start of a primary-button click or single-point
@@ -735,16 +758,7 @@ function handle_primary_down(ctx, e) {
     var vpos = canvas_position_of_event(e);
     var wpos = draw.world_pos(ctx, vpos);
     var gpos = grid.grid_pos(wpos);
-    var head = null;
-    if (CURRENT_SWIPES.length > 0) {
-        for (var i = CURRENT_SWIPES.length - 1; i > -1; --i) {
-            var latest_swipe = CURRENT_SWIPES[i];
-            if (latest_swipe.length > 0) {
-                head = latest_swipe[latest_swipe.length - 1];
-                break;
-            }
-        }
-    }
+    var head = find_swipe_head();
     let cdk = get_current_dimkey();
     let cd = dimensions.key__dim(cdk);
     var tile = content.tile_at(cd, gpos);
@@ -756,18 +770,18 @@ function handle_primary_down(ctx, e) {
         // a normal tile: select it
         if (
             !is_selected(gpos)
-         && (head == null || grid.is_neighbor(head, gpos))
-         && tile.glyph != undefined
+            && (head == null || grid.is_neighbor(head, gpos))
+            && tile.glyph != undefined
         ) {
-            CURRENT_SWIPES.push([gpos]);
+            SELECTION_PATH.push(gpos);
             update_current_glyphs();
-        } else {
-            CURRENT_SWIPES.push([]);
         }
         SWIPING = true;
     }
     DO_REDRAW = 0;
 }
+
+
 
 /**
  * Event handler for the start of a middle-button click or multi-point
@@ -805,7 +819,7 @@ function handle_primary_up(ctx, e) {
         let dx = vpos[0] - LAST_RELEASE[0];
         let dy = vpos[1] - LAST_RELEASE[1];
         let dt = window.performance.now() - PRESS_RECORDS[0];
-        let rdist = Math.sqrt(dx*dx + dy*dy);
+        let rdist = Math.sqrt(dx * dx + dy * dy);
         isdbl = dt <= DBL_TIMEOUT && rdist <= DBL_DIST;
     }
 
@@ -822,18 +836,10 @@ function handle_primary_up(ctx, e) {
 
         // Figure out if we're on part of a swipe:
         let cancel_from = undefined;
-        let cancel_index = undefined;
-        for (let i = 0; i < CURRENT_SWIPES.length; ++i) {
-            let sw = CURRENT_SWIPES[i];
-            for (let j = 0; j < sw.length; ++j) {
-                let sgp = sw[j];
-                if (utils.equivalent(gp, sgp)) {
-                    cancel_from = i;
-                    cancel_index = j;
-                    break;
-                }
-            }
-            if (cancel_from != undefined) {
+        for (let i = 0; i < SELECTION_PATH.length; ++i) {
+            let sel_gp = SELECTION_PATH[i];
+            if ("" + gp == "" + sel_gp) {
+                cancel_from = i;
                 break;
             }
         }
@@ -842,57 +848,34 @@ function handle_primary_up(ctx, e) {
             // We double-tapped a swiped glyph to cancel it
 
             // Find adjacent grid positions from swipe
-            let csw = CURRENT_SWIPES[cancel_from];
-            let csl = csw.length;
             let prior = undefined;
             let next = undefined;
-            if (cancel_index == 0) {
-                if (cancel_from > 0) {
-                    let psw = CURRENT_SWIPES[cancel_from-1];
-                    prior = psw[psw.length-1];
-                }
-            } else {
-                prior = csw[cancel_index-1];
+            if (cancel_from > 0) {
+                prior = SELECTION_PATH[cancel_from - 1];
             }
-            if (cancel_index == csw.length - 1) {
-                let nsw = CURRENT_SWIPES[cancel_from+1];
-                if (nsw != undefined) {
-                    next = nsw[0];
-                }
-            } else {
-                next = csw[cancel_index+1];
+            if (cancel_from < SELECTION_PATH.length) {
+                next = SELECTION_PATH[cancel_from + 1];
             }
 
             // Check continuity
             if (prior != undefined && next != undefined) {
                 if (grid.is_neighbor(prior, next)) {
-                    // Cut out just the one glyph and stitch the rest together:
-                    if (csw.length == 1) {
-                        CURRENT_SWIPES.splice(cancel_from, 1);
-                    } else {
-                        csw.splice(cancel_index, 1);
-                    }
+                    // Cut out just the one glyph and stitch the rest
+                    // together:
+                    SELECTION_PATH.splice(cancel_from, 1);
                 } else {
-                    // Cut off everything after the target:
-                    if (csw.length == 1) {
-                        CURRENT_SWIPES = CURRENT_SWIPES.slice(0, cancel_from);
-                    } else {
-                        CURRENT_SWIPES = CURRENT_SWIPES.slice(
-                            0,
-                            cancel_from + 1
-                        );
-                        CURRENT_SWIPES[cancel_from] = csw.slice(
-                            0,
-                            cancel_index
-                        );
+                    // First deselect any affected non-grid letters
+                    for (let entry of SELECTION_PATH.slice(cancel_from)) {
+                        if (entry[0] == "slots") {
+                            SLOTS_MENU._deselect(entry[1], true);
+                        }
                     }
+                    // Cut off everything after the target:
+                    SELECTION_PATH = SELECTION_PATH.slice(0, cancel_from);
                 }
             } else {
-                if (csw.length == 1) {
-                    CURRENT_SWIPES.splice(cancel_from, 1);
-                } else {
-                    csw.splice(cancel_index, 1);
-                }
+                // First or last entry: splice it out
+                SELECTION_PATH.splice(cancel_from, 1);
             }
             update_current_glyphs();
         } else {
@@ -915,9 +898,8 @@ function handle_primary_up(ctx, e) {
                 }
             }
             if (valid) {
-                // Get rid of last two swipes & update glyphs
-                CURRENT_SWIPES.pop();
-                CURRENT_SWIPES.pop();
+                // Get rid of last selection entry & update glyphs
+                SELECTION_PATH.pop();
                 update_current_glyphs();
                 // Check for already-active poke here
                 let entry = [ cd, gp, window.performance.now() ];
@@ -937,6 +919,7 @@ function handle_primary_up(ctx, e) {
                 } else {
                     // Add entry to active pokes list:
                     ACTIVE_POKES.push(entry);
+                    // TODO: limit based on player...
                     if (ACTIVE_POKES.length > content.POKE_LIMIT) {
                         ACTIVE_POKES.shift();
                     }
@@ -946,13 +929,8 @@ function handle_primary_up(ctx, e) {
         DO_REDRAW = 0;
     } else {
         // this is just a normal mouseup
-        if (CURRENT_SWIPES.length == 0) {
+        if (SELECTION_PATH.length == 0) {
             return;
-        }
-        var latest_swipe = CURRENT_SWIPES.pop();
-        if (latest_swipe.length > 0) {
-            // A non-empty swipe motion; push it back on:
-            CURRENT_SWIPES.push(latest_swipe);
         }
         update_current_glyphs();
         DO_REDRAW = 0;
@@ -1000,37 +978,34 @@ function handle_movement(ctx, e) {
         place_viewport([CTX.viewport_center[0] - dx, CTX.viewport_center[1] + dy]);
 
         DO_REDRAW = 0;
-    } else if (SWIPING && CURRENT_SWIPES.length > 0) {
+    } else if (SWIPING && SELECTION_PATH.length > 0) {
         // swiping w/ primary button or one finger
-        var combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
         var wpos = draw.world_pos(CTX, vpos);
         var gpos = grid.grid_pos(wpos);
-        var head = null;
-        if (combined_swipe.length > 0) {
-            head = combined_swipe[combined_swipe.length - 1];
-        }
+        var prev = find_swipe_head(1);
+        var head = find_swipe_head();
         var is_used = false;
         var is_prev = false;
         var is_head = false;
-        combined_swipe.forEach(function (prpos, idx) {
+        for (let idx = 0; idx < SELECTION_PATH.length; ++idx) {
+            let prpos = SELECTION_PATH[idx];
             if ("" + prpos == "" + gpos) {
                 is_used = true;
-                if (idx == combined_swipe.length - 1) {
+                if (idx == SELECTION_PATH.length - 1) {
                     is_head = true;
-                } else if (idx == combined_swipe.length - 2) {
+                } else if (idx == SELECTION_PATH.length - 2) {
                     is_prev = true;
                 }
             }
-        });
-        var latest_swipe = CURRENT_SWIPES[CURRENT_SWIPES.length -1];
+        }
         if (is_used) {
-            if (is_prev) {
-                if (latest_swipe.length > 0) {
-                    // only pop from an active swipe
-                    latest_swipe.pop();
-                    update_current_glyphs();
-                    DO_REDRAW = 0;
-                }
+            if (
+                is_prev
+             && typeof SELECTION_PATH[SELECTION_PATH.length-1][0] != "string"
+            ) {
+                SELECTION_PATH.pop();
+                update_current_glyphs();
+                DO_REDRAW = 0;
             }
             // else do nothing, we're on a tile that's already part of the
             // current swipe.
@@ -1040,13 +1015,13 @@ function handle_movement(ctx, e) {
             var tile = content.tile_at(cd, gpos);
             if (
                 (head == null || grid.is_neighbor(head, gpos))
-                && tile.glyph != undefined
-                && tile.domain != "__active__"
-                && tile.domain != "__empty__"
+             && tile.glyph != undefined
+             && tile.domain != "__active__"
+             && tile.domain != "__empty__"
             ) {
                 // add them if they're a neighbor of the head
                 // (and not unloaded, and not an object)
-                latest_swipe.push(gpos);
+                SELECTION_PATH.push(gpos);
                 update_current_glyphs();
                 DO_REDRAW = 0;
             }
@@ -1261,7 +1236,7 @@ export function init(starting_dimension) {
     // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
     // consecutive one to do anything.
     var timer_id = undefined;
-    window.addEventListener("resize", function() {
+    window.addEventListener("resize", function () {
         if (timer_id != undefined) {
             window.clearTimeout(timer_id);
             timer_id = undefined;
@@ -1292,6 +1267,21 @@ export function init(starting_dimension) {
     );
     // TODO: Swap words list when dimension changes
     // TODO: Some way to see lists from non-current dimensions?
+
+    // Adding slots menu, the contents are currently predetermined.
+    // TODO: How to add/remove glyphs based on player progression
+    //TODO: REWRITE this code...
+    SLOTS_MENU = new menu.SlotsMenu(
+        ["A", "E", "I", "O", "U"],
+        function (menu, index) { // select function
+            splice_glyph("slots", index);
+        },
+        function (menu, index) {
+            unsplice_glyph("slots", index);
+        },
+        "🎒",
+        "left"
+    );
 
     HOME_BUTTON = new menu.ButtonMenu(
         "🏠",
@@ -1470,7 +1460,7 @@ export function init_test(starting_dimension, supertiles) {
     // Listen for window resizes but wait until RESIZE_TIMEOUT after the last
     // consecutive one to do anything.
     var timer_id = undefined;
-    window.addEventListener("resize", function() {
+    window.addEventListener("resize", function () {
         if (timer_id != undefined) {
             window.clearTimeout(timer_id);
             timer_id = undefined;
@@ -1484,11 +1474,11 @@ export function init_test(starting_dimension, supertiles) {
         );
     });
 
-    document.onkeydown = function (e) {
+    document.addEventListener("keydown", function (e) {
         if (GRID_TEST_COMMANDS.hasOwnProperty(e.key)) {
             GRID_TEST_COMMANDS[e.key](e);
         }
-    };
+    });
 }
 
 /**
@@ -1500,14 +1490,12 @@ export function init_test(starting_dimension, supertiles) {
  *     and false otherwise.
  */
 export function is_selected(gpos) {
-    var combined_swipe = utils.combine_arrays(CURRENT_SWIPES);
-    var result = false;
-    combined_swipe.forEach(function (prpos) {
+    for(let prpos of SELECTION_PATH) {
         if ("" + prpos == "" + gpos) {
-            result = true;
+            return true;
         }
-    });
-    return result;
+    }
+    return false;
 }
 
 /**
@@ -1533,7 +1521,7 @@ export function draw_frame(now) {
 
     // Compute elapsed time (in milliseconds)
     let elapsed;
-    if (PREV_FRAME_TIME == undefined ) {
+    if (PREV_FRAME_TIME == undefined) {
         elapsed = 0; // on first frame we count 0 elapsed
     } else {
         elapsed = now - PREV_FRAME_TIME; // otherwise compute it
@@ -1587,8 +1575,7 @@ export function draw_frame(now) {
         draw.draw_energies(cd, CTX, visible_tiles);
 
         // Swipes
-        let combined = utils.combine_arrays(CURRENT_SWIPES);
-        draw.draw_swipe(CTX, combined, "highlight");
+        draw.draw_swipe(CTX, SELECTION_PATH, "highlight");
 
         // Pokes
         var poke_redraw_after = undefined;
@@ -1650,9 +1637,9 @@ export function draw_frame(now) {
     var next_horizon = animate.draw_active(CTX, ANIMATION_FRAME);
     if (
         next_horizon != undefined
-     && (
+        && (
             DO_REDRAW == null
-         || DO_REDRAW > next_horizon
+            || DO_REDRAW > next_horizon
         )
     ) {
         DO_REDRAW = next_horizon;
@@ -1663,21 +1650,21 @@ export function draw_frame(now) {
 }
 
 /**
- * Creates a test animation function which will draw the given
- * supertiles.
- *
- * @param supertiles An array of supertile objects to be drawn. Their pos
- *     attributes determine where, and scrolling is not enabled, so they
- *     should be positioned somewhere near [0, 0].
- */
+* Creates a test animation function which will draw the given
+* supertiles.
+*
+* @param supertiles An array of supertile objects to be drawn. Their pos
+*     attributes determine where, and scrolling is not enabled, so they
+*     should be positioned somewhere near [0, 0].
+*/
 export function make_test_animator(supertiles) {
     /**
-     * The per-frame animation function for the grid test, which just draws
-     * the test grid data. Uses the same DO_REDRAW mechanism as draw_frame.
-     *
-     * @param now The number of milliseconds since the time origin.
-     */
-    let animate_grid_test = function(now) {
+    * The per-frame animation function for the grid test, which just draws
+    * the test grid data. Uses the same DO_REDRAW mechanism as draw_frame.
+    *
+    * @param now The number of milliseconds since the time origin.
+    */
+    let animate_grid_test = function (now) {
         if (DO_REDRAW == null) {
             window.requestAnimationFrame(animate_grid_test);
             return;
@@ -1756,4 +1743,79 @@ function place_viewport(wpos) {
     CTX.viewport_center[0] = wpos[0];
     CTX.viewport_center[1] = wpos[1];
     replace_avatar();
+}
+
+/**
+* Adds a glyph from a source other than the main board to the current
+* word being built. Current sources include:
+*
+* "slots" - The slots menu. Index indicates which slot is being used.
+*
+* @param source Where the glyph is coming from (a string).
+* @param index The index of the glyph within that source.
+*/
+export function splice_glyph(source, index) {
+    let entry = [source, index];
+    SELECTION_PATH.push(entry);
+    update_current_glyphs();
+    DO_REDRAW = 0;
+}
+
+/**
+ * Removes a currently-spliced glyph from a specific source from the
+ * current swipes. See splice_glyph for details about valid sources.
+ *
+ * Removes only the first instance of the given index/source pair from
+ * the swipes list.
+ *
+ * @param source The source of the glyph (a string).
+ * @param index The index of the glyph within that source.
+ */
+export function unsplice_glyph(source, index) {
+    let remove = undefined;
+    let sidx;
+    let drop = false;
+    let eidx;
+    for (eidx = 0; eidx < SELECTION_PATH.length; ++eidx) {
+        let entry = SELECTION_PATH[eidx];
+        if (entry[0] == source && entry[1] == index) {
+            drop = true;
+            break;
+        }
+    }
+
+    if (drop) { // found a match to get rid of
+        SELECTION_PATH.splice(eidx, 1); // remove entry
+    }
+
+    update_current_glyphs();
+    DO_REDRAW = 0;
+}
+
+
+/**
+* Finds the head of the swipe (the last position selected within the
+* grid). If an index is given, finds the position that many entries back
+* from the head. Entries from outside the grid are skipped.
+*
+* @param index (optional) How far back to go in the swipe. Default is 0.
+*
+* @return A 2-element x/y grid coordinate array indicating the last valid
+*     grid position in the current swipe, or null if there is no such
+*     position.
+*/
+export function find_swipe_head(index) {
+    if (index == undefined) {
+        index = 0;
+    }
+    for (var idx = SELECTION_PATH.length - 1; idx > -1; --idx) {
+        let gp = SELECTION_PATH[idx];
+        if (typeof gp[0] != "string") {
+            index -= 1;
+            if (index < 0) {
+                return gp;
+            }
+        }
+    }
+    return null;
 }
