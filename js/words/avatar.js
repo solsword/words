@@ -36,7 +36,7 @@ export function new_avatar(base_image_name, anim_names) {
     // get the filenames of the animations for this avatar and add them to list
     let animation_srcs = [];
     if(anim_names){
-        for(anim of anim_names){
+        for(let anim of anim_names){
            let anim_src = get_anim_img_src(base_image_name, anim);
            animation_srcs.push(anim_src);
         }
@@ -128,4 +128,14 @@ export function set_avatar_position(left, top) {
     // sets the position in CSS 
     AVATAR.style.left = left + "px";
     AVATAR.style.top = top + "px";
+}
+
+export function play_static_img(current_player) {
+    AVATAR.src = current_player.avatar.static_img_src;
+    console.log(AVATAR.src);
+}
+
+export function play_jump_animation(current_player) {
+    AVATAR.src = current_player.avatar.animation_srcs[0];
+    console.log(AVATAR.src);
 }

@@ -268,7 +268,8 @@ export function find_word(dimkey, match, path) {
         widx,
         glyphs
     );
-    place_avatar(path[0]);
+    avatar.play_jump_animation(who);
+    // avatar.play_static_img(who);
 
     // Update the quests list.
     if (QUEST_MENU) {
