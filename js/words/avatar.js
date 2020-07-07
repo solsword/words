@@ -96,6 +96,10 @@ export function init_avatar(current_player) {
     AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
 
     // load the svg object and get the svg
+    // TODO this isn't sustainable... you have to add "customizable" to 
+    // every single path that you want to be able to change in every
+    // file where it needs to change. It would probably be better to 
+    // have set avatars/customizable parts to choose from
     window.addEventListener("load", function() {
         let svgObject = AVATAR.contentDocument;
         let customizable_elements = svgObject.getElementsByClassName("customizable");
