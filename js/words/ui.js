@@ -41,8 +41,8 @@ export var MODES = [
  * The current game mode.
  * TODO: Toggle this!
  */
-// export var MODE = "free";
-export var MODE = "quiz";
+export var MODE = "normal";
+// export var MODE = "quiz";
 
 /**
  * Sets the mode value.
