@@ -66,12 +66,13 @@ export var QUEST_INSTRUCTIONS = {
  *     position (a 2-element x/y tile coordinate array). The player will
  *     be transported to that position in that dimension when claiming
  *     the quest reward.
- * return: No associated value. In quiz mode, indicates the completion of
- *     a quiz. When a quest is associated with a pocket dimension,
- *     indicates that the player should be transported back to their
- *     previous location outside of that dimension. In other cases,
+ * return: No associated value. When a quest is associated with a pocket
+ *     dimension, indicates that the player should be transported back to
+ *     their previous location outside of that dimension. In other cases,
  *     transports the player to their most-recent history location if
  *     they have one. TODO: really that?!?
+ * finish_quiz: No associated value. Indicates that the player has
+ *     completed a quiz, and the end-of-quiz dialog should be displayed.
  */
 export var REWARD_TYPES = [
     "exp",
@@ -79,6 +80,7 @@ export var REWARD_TYPES = [
     "refresh",
     "portal",
     "return",
+    "finish_quiz",
 ];
 
 /**
@@ -703,7 +705,8 @@ export function completed_bonus(quest) {
  * @param claim_function The function to run when the quest is complete
  *     and the player wants to claim the reward. Will be attached to the
  *     element's completion indicator and activated by display_status
- *     only when the quest is complete.
+ *     only when the quest is complete. It will be given the quest object
+ *     as an argument.
  */
 export function construct_quest_element(quest, claim_function) {
     quest.element = document.createElement("details");

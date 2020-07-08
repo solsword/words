@@ -221,6 +221,7 @@ export var QUEST_MENU = null;
 export var WORDS_LIST_MENU = null;
 export var WORDS_SIDEBAR = null;
 export var ABOUT_BUTTON = null;
+export var RESET_BUTTON = null; // TODO: Implement this!
 export var HOME_BUTTON = null;
 export var ZOOM_IN_BUTTON = null;
 export var ZOOM_OUT_BUTTON = null;
@@ -360,13 +361,20 @@ export function home_view() {
  *
  * @param coordinates The coordinates to move to.
  * @param dimkey (optional) The string key for the dimension to swap to.
+ * @param try_unlock (optional) Whether or not to unlock tiles at the
+ *     destination. Both explicit true and false control behavior, where
+ *     omitting the parameter or passing undefined will give the default
+ *     behavior according to the current MODE.
  */
-export function warp_to(coordinates, dimkey) {
+export function warp_to(coordinates, dimkey, unlock_tiles) {
+    if (unlock_tiles == undefined) {
+        unlock_tiles = MODE != "free" && MODE != "quiz";
+    }
     player.teleport(
         player.current_input_player(),
         coordinates,
         dimkey,
-        MODE != "free" && MODE != "quiz"
+        unlock_tiles
     );
     let wpos = grid.world_pos(coordinates);
     CTX.viewport_center[0] = wpos[0];
@@ -1153,6 +1161,9 @@ export function init(starting_dimension) {
     // Grab handle for the menus node
     MENUS_NODE = document.getElementById("menus");
 
+    // Set up the player
+    setup_player(starting_dimension.seed); // TODO: Different seed?
+
     // Set up the canvas
     let canvas = setup_canvas();
 
@@ -1162,7 +1173,17 @@ export function init(starting_dimension) {
     // Unlock initial tiles
     // TODO: Better/different here?
     // TODO: Add starting place?
-    warp_to([0, 0], dimensions.dim__key(starting_dimension));
+    let agent = player.current_input_player();
+    let sdk = dimensions.dim__key(starting_dimension);
+    let unlocks = player.unlocks_in_dimension(agent, sdk);
+    if (unlocks.length == 0) {
+        warp_to([0, 0], sdk);
+    } else { // player already has tiles unlocked in this dimension
+        // TODO: Warp to the player's current dimension if we load a
+        // player?
+        let last = unlocks[unlocks.length - 1];
+        warp_to(last[0], sdk, false);
+    }
 
     if (MODE == "example") {
         // Demo quests
@@ -1229,59 +1250,18 @@ export function init(starting_dimension) {
                 ],
             ]
         );
-        player.activate_quest(
-            player.current_input_player(),
-            starting_quest,
-            function () {
-                QUEST_MENU.update();
-                DO_REDRAW = 0;
-            }
-        );
+        grant_quest(starting_quest);
     } else if (MODE == "quiz") {
         // Adds a hunt quest for quiz mode with the given word list
+        // TODO: Stop duplicating this quest!!!
         let quiz_quest = quests.new_quest(
             "hunt",
             starting_dimension.words.slice(),
             [],
-            [ [ "return" ] ] // TODO: should we even use this reward?
+            [ [ "finish_quiz" ] ]
         );
         // TODO: build an grant_quest function for this boilerplate?
-        player.activate_quest(
-            player.current_input_player(),
-            quiz_quest,
-            function () {
-                let continue_dialog = new menu.Dialog(
-                    (
-                        "Congratulations, you finished the challenge! Do"
-                      + " you want to start a new game or reshuffle the"
-                      + " current list?"
-                    ),
-                    undefined, // do nothing on cancel
-                    [
-                        {
-                            "text": "New Game",
-                            "action": function () {
-                                // go back to the quiz builder page
-                                window.location.assign("/start_quiz.html");
-                            }
-                        },
-                        {
-                            "text": "Play Again",
-                            "action": function() {
-                                let seed = anarchy.scramble_seed(
-                                    starting_dimension.seed
-                                );
-                                env.update_environment({"seed": "" + seed});
-                                window.location.reload();
-                            }
-                        },
-                        { "text": "Cancel" }
-                    ]
-                );
-                QUEST_MENU.update();
-                DO_REDRAW = 0;
-            }
-        );
+        grant_quest(quiz_quest);
     }
 
     // kick off animation
@@ -1884,4 +1864,92 @@ export function find_swipe_head(index) {
         }
     }
     return null;
+}
+
+
+/**
+ * A quest claim function which updates the QUEST_MENU, and if we're in
+ * quiz mode, checks for a "return" reward and 
+ */
+export function quest_claimed(quest) {
+    if (MODE == "quiz") {
+        // In quiz mode, check for a finish_quiz reward and implement it
+        let quiz_over = false;
+        for (let reward of quest.rewards) {
+            if (reward[0] == "finish_quiz") {
+                quiz_over = true;
+            }
+        }
+        if (quiz_over) {
+            // Create a dialog to let the player choose what should
+            // happen next
+            let continue_dialog = new menu.Dialog(
+                (
+                    "Congratulations, you finished the challenge! Do"
+                    + " you want to build a new quiz or start a new"
+                    + " board with the same words?"
+                ),
+                undefined, // do nothing on cancel
+                [
+                    {
+                        "text": "Build a new quiz",
+                        "action": function () {
+                            // go back to the quiz builder page
+                            window.location.assign("/start_quiz.html");
+                        }
+                    },
+                    {
+                        "text": "Scrambe the board",
+                        "action": function() {
+                            let seed = anarchy.scramble_seed(
+                                env.get_environment().seed
+                            );
+                            env.update_environment({"seed": "" + seed});
+                            window.location.reload();
+                        }
+                    },
+                    { "text": "Cancel", "action": "cancel" }
+                ]
+            );
+        }
+    }
+    // In any case, update the QUEST_MENU and make sure we redraw
+    QUEST_MENU.update();
+    DO_REDRAW = 0;
+}
+
+
+/**
+ * Gives a quest to the current input player, setting up the required
+ * quest claim function.
+ */
+export function grant_quest(quest) {
+    let agent = player.current_input_player();
+    player.activate_quest(
+        agent,
+        quest,
+        quest_claimed
+    );
+}
+
+/**
+ * Creates the initial player object, either by creating a new player,
+ * or by loading a player from local storage. This function calls
+ * player.set_input_player with the player that it loads or creates.
+ *
+ * @param seed A seed value used if a new player needs to be created.
+ */
+export function setup_player(seed) {
+    // Check for stored players:
+    let stored = player.stored_players();
+
+    let the_player;
+    if (stored.length > 0) {
+        // TODO: Give the user a menu to select which player to load...
+        the_player = player.load_player(stored[0], quest_claimed);
+    } else {
+        the_player = player.new_player(1829812^seed);
+    }
+
+    player.set_input_player(the_player);
 }

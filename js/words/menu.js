@@ -14,7 +14,15 @@ import * as player from "./player.js";
 // import * as locale from "./locale.js";
 /* global locale */
 
-// An array containing all menu objects.
+/**
+ * How many milliseconds to wait before re-trying to load words for a
+ * words list.
+ */
+export const WORDMENU_LOAD_BACKOFF = 50;
+
+/**
+ * An array containing all menu objects.
+ */
 export var ALL_MENUS = [];
 
 /**
@@ -579,6 +587,7 @@ ItemList.prototype.setup_items = function() {
 
     if (this.constructor) {
         for (let it of this.items) {
+            console.log("SI it", it, this.constructor(it));
             this.scrollbox.appendChild(this.constructor(it));
         }
     } else {
@@ -745,6 +754,10 @@ export function create_link_list_constructor(
  */
 export function QuestList(agent, pos, classes, style) {
     this.player = agent;
+    // TODO: DEBUG
+    for (let q of this.player.quests.active) {
+        console.log("QE", q.element);
+    }
     ItemList.call(
         this,
         'Quests', // TODO: make this translatable
@@ -794,10 +807,19 @@ QuestList.prototype.update = function () {
  */
 export function WordList(agent, url_template, pos, classes, style) {
     this.player = agent;
+    let recent = player.recent_words(this.player);
+    if (recent == undefined) {
+        recent = [];
+        window.setTimeout(
+            eventually_load_wordlist,
+            WORDMENU_LOAD_BACKOFF,
+            this
+        );
+    }
     ItemList.call(
         this,
         'Words',
-        player.recent_words(this.player),
+        recent,
         create_link_list_constructor(
             function (entry) {
                 let [dom, glyphs, word, when] = entry;
@@ -841,6 +863,23 @@ export function WordList(agent, url_template, pos, classes, style) {
 
 WordList.prototype = Object.create(ItemList.prototype);
 WordList.prototype.constructor = WordList;
+
+/**
+ * Ensures that the real items for a word list are eventually loaded
+ * even if initially the player's recent words are unavailable.
+ */
+function eventually_load_wordlist(menu) {
+    let recent = player.recent_words(menu.player);
+    if (recent == undefined) {
+        window.setTimeout(
+            eventually_load_wordlist,
+            WORDMENU_LOAD_BACKOFF,
+            menu
+        );
+    } else {
+        menu.replace_items(recent);
+    }
+}
 
 /**
  * Swaps out the player whose words list is to be displayed.
