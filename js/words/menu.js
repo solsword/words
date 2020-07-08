@@ -587,7 +587,6 @@ ItemList.prototype.setup_items = function() {
 
     if (this.constructor) {
         for (let it of this.items) {
-            console.log("SI it", it, this.constructor(it));
             this.scrollbox.appendChild(this.constructor(it));
         }
     } else {
@@ -754,10 +753,6 @@ export function create_link_list_constructor(
  */
 export function QuestList(agent, pos, classes, style) {
     this.player = agent;
-    // TODO: DEBUG
-    for (let q of this.player.quests.active) {
-        console.log("QE", q.element);
-    }
     ItemList.call(
         this,
         'Quests', // TODO: make this translatable

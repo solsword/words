@@ -648,7 +648,9 @@ export function is_complete(quest) {
 /**
  * Tests whether a quest's bonus condition has been met. This will always
  * return false if the quest's completion condition has not been met,
- * even if the bonus condition has technically been satisfied.
+ * even if the bonus condition has technically been satisfied. Note that
+ * if there are no bonus goals this returns false even if the target has
+ * been completed, not true.
  *
  * @param quest The quest to test.
  * @return True if the bonus condition has been met; false otherwise.
@@ -659,6 +661,9 @@ export function completed_bonus(quest) {
     }
 
     if (quest.type == "hunt") {
+        if (quest.bonus.length == 0) {
+            return false;
+        }
         for (let hint of quest.bonus) {
             if (!quest.progress[hint]) {
                 return false;
@@ -666,6 +671,9 @@ export function completed_bonus(quest) {
         }
         return true;
     } else if (quest.type == "big") {
+        if (quest.bonus == undefined) {
+            return false;
+        }
         let [size_req, n_req] = quest.bonus;
         let found = 0;
         for (let idx in quest.progress) { // skips empty slots
@@ -678,18 +686,22 @@ export function completed_bonus(quest) {
         }
         return false;
     } else if (quest.type == "glyphs") {
-        for (let g of Object.keys(quest.bonus)) {
+        let keys = Object.keys(quest.bonus);
+        if (keys.length == 0) {
+            return false;
+        }
+        for (let g of keys) {
             if (!quest.progress[g] || quest.progress[g] < quest.target[g]) {
                 return false;
             }
         }
         return true;
     } else if (quest.type == "encircle") {
-        return quest.progress >= quest.bonus;
+        return quest.progress >= quest.bonus && quest.bonus > 0;
     } else if (quest.type == "stretch") {
-        return quest.progress >= quest.bonus;
+        return quest.progress >= quest.bonus && quest.bonus > 0;
     } else if (quest.type == "branch") {
-        return quest.progress >= quest.bonus;
+        return quest.progress >= quest.bonus && quest.bonus > 0;
     } else {
         throw ("Unknown quest type '" + quest.type + "'.");
     }

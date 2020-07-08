@@ -83,14 +83,40 @@ var NEXT_ID = 0;
 
 /**
  * Updates NEXT_ID and returns a new unique player ID.
+ *
+ * @return A string starting with "P:" and ending in a unique integer
+ *     (unique relative to currently-active players + stored players).
  */
 function next_id() {
     let result = NEXT_ID;
-    while (CURRENT_PLAYERS.hasOwnProperty("P:" + result)) {
+    let saved = stored_players();
+    while (
+        CURRENT_PLAYERS.hasOwnProperty("P:" + result)
+     || saved.includes("P:" + result)
+    ) {
         result += 1;
     }
     NEXT_ID = result + 1;
-    return "P:" + NEXT_ID;
+    return "P:" + result;
+}
+
+/**
+ * Whether to disable saving or not.
+ */
+export var DISABLE_SAVES = false;
+
+/**
+ * Turns off save functionality.
+ */
+export function disable_saves() {
+    DISABLE_SAVES = true;
+}
+
+/**
+ * Turns on save functionality.
+ */
+export function enable_saves() {
+    DISABLE_SAVES = false;
 }
 
 /**
@@ -215,7 +241,11 @@ function next_id() {
  *         splice.
  */
 export function new_player(seed) {
+    // Assign a new player ID
     let id = next_id();
+
+    // Create randomized starting experience and learning affinities
+    // TODO: Linked distributions here!
     let exp = {};
     let affinities = {};
     let r = anarchy.prng(seed, seed);
@@ -229,43 +259,103 @@ export function new_player(seed) {
         r = anarchy.prng(r, seed);
     }
 
+    // Create a player object
     let result = {
         "id": id,
-        "activity": {
-            "unlocks": [],
-            "pokes": [],
-            "matches": {},
-            "words_known": {},
-            "visited": [],
-            "locations": [],
-        },
-        "stats": {
-            "memory_limit": 100,
-            "precise_memory_limit": 10,
-            "unlock_limit": 3,
-            "poke_limit": 1, // TODO: Start at 0
-            "reach": 0, // TODO: Start at 1? (unused)
-            "poke_delay": 20, // seconds (TODO: unused)
-            "poke_cooldown": 120, // seconds (TODO: unused)
-            "poke_duration": 60, // seconds (TODO: unused)
-            "glyph_mastery_rate": 0, // TODO: unused
-            "glyph_pickup_rate": 0, // TODO: unused
-            "splice_slots": 3, // TODO: Start at 0 (unused)
-            "match_brightness": 3, // TODO: unused
-            "night_vision": 0, // TODO: unused
-            "hidden_sense": 0, // TODO: unused
-            "learning_affinities": affinities // TODO: unused
-        },
-        "domain_adjustments": {},
-        "experience": exp,
-        "playtime": 0,
-        "personal_words": [],
-        "quests": { "active": [], "completed": [] },
         "position": { "dimension": undefined, "pos": undefined },
-        "glyphs_mastered": {},
     };
+
+    // fill in blank stats & activity
+    reset_player(result);
+
+    // Set random starting EXP and affinity values
+    result.stats.learning_affinities = affinities;
+    result.experience = exp;
+
+    // Register the player and return it
     CURRENT_PLAYERS[id] = result;
     return result;
+}
+
+/**
+ * Resets all of the given player's stats and activity back to zero, and
+ * also zeroes out EXP and sets learning rates to 1 (note that players
+ * created by new_player start with some starting EXP and randomized
+ * learning rates). Removes the player's current pokes and unlocks.
+ *
+ * The only thing not reset is the player's current position.
+ *
+ * The player is saved after the reset is complete.
+ *
+ * @param agent The player to reset.
+ */
+export function reset_player(agent) {
+    if (agent.activity) {
+        // First drop any unlocks and pokes
+        for (let unlk of agent.activity.unlocks) {
+            let entry = content.find_unlocked(
+                agent.activity.visited[unlk[0]],
+                unlk[1]
+            );
+            content.expire_unlocked(agent, entry);
+        }
+
+        for (let poke of agent.activity.pokes) {
+            let entry = content.find_poke(
+                agent.activity.visited[poke[0]],
+                poke[1]
+            );
+            content.expire_poke(agent, entry);
+        }
+
+        // Recalculate unlocked energies
+        content.recalculate_unlocked_energies();
+    }
+
+    // Create blank EXP and affinities objects
+    let exp = {};
+    let affinities = {};
+    for (let exp_type of EXP_TYPES) {
+        exp[exp_type] = 0;
+        affinities[exp_type] = 1;
+    }
+    // Reset activity
+    agent.activity = {
+        "unlocks": [],
+        "pokes": [],
+        "matches": {},
+        "words_known": {},
+        "visited": [],
+        "locations": [],
+    };
+    // Reset stats
+    agent.stats = {
+        "memory_limit": 100,
+        "precise_memory_limit": 10,
+        "unlock_limit": 3,
+        "poke_limit": 1, // TODO: Start at 0
+        "reach": 0, // TODO: Start at 1? (unused)
+        "poke_delay": 20, // seconds (TODO: unused)
+        "poke_cooldown": 120, // seconds (TODO: unused)
+        "poke_duration": 60, // seconds (TODO: unused)
+        "glyph_mastery_rate": 0, // TODO: unused
+        "glyph_pickup_rate": 0, // TODO: unused
+        "splice_slots": 3, // TODO: Start at 0 (unused)
+        "match_brightness": 3, // TODO: unused
+        "night_vision": 0, // TODO: unused
+        "hidden_sense": 0, // TODO: unused
+        "learning_affinities": affinities,
+    };
+    // Reset other things
+    agent.domain_adjustments = {};
+    agent.experience = exp;
+    agent.playtime = 0;
+    agent.personal_words = [];
+    agent.quests = { "active": [], "completed": [] };
+    agent.glyphs_mastered = {};
+
+    // Make sure that we save the player
+    save_player(agent);
 }
 
 /**
@@ -430,6 +520,23 @@ export function compute_stat(agent, domname, stat) {
 }
 
 /**
+ * Produces a claim callback function to be used for claiming quests
+ * associated with the given player. Will also call the provided extra
+ * callback after the player bookkeeping has been taken care of.
+ *
+ * @param agent The player to build a callback function for.
+ * @param extra_callback (optional) The extra callback to trigger.
+ *
+ * @return A callback function for use with quests.initialize_quest.
+ */
+function build_claim_callback(agent, extra_callback) {
+    return function (completed_quest) {
+        complete_quest(agent, completed_quest, extra_callback);
+        extra_callback(completed_quest);
+    };
+}
+
+/**
  * Adds a quest to a player's list of active quests. The quest will be
  * initialized using the player as part of that process, so it should not
  * have already been initialized. The given claim callback will be called
@@ -446,10 +553,7 @@ export function activate_quest(agent, quest, claim_callback) {
     quests.initialize_quest(
         quest,
         agent,
-        function (completed_quest) {
-            complete_quest(agent, completed_quest, claim_callback);
-            claim_callback(completed_quest);
-        }
+        build_claim_callback(agent, claim_callback)
         // TODO: retroactivity decision...
     );
     agent.quests.active.push(quest);
@@ -507,6 +611,8 @@ export function complete_quest(agent, quest, claim_callback) {
     // Save the player
     // TODO: Is it really okay to do this every time we complete a quest?
     save_player(agent);
+    // TODO: Why doesn't this record quest completion when the claim
+    // callback reloads the page?
 }
 
 /**
@@ -547,6 +653,8 @@ export function claim_rewards(agent, rewards, claim_callback) {
                 // TODO: always true?
                 teleport(agent, prev[1], prev[0], true);
             }
+        } else if (type == "finish_quiz") {
+            // do nothing; this is handled elsewhere
         } else {
             throw `Invalid reward type ${type}.`;
         }
@@ -992,7 +1100,7 @@ export function master_glyph(agent, glyph, domain_name) {
         domain_mastered = [glyph];
         agent.glyphs_mastered[domain_name] = domain_mastered;
     } else if (domain_mastered.includes(glyph)) {
-        console.log("glyph already mastered!");
+        console.warn("glyph already mastered!");
     } else{
         domain_mastered.push(glyph);
     }
@@ -1076,7 +1184,10 @@ export function revive_player(state_string, claim_function) {
     // Create new elements for each player quest
     let all_quests = result.quests.active.concat(result.quests.completed);
     for (let q of all_quests) {
-        quests.construct_quest_element(q, claim_function);
+        quests.construct_quest_element(
+            q,
+            build_claim_callback(result, claim_function)
+        );
     }
 
     // Register the newly-created player, throwing an error if their ID
@@ -1098,13 +1209,17 @@ export function revive_player(state_string, claim_function) {
  * the future. If there is already an entry in local storage under the
  * given player's ID, that entry will be replaced with the new data.
  *
+ * Note: if DISABLE_SAVES is true, this function does nothing.
+ *
  * @param agent The player object to save.
  *
  * TODO: What if there isn't enough space?
  */
 export function save_player(agent) {
-    let repr = state_string(agent);
-    window.localStorage.setItem(agent.id, repr);
+    if (!DISABLE_SAVES) {
+        let repr = state_string(agent);
+        window.localStorage.setItem(agent.id, repr);
+    }
 }
 
 /**
@@ -1156,6 +1271,8 @@ export function load_player(id, claim_function) {
         let dimkey = result.activity.visited[poke[0]];
         content.unlock_poke(result, dimkey, poke[1]);
     }
+
+    content.recalculate_unlocked_energies();
 
     return result;
 }

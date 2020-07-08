@@ -221,7 +221,6 @@ export var QUEST_MENU = null;
 export var WORDS_LIST_MENU = null;
 export var WORDS_SIDEBAR = null;
 export var ABOUT_BUTTON = null;
-export var RESET_BUTTON = null; // TODO: Implement this!
 export var HOME_BUTTON = null;
 export var ZOOM_IN_BUTTON = null;
 export var ZOOM_OUT_BUTTON = null;
@@ -434,6 +433,17 @@ export var COMMANDS = {
     // shows 'about' dialog
     "?": function (e) {
         ABOUT_BUTTON.press();
+        DO_REDRAW = 0;
+    },
+    // resets the player's activity & stats
+    "R": function (e) {
+        player.reset_player(player.current_input_player());
+        if (QUEST_MENU) {
+            QUEST_MENU.update();
+        }
+        if (WORDS_LIST_MENU) {
+            WORDS_LIST_MENU.update();
+        }
         DO_REDRAW = 0;
     },
     // home and 0 reset the view to center 0, 0
@@ -1869,7 +1879,8 @@ export function find_swipe_head(index) {
 
 /**
  * A quest claim function which updates the QUEST_MENU, and if we're in
- * quiz mode, checks for a "return" reward and 
+ * quiz mode, checks for a "finish_quiz" reward and presents the
+ * associated dialog.
  */
 export function quest_claimed(quest) {
     if (MODE == "quiz") {
@@ -1944,7 +1955,7 @@ export function setup_player(seed) {
     let stored = player.stored_players();
 
     let the_player;
-    if (stored.length > 0) {
+    if (stored.length > 0 && MODE == "normal") {
         // TODO: Give the user a menu to select which player to load...
         the_player = player.load_player(stored[0], quest_claimed);
     } else {
