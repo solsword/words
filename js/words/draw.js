@@ -71,26 +71,23 @@ export function measure_text(ctx, text) {
  * Interpolates two colors according to the given proportion.
  * Accepts and returns RGB hex strings.
  *
- * @param original The original color as an RGB hex string, used as-is
- *     when the proportion is 0.
+ * @param original The original color as a 3-element RGB component array,
+ *     used as-is when the proportion is 0.
  * @param proportion A number between 0 and 1 that controls how the
  *     colors are mixed.
- * @param target The target color as an RGB hex string, used as-is when
- *     the proportion is 1.
+ * @param target The target color as a 3-element RGB component array,
+ *     used as-is when the proportion is 1.
  *
- * @return An RGB hex color string that represents a mixture between the
- *     two colors. The interpolation is linear in RGB space, which is not
- *     ideal but which is simple.
+ * @return A 3-element RGB component array that represents a mixture
+ *     between the two colors. The interpolation is linear in RGB space,
+ *     which is not ideal but which is simple.
  */
 export function interp_color(original, proportion, target) {
-    let c1 = color_from_hex(original);
-    let c2 = color_from_hex(target);
-    let r = [
-        c1[0] * (1 - proportion) + c2[0] * proportion,
-        c1[1] * (1 - proportion) + c2[1] * proportion,
-        c1[2] * (1 - proportion) + c2[2] * proportion
+    return [
+        original[0] * (1 - proportion) + target[0] * proportion,
+        original[1] * (1 - proportion) + target[1] * proportion,
+        original[2] * (1 - proportion) + target[2] * proportion
     ];
-    return hex_from_color(r);
 }
 
 /**
@@ -136,6 +133,46 @@ export function hex_from_color(c) {
     let g = ("0" + Math.floor(c[1]).toString(16)).slice(-2);
     let b = ("0" + Math.floor(c[2]).toString(16)).slice(-2);
     return "#" + r + g + b;
+}
+
+/**
+ * Converts an HTML rgb() string like "rgb(0, 255, 55)" into a 3-element
+ * RGB color component array. The string must start with the 4 characters
+ * "rgb(".
+ *
+ * @param rgb_string A string containing a color in rgb() format.
+ *
+ * @return A 3-element R/G/B component array where each value is between
+ *     0 and 255 inclusive.
+ */
+export function color_from_rgb(rgb_string) {
+    let c1e = rgb_string.indexOf(",");
+    let c2e = rgb_string.indexOf(",", c1e + 1);
+    let c3e = rgb_string.indexOf(")");
+
+    let c1 = parseInt(rgb_string.slice(4, c1e));
+    let c2 = parseInt(rgb_string.slice(c1e + 1, c2e));
+    let c3 = parseInt(rgb_string.slice(c2e + 1, c3e));
+
+    return [ c1, c2, c3 ];
+}
+
+/**
+ * Converts a color that's either in #ffffff RGB hex string format or in
+ * rgb(255, 255, 255) RGB numerical string format into a 3-element color
+ * array.
+ *
+ * @param hex_or_rgb The color string to convert.
+ *
+ * @return A 3-element R/G/B component array where each value is between
+ *     0 and 255 inclusive.
+ */
+export function color_from_hex_or_rgb(hex_or_rgb) {
+    if (hex_or_rgb.slice(0,4).toLowerCase() == "rgb(") {
+        return color_from_rgb(hex_or_rgb);
+    } else {
+        return color_from_hex(hex_or_rgb);
+    }
 }
 
 /**
@@ -888,7 +925,8 @@ export function draw_tile(ctx, tile) {
         // Draw the active element:
         draw_active_element(ctx, glyph, energy_glyph, energized);
     } else { // a loaded normal tile: the works
-        let unlocked = content.is_unlocked(tile["dimension"], gpos);
+        let dk = dimensions.dim__key(tile.dimension);
+        let unlocked = content.is_unlocked(dk, gpos);
 
         // Hexagon highlight
         ctx.lineWidth = THICK_LINE;
@@ -1530,11 +1568,12 @@ export function draw_connector_symbol(ctx, glyph, eglyph, energized) {
  * Highlights the player's unlocked words by drawing trace lines
  * through them.
  *
- * @param dimension The dimension to draw unlocked words from.
+ * @param dimkey The string key of the dimension to draw unlocked words
+ *     from.
  * @param ctx The canvas context to use.
  */
-export function trace_unlocked(dimension, ctx) {
-    let entries = content.unlocked_entries(dimension);
+export function trace_unlocked(dimkey, ctx) {
+    let entries = content.unlocked_entries(dimkey);
     for (let entry of entries) {
         // Highlight each swipe using a neutral color:
         draw_swipe(
@@ -1606,7 +1645,8 @@ export function draw_poke(ctx, poke, ticks, max_ticks) {
  *
  * @param ctx The canvas context to use.
  * @param gplist An array of 2-element tile coordinate x/y arrays which
- *     defines the path of a swipe.
+ *     defines the path of a swipe. Some entries may be string/index
+ *     arrays which will be skipped.
  * @param method A drawing method (one of "trail", "highlight", or
  *     "line").
  * @param color (optional) A color to use for the swipe highlight instead
@@ -1623,14 +1663,34 @@ export function draw_swipe(ctx, gplist, method, color) {
     // Highlight hexes:
     let hc = color || colors.scheme_color("ui", "trail");
     for (let i = 0; i < gplist.length - 1; ++i) {
-        draw_highlight(ctx, gplist[i], hc);
+        if (typeof gplist[i][0] != "string") {
+            draw_highlight(ctx, gplist[i], hc);
+        }
     }
-    if (method == "highlight") {
+
+    // Figure out last real position in path (might be undefined)
+    let last_pos;
+    for (let i = gplist.length - 1; i >= 0; --i) {
+        last_pos = gplist[i];
+        if (typeof last_pos[0] != "string") {
+            break;
+        }
+    }
+    if (method == "highlight" && last_pos) {
         let lhc = color || colors.scheme_color("ui", "highlight");
-        draw_highlight(ctx, gplist[gplist.length-1], lhc);
-    } else {
+        draw_highlight(ctx, last_pos, lhc);
+    } else if (last_pos) {
         let lhc = color || colors.scheme_color("ui", "trail");
-        draw_highlight(ctx, gplist[gplist.length-1], lhc);
+        draw_highlight(ctx, last_pos, lhc);
+    }
+
+    // Figure out first real position in path (might be undefined)
+    let first_pos;
+    for (let i = 0; i < gplist.length; ++i) {
+        first_pos = gplist[i];
+        if (typeof first_pos[0] != "string") {
+            break;
+        }
     }
 
     // Draw line:
@@ -1638,50 +1698,58 @@ export function draw_swipe(ctx, gplist, method, color) {
         (method == "highlight" || method == "line")
         && gplist.length > 1
     ) {
-
         ctx.strokeStyle = color || colors.scheme_color("ui", "trail");
         ctx.fillStyle = ctx.strokeStyle;
         if (method == "line") {
-            ctx.lineWidth = THICK_LINE * ctx.viewport_scale;
+            ctx.lineWidth = THINNER_LINE * ctx.viewport_scale;
         } else {
             ctx.lineWidth = THIN_LINE * ctx.viewport_scale;
         }
         // dots at ends:
-        ctx.save();
-        transform_to_tile(ctx, gplist[0]);
-        ctx.beginPath();
-        ctx.arc(0, 0, VERY_THICK_LINE, 0, 2*Math.PI);
-        ctx.fill();
-        ctx.restore();
+        if (first_pos) {
+            ctx.save();
+            transform_to_tile(ctx, first_pos);
+            ctx.beginPath();
+            ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.restore();
+        }
 
-        ctx.save();
-        transform_to_tile(ctx, gplist[gplist.length - 1]);
-        ctx.beginPath();
-        ctx.arc(0, 0, VERY_THICK_LINE, 0, 2*Math.PI);
-        ctx.fill();
-        ctx.restore();
+        if (last_pos) {
+            ctx.save();
+            transform_to_tile(ctx, last_pos);
+            ctx.beginPath();
+            ctx.arc(0, 0, THIN_LINE, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.restore();
+        }
 
         // curves along the path (without using transform_to_tile):
-        ctx.beginPath();
-        let vpos = view_pos(ctx, grid.world_pos(gplist[0]));
-        ctx.moveTo(vpos[0], vpos[1]);
-        let nvpos = view_pos(ctx, grid.world_pos(gplist[1]));
-        ctx.lineTo((vpos[0] + nvpos[0])/2, (vpos[1] + nvpos[1])/2);
-        for (let i = 1; i < gplist.length - 1; ++i) {
-            let vcp = view_pos(ctx, grid.world_pos(gplist[i]));
-            let vncp = view_pos(ctx, grid.world_pos(gplist[i+1]));
-            ctx.quadraticCurveTo(
-                vcp[0],
-                vcp[1],
-                (vcp[0] + vncp[0])/2,
-                (vcp[1] + vncp[1])/2
-            );
+        if (first_pos) { // if there's at least one valid position
+            ctx.beginPath();
+            let vpos = view_pos(ctx, grid.world_pos(gplist[0]));
+            ctx.moveTo(vpos[0], vpos[1]);
+            let nvpos = view_pos(ctx, grid.world_pos(gplist[1]));
+            ctx.lineTo((vpos[0] + nvpos[0])/2, (vpos[1] + nvpos[1])/2);
+            // Filter out non-grid positions
+            // TODO: Mark them somehow?
+            let valid = gplist.filter(e => typeof e[0] != "string");
+            for (let i = 1; i < valid.length - 1; ++i) {
+                let vcp = view_pos(ctx, grid.world_pos(valid[i]));
+                let vncp = view_pos(ctx, grid.world_pos(valid[i+1]));
+                ctx.quadraticCurveTo(
+                    vcp[0],
+                    vcp[1],
+                    (vcp[0] + vncp[0])/2,
+                    (vcp[1] + vncp[1])/2
+                );
+            }
+            // line to the last point:
+            let wpos = grid.world_pos(last_pos);
+            vpos = view_pos(ctx, wpos);
+            ctx.lineTo(vpos[0], vpos[1]);
+            ctx.stroke();
         }
-        // line to the last point:
-        let wpos = grid.world_pos(gplist[gplist.length - 1]);
-        vpos = view_pos(ctx, wpos);
-        ctx.lineTo(vpos[0], vpos[1]);
-        ctx.stroke();
     }
 }
 

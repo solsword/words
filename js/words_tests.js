@@ -87,7 +87,7 @@ let VALUE_TESTS = {
         [ quests.matches("*A*", "AA"), true ],
         [ quests.matches("*A_", "AA"), true ],
         [ quests.matches("_A*", "AA"), true ], // fails
-        ],
+    ],
 };
 
 let EXEC_TESTS = {

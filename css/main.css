@@ -1,26 +1,265 @@
+:root {
+    --menu-size: 36pt;
+    --font-size: 24pt;
+}
+
 html {
   height: 100%;
 }
 
 body {
-  font-family: "asap", "黑体", SimHei, "冬青黑体", "Hiragino Sans GB", sans-serif;
-  font-size: 14pt;
-  color: #aaa;
-  background-color: #444;
-  height: 100%;
-  margin: 0pt;
-  padding: 0pt;
+    font-family: "asap", "黑体", SimHei, "冬青黑体", "Hiragino Sans GB",
+        sans-serif;
+    font-size: 14pt;
+    color: #aaa;
+    background-color: #444;
+    height: 100%;
+    margin: 0pt;
+    padding: 0pt;
+    font-size: var(--font-size);
 }
 
+
+/*-----------------*
+ * The game canvas *
+ *-----------------*/
+
 #canvas {
-  position: absolute;
-  left: 2.5%;
-  top: 2.5%;
-  width: 95%;
-  height: 95%;
-	padding: 0; 
-	margin: 0; 
-	border:2pt solid #000;
-  border-radius: 4pt;
-	background-color:#333;
+    position: absolute;
+    left: 2.5vw;
+    top: 2.5vh;
+    width: 95vw;
+    height: 95vh;
+    padding: 0; 
+    margin: 0; 
+    box-sizing: border-box;
+    border:2pt solid #000;
+    border-radius: 4pt;
+    background-color:#333;
+    z-index: 10;
+}
+
+
+/*--------------------------------*
+ * Menu areas and the menu system *
+ *--------------------------------*/
+
+#menus {
+    position: absolute;
+    left: 2.5vw;
+    top: 2.5vh;
+    width: 95vw;
+    height: 95vh;
+    margin: 0;
+    z-index: 20; /* above the canvas */
+}
+
+.menu_area {
+    /* Must not have any z-index assigned */
+    position: absolute;
+    padding: 4pt;
+    box-sizing: border-box;
+}
+
+.menu_area.top, .menu_area.bottom {
+    left: 0pt;
+    width: 95vw;
+    display: flex;
+    justify-content: center;
+    justify-content: space-between; /* not widely supported? */
+}
+
+.menu_area.top {
+    top: 0pt;
+}
+
+.menu_area.bottom {
+    bottom: 0pt;
+}
+
+.menu_area.left, .menu_area.right {
+    top: max(1.5*var(--menu-size), 9vw);
+    height: calc(95vh - max(3*var(--menu-size), 18vw));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    justify-content: space-between; /* not widely supported? */
+}
+
+.menu_area.left {
+    left: 0pt;
+    align-content: flex-start;
+    align-content: start;
+}
+
+.menu_area.right {
+    right: 0pt;
+    align-content: flex-end;
+    align-content: end;
+}
+
+.menu_area.right .menu {
+    margin-left: auto;
+    /* TODO: This doesn't work on Firefox... :( */
+}
+
+.menu_area.center {
+    top: max(1.5*var(--menu-size), 9vw);
+    left: max(1.5*var(--menu-size), 9vw);
+    width: calc(95vw - max(3*var(--menu-size), 18vw));
+    height: calc(95vh - max(3*var(--menu-size), 18vw));
+    min-width: 1.5*var(--menu-size);
+    min-height: 1.5*var(--menu-size);
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    align-items: center;
+    justify-items: center;
+}
+
+
+/*------------------*
+ * Individual menus *
+ *------------------*/
+
+.menu {
+    /* TODO: Color matching with canvas colors! */
+    z-index: 25; /* All menus must be above any menu_areas */
+    border: 3pt solid #0af;
+    color: #0af;
+    border-radius: 6pt;
+    background: #057;
+    padding: 4pt;
+    margin: 6pt;
+    box-sizing: content-box;
+    width: max-content;
+    height: max-content;
+    text-align: center;
+    min-width: var(--menu-size);
+    min-height: var(--menu-size);
+}
+
+.menu.passive, .menu .passive {
+    border-color: #68f;
+    color: #68f;
+    background: #135;
+}
+
+details.menu {
+    list-style-type: none;
+}
+
+details.menu summary {
+    list-style-type: none;
+}
+
+details.menu summary .open {
+    display: none;
+}
+
+details.menu[open] summary .open {
+    display: block;
+}
+
+details.menu summary .closed {
+    display: block;
+}
+
+details.menu[open] summary .losed {
+    display: none;
+}
+
+@media only screen and (max-width: 500px) {
+  details.menu.horizontal summary {
+    display: inline;
+  }
+}
+
+@media only screen and (max-height: 400px) {
+  details.menu.vertical summary {
+    display: inline;
+  }
+}
+
+.dialog div {
+    margin: 8pt 4pt;
+    /* TODO: Why is this necessary?!? */
+}
+
+.menu .button {
+    border: 3pt solid #0af;
+    color: #0af;
+    border-radius: 6pt;
+    background: #057;
+    padding: 4pt;
+    margin: 6pt;
+    box-sizing: border-box;
+    width: max-content;
+    height: max-content;
+    text-align: center;
+    min-width: var(--menu-size);
+    min-height: var(--menu-size);
+}
+
+.menu a:link, .menu a:visited {
+    color: #0af;
+    text-decoration: underline;
+}
+
+.instructions {
+    border-radius: 6pt;
+    background: white;
+    color: black;
+    padding: 4pt;
+    margin: 4pt;
+}
+
+/*----------------*
+ * Specific menus *
+ *----------------*/
+
+.menu.dialog {
+    max-width: 70vw;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.menu.clear_selection {
+    background-color: #310;
+    border-color: #732;
+    color: #d43;
+}
+
+.scroll {
+    min-height: 1em;
+    border-radius: 6pt;
+    overflow: scroll;
+    max-height: 60vh;
+    max-width: 50vw;
+}
+
+.targets, .bonuses {
+    margin: 4pt;
+    padding: 4pt;
+    border-radius: 6pt;
+    border: 1pt solid #68f;
+}
+
+.slot {
+    text-align: center;
+    display: block;
+    padding: 5pt;
+    margin: 5pt;
+    min-width: 1em;
+    min-height: 1em;
+    /* Same as glyphs in the grid TODO: Synch up!*/
+    border: 4pt solid #555;
+    color: #bbb;
+    background: #444;
+}
+
+.slot.selected {
+    border-color: #eee;
+    color: #fff;
+    background: #777;
 }

@@ -59,11 +59,15 @@ var STRINGIFY_URL = "js/words/workers/stringify.js";
  * @return Undefined if the given domain has not been fully loaded yet,
  *     or the domain object with the given name. If there is no such
  *     domain, a warning will be printed in the console and undefined
- *     will be returned.
+ *     will be returned. The special domain names _custom_ and
+ *     _personal_ always return undefined.
  */
 export function lookup_domain(name) {
     if (name == undefined) {
         throw "Internal Error: Undefined name in lookup_domain.";
+    }
+    if (name == "_custom_" || name == "_personal_") {
+        return undefined;
     }
     if (DOMAINS.hasOwnProperty(name)) {
         return DOMAINS[name];
@@ -131,7 +135,7 @@ export function name_of(domain) {
  *     entries: An array of domain entries, which are 3-element arrays
  *         that include (by index):
  *         0: Either a string or a list of strings specifying the glyphs
- *             for a word, 
+ *             for a word,
  *         1: A string specifying the canonical appearance of that word.
  *         2: An integer indicating the frequency of that entry within
  *            the corpus used to construct the domain.
@@ -230,7 +234,8 @@ export function polish_and_callback(
     index_progress_callback,
     finished_callback
 ) {
-    // TODO: Use this version when worker module import support is
+
+    //TODO: Use this version when worker module import support is
     // available.
     // var worker = new window.Worker(FINALIZE_URL, {'type': 'module'});
     var worker = new window.Worker(FINALIZE_URL);
@@ -356,6 +361,9 @@ export function load_dictionary(domain, is_simple) {
  *     asynchronously when the HTTP request it makes is complete.
  */
 export function load_json_or_list(name) {
+    if (name == "_custom_" || name == "_personal_") {
+        console.error("Attempted to load _personal_ or _custom_ domain.");
+    }
     var xobj = new window.XMLHttpRequest();
     xobj.overrideMimeType("application/json");
     var url = window.location.href;
@@ -735,13 +743,18 @@ export function load_simple_word_list(name) {
 }
 
 /**
- * Returns a list of (domain_name, index, glyphs, word, frequency)
- * quadruples that match the given glyphs in one of the given domains.
- * The list will be empty if there are no matches.
+ * Finds all matches for the given glyph sequence in any of the given
+ * domains. Returns an empty array if there are no matches.
  *
  * @param glyphs Either a string or an array of single-glyph strings
  *     specifying the glyph sequence to look for.
  * @param domains An array of domain objects to look for matches in. 
+ *
+ * @return A possibly-empty array of matches, each of which is a
+ *     5-element array containing a domain name, the index within that
+ *     domain of the entry that matched, the glyphs string for the
+ *     matching word, the word string for the matching word,
+ *     and a frequency integer for the matching word.
  */
 export function check_word(glyphs, domains) {
     var matches = [];

@@ -1,0 +1,46 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <title>Words</title>
+
+    <link rel="stylesheet" type="text/css" href="css/font/asap/asap.css"/>
+    <link rel="stylesheet" type="text/css" href="css/main.css"/>
+
+		<script type="text/javascript" src="js/words/locale.js"></script>
+    <script type="module" src="js/setup_quiz.js"></script>
+  </head>
+  <style>
+  h1 {
+    text-align: center;
+	}
+  </style>
+<body>
+  <div style="padding: 8pt;">
+	<h1> Quiz Mode </h1>
+	To play, upload your list of words and their definitions in the following
+	format: <br>
+	<b> word`definition~ </b>
+	<br>
+	<h1> Word Quest </h1>
+	To play, upload a list of words. Find all the words to finish the game!
+	<br>
+	<hr class="solid">
+	Pick a domain:
+		<select id="language">
+			<option value="عربى">   عربى </option>
+			<option value="成语"> 成语 </option>
+			<option value="English" selected>English</option>
+			<option value="ひらがな">ひらがな</option>
+			<option value="türk">türk</option>
+		</select>
+		<br>
+  Words list:
+  <input id="words_list" type="file" /><br/>
+  <span id="loading">Wait for a link to appear below, and copy/paste or click it.</span>
+  </div>
+  <a id="quiz_link"></a>
+
+</body>
+</html>

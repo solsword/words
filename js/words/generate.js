@@ -125,7 +125,6 @@ var POCKET_LAYOUT_CACHE_SIZE = 128;
 var DOMAIN_COMBOS = {
     "English": [ "adj", "adv", "noun", "verb", "stop" ]
 };
-// TODO: Allow words found in combo domains to appear in a common list!?!
 
 /**
  * All possible basic paths through a single half-socket.
@@ -273,7 +272,7 @@ for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
  *
  * @param domain_or_combo A string naming either a domain or a combo.
  *
- * @return An array of all domains in the given group or combo.
+ * @return An array of the names of all domains in that group or combo.
  */
 export function domains_list(domain_or_combo) {
     if (DOMAIN_COMBOS.hasOwnProperty(domain_or_combo)) {
@@ -2122,9 +2121,7 @@ export function pick_word(domains, arp, seed, only_socketable) {
     domains.forEach(function (d) {
         console.log(d , "****here is the domain ");
         if (only_socketable) {
-            let socketable_count = d.short_count_sums[
-                d.short_count_sums.length - 1
-            ];
+            let socketable_count = d.short_count_sums[d.short_count_sums.length - 1];
             greater_counttable.push(socketable_count);
             console.log(greater_counttable);
             grand_total += socketable_count;
@@ -2558,6 +2555,7 @@ export function generate_full_supertile(dimension, sgp, world_seed) {
     }
 
     // First, embed any socketed words
+    // TODO: pass in ultratile context here!
     let socket_count = embed_socketed_words(result);
     if (socket_count == undefined) {
         return undefined;
@@ -3851,8 +3849,9 @@ export function merge_glyph_tricounts(gs1, gs2) {
         } else {
             result[g] = {};
             for (let gg of Object.keys(gs2[g])) {
+                result[g][gg] = {};
                 for (let ggg of Object.keys(gs2[g][gg])) {
-                    result[g][gg][gg] = gs2[g][gg][ggg] / gs2_total;
+                    result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
                 }
             }
         }
