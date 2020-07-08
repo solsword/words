@@ -7,7 +7,6 @@
 import * as ui from "./ui.js";
 import * as dimensions from "./dimensions.js";
 import * as generate from "./generate.js";
-import * as player from "./player.js";
 import * as dict from "./dict.js";
 import * as env from "./env.js";
 
@@ -116,9 +115,6 @@ function finish_setup(mode, domname, seed, wordlist) {
             "seed": seed,
         };
     }
-
-    // TODO: persist players!
-    player.set_input_player(player.new_player(1829812^seed));
 
     // Start the game
     ui.init(starting_dimension);
