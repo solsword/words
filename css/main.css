@@ -234,9 +234,12 @@ details.menu[open] summary .losed {
     overflow: auto;
 }
 
-.img_div {
+.img_button {
     margin: 10px;
     min-width: 10vw;
+    background-color: Transparent;
+    outline: none;
+    border: none;
 }
 
 .img_area {

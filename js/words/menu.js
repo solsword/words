@@ -441,6 +441,7 @@ Dialog.prototype.cancel = function () {
 };
 
 /**
+ * TODO: Change documentation!
  * A StartMenu pops up and shows the given text, along with one or more
  * buttons that the user can click on. The entire dialog is also
  * clickable, and results in a default cancel action.
@@ -466,7 +467,7 @@ Dialog.prototype.cancel = function () {
  * @param classes CSS classes for this menu (see BaseMenu).
  * @param style Extra style code for this menu (see BaseMenu).
  */
-export function StartMenu(text, buttons, avatar_imgs, pos, classes, style) {
+export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, style) {
     BaseMenu.call(this, pos, classes, style);
     this.element.classList.add("start_menu");
     this.element.classList.add("passive");
@@ -490,7 +491,7 @@ export function StartMenu(text, buttons, avatar_imgs, pos, classes, style) {
     let img_area = document.createElement("div");
     img_area.classList.add("img_area");
 
-    // keep track of how many images there are
+    // keep track of how many images there are to evenly space them
     let grid_columns_string = "";
 
     // The divs for avatar images
@@ -498,12 +499,18 @@ export function StartMenu(text, buttons, avatar_imgs, pos, classes, style) {
         grid_columns_string += "1fr ";
 
         let img_div = document.createElement("div");
-        img_div.classList.add("img_div");
+
+        let img_button = document.createElement("button");
+        img_button.classList.add("img_button");
+        img_button.setAttribute("type", "button");
+        console.log("menu", the_player);
+        img_button.onclick = function(the_player) {player.set_avatar(the_player);}
 
         let shown_img = document.createElement("img");
         shown_img.setAttribute("src", img_src);
 
-        img_div.appendChild(shown_img);
+        img_button.appendChild(shown_img);
+        img_div.appendChild(img_button);
         img_area.appendChild(img_div);
     }
     // add the images to the menu so that each of them are evenly spaced

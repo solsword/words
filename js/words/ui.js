@@ -1203,19 +1203,24 @@ export function init(starting_dimension) {
     // Grab handle for the menus node
     MENUS_NODE = document.getElementById("menus");
 
-    // Set up the player
-    setup_player(starting_dimension.seed); // TODO: Different seed?
-
     // Set up the canvas
     let canvas = setup_canvas();
 
     // Initialize the menu system
     menu.init_menus([canvas.width, canvas.height]);
 
+    // Set up the player
+    setup_player(starting_dimension.seed); // TODO: Different seed?
+
+    console.log("ui.js", player.current_input_player.avatar);
+
     // Display the current player's avatar
     avatar.init_avatar(player.current_input_player()); 
     rescale_avatar();
     place_avatar([0, 0]);
+
+    // TODO: debugging 
+    // START_MENU.hide();
 
     // Unlock initial tiles
     // TODO: Better/different here?
@@ -1362,15 +1367,6 @@ export function init(starting_dimension) {
         "🎒",
         "left"
     );
-
-    START_MENU = new menu.StartMenu(
-        "Pick an avatar!",
-        [],
-        ["../../images/avatar.svg",
-         "../../images/yellow_avatar.svg",
-        ],
-        "center",
-    );    
 
     // In quiz mode, add a button to return to the quiz builder
     if (MODE == "quiz") {
@@ -2039,7 +2035,10 @@ export function grant_quest(quest) {
  */
 export function setup_player(seed) {
     // Check for stored players:
-    let stored = player.stored_players();
+
+    // TODO: Debugging and temporarily set stored to []
+    // let stored = player.stored_players();
+    let stored = [];
 
     let the_player;
     if (stored.length > 0 && MODE == "normal") {
@@ -2047,7 +2046,24 @@ export function setup_player(seed) {
         the_player = player.load_player(stored[0], quest_claimed);
     } else {
         the_player = player.new_player(1829812^seed);
+        pick_avatar(["yellow_avatar", "avatar",], the_player);
     }
 
     player.set_input_player(the_player);
+    console.log(player.current_input_player());
+}
+
+function pick_avatar(base_name_list, the_player){
+    let src_list = [];
+    for(let name of base_name_list) {
+        src_list.push("../../images/" + name + ".svg");
+    }
+
+    START_MENU = new menu.StartMenu(
+        "Pick an avatar!",
+        [],
+        src_list,
+        the_player,
+        "center",
+    );   
 }

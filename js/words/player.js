@@ -271,37 +271,6 @@ export function new_player(seed) {
     // Create a player object
     let result = {
         "id": id,
-        "activity": {
-            "unlocks": [],
-            "pokes": [],
-            "matches": {},
-            "words_known": {},
-            "visited": [],
-            "locations": [],
-        },
-        "stats": {
-            "memory_limit": 100,
-            "precise_memory_limit": 10,
-            "unlock_limit": 3,
-            "poke_limit": 1, // TODO: Start at 0
-            "reach": 0, // TODO: Start at 1? (unused)
-            "poke_delay": 20, // seconds (TODO: unused)
-            "poke_cooldown": 120, // seconds (TODO: unused)
-            "poke_duration": 60, // seconds (TODO: unused)
-            "glyph_mastery_rate": 0, // TODO: unused
-            "glyph_pickup_rate": 0, // TODO: unused
-            "splice_slots": 3, // TODO: Start at 0 (unused)
-            "match_brightness": 3, // TODO: unused
-            "night_vision": 0, // TODO: unused
-            "hidden_sense": 0, // TODO: unused
-            "learning_affinities": affinities // TODO: unused
-        },
-        "domain_adjustments": {},
-        "experience": exp,
-        "playtime": 0,
-        "avatar": avatar.new_avatar("avatar", ["jump_css"]),
-        "personal_words": [],
-        "quests": { "active": [], "completed": [] },
         "position": { "dimension": undefined, "pos": undefined },
     };
 
@@ -393,6 +362,7 @@ export function reset_player(agent) {
     agent.personal_words = [];
     agent.quests = { "active": [], "completed": [] };
     agent.glyphs_mastered = {};
+    agent.avatar = avatar.new_avatar("avatar", ["jump_css"]);
 
     // Make sure that we save the player
     save_player(agent);
@@ -414,6 +384,12 @@ export function set_input_player(agent) {
  */
 export function current_input_player() {
     return CURRENT_PLAYERS[INPUT_PLAYER_ID];
+}
+
+export function set_avatar(the_player) {
+    console.log("player", current_input_player());
+    current_input_player().avatar = avatar.new_avatar("yellow_avatar", "jump");
+    console.log("clicked", the_player.avatar);
 }
 
 /**
