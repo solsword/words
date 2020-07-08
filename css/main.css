@@ -228,6 +228,22 @@ details.menu[open] summary .losed {
     overflow: auto;
 }
 
+.menu.start_menu {
+    max-width: 70vw;
+    max-height: 40.5vh;
+    overflow: auto;
+}
+
+.img_div {
+    margin: 10px;
+    min-width: 10vw;
+}
+
+.img_area {
+    display: grid;
+    overflow: auto;
+}
+
 .menu.clear_selection {
     background-color: #310;
     border-color: #732;

@@ -487,19 +487,28 @@ export function StartMenu(text, buttons, avatar_imgs, pos, classes, style) {
     let buttons_area = document.createElement("div");
     this.element.appendChild(buttons_area);
 
-    console.log("hi!");
+    let img_area = document.createElement("div");
+    img_area.classList.add("img_area");
+
+    // keep track of how many images there are
+    let grid_columns_string = "";
 
     // The divs for avatar images
     for(let img_src of avatar_imgs){
-        let img_area = document.createElement("div");
+        grid_columns_string += "1fr ";
+
+        let img_div = document.createElement("div");
+        img_div.classList.add("img_div");
 
         let shown_img = document.createElement("img");
         shown_img.setAttribute("src", img_src);
 
-        img_area.appendChild(shown_img);
-        this.element.appendChild(img_area);
-        console.log("img", img_src);
+        img_div.appendChild(shown_img);
+        img_area.appendChild(img_div);
     }
+    // add the images to the menu so that each of them are evenly spaced
+    img_area.style.gridTemplateColumns = grid_columns_string;
+    this.element.appendChild(img_area);
 
     // Save "this" for use in handler functions
     let the_menu = this;

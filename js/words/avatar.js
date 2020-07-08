@@ -95,6 +95,7 @@ export function init_avatar(current_player) {
     AVATAR.setAttribute("type", "image/svg+xml"); 
     AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
 
+    /*
     // load the svg object and get the svg
     // TODO this isn't sustainable... you have to add "customizable" to 
     // every single path that you want to be able to change in every
@@ -112,6 +113,7 @@ export function init_avatar(current_player) {
             element.setAttribute("fill", "blue");
         }
     });
+    */
     
     let avatar_div = document.getElementById("avatar_div");
     avatar_div.appendChild(AVATAR);

@@ -1367,7 +1367,7 @@ export function init(starting_dimension) {
         "Pick an avatar!",
         [],
         ["../../images/avatar.svg",
-         "../../images/yellow_avatar.svg"
+         "../../images/yellow_avatar.svg",
         ],
         "center",
     );    
