@@ -1478,8 +1478,15 @@ export function init(starting_dimension) {
                         {
                             "text": "OK",
                             "action": function (menu, value) {
-                                console.log(menu, value)
-                                cleanup_hint()
+                                console.log(menu, value);
+                                let paths = find_paths(value);
+                                let first_letters = paths.map(path => path[0].pos);
+                                animate_lines(first_letters,
+                                    [ CTX.cwidth/2, 0 ],
+                                    { "color": "#0f6" }, animate.SECOND);
+
+
+                                cleanup_hint();
                             }
                         },
                         {
