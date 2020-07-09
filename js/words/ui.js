@@ -1451,43 +1451,7 @@ export function init(starting_dimension) {
         },
         "bottom"
     );
-
-
-    let hint_dialog = null;
-    let cleanup_hint = function () { hint_dialog = null; };
-    HINT_BUTTON = new menu.ButtonMenu(
-        "Hint",
-        function () {
-            if (hint_dialog == null) {
-                // Create a dialog
-                hint_dialog = new menu.TextInputDialog(
-                    (
-                        "Search for a word:"
-                    ),
-                    cleanup_hint,
-                    [
-                        {
-                            "text": "OK",
-                            "action": function (menu, value) {
-                                console.log(menu, value)
-                                cleanup_hint()
-                            }
-                        },
-                        {
-                            "text": "Cancel",
-                            "action": "cancel"
-                        }
-                    ]
-                );
-            } else {
-                // Remove the existing dialog
-                hint_dialog.cancel();
-            }
-        },
-        "right"
-    );
-
-
+    
     // set up event handlers
     let down_handler = function (e) {
         // If this event targets a menu, skip it

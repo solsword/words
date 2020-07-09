@@ -440,56 +440,8 @@ Dialog.prototype.cancel = function () {
 };
 
 Dialog.prototype.callback_args = function () {
-    
+
    return [];
-}
-
-
-/**
- * A Dialog pops up and shows the given text and a text box, along with two
- * buttons that the user can click on. The entire dialog is also
- * clickable, and results in a default cancel action.
- * The 'buttons' argument should be a list of objects that have 'text'
- * and 'action' properties. Only one of the actions will be triggered.
- *
- * @param text A string containing the text to be displayed in the dialog
- *     box. May contain HTML code (so be careful about user-generated
- *     strings which appear in the text).
- * @param cancel (optional) A function to be called (without arguments)
- *     when the user cancels the dialog without selecting any of the
- *     buttons. If left undefined, nothing extra happens when the user
- *     cancels the menu.
- * @param buttons An array of button objects, each of which must have
- *     'text' and 'action' properties. The button text (may be HTML) will
- *     be put in the button, and when a button is clicked, its action
- *     function will be called (without arguments), and then the menu
- *     will be removed. The action may be the string "cancel" instead of
- *     a function which will end up calling the cancel function for the
- *     menu. The action may also be undefined, in which case the menu is
- *     simply closed when the button is pressed without any further
- *     action.
- * @param pos The position of this menu (see BaseMenu).
- * @param classes CSS classes for this menu (see BaseMenu).
- * @param style Extra style code for this menu (see BaseMenu).
-
- * This function is a dialog that includes the text box
- */
- export function TextInputDialog(text, cancel, buttons, pos, classes, style) {
-     Dialog.call(this, text, cancel, buttons, pos, classes, style); //copy the dialog function
-     let text_input = document.createElement("input");
-     text_input.setAttribute("type","text");
-     this.element.insertBefore(text_input, this.element.children[1]);//the middle child is the text box
- }
-
-TextInputDialog.prototype = Object.create(Dialog.prototype);
-TextInputDialog.prototype.constructor = TextInputDialog;
-
-TextInputDialog.prototype.get_input_value = function () {
-    let input = this.element.children[1]; //middle child: input/output
-    return input.value; //gets what the user typed in
-}
-TextInputDialog.prototype.callback_args = function () {
-   return [this.get_input_value()];
 }
 
 /**
