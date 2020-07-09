@@ -229,6 +229,7 @@ export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
 export var SLOTS_MENU = null;
 export var BACK_BUTTON = null;
+export var HINT_BUTTON = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -1451,6 +1452,40 @@ export function init(starting_dimension) {
         "bottom"
     );
 
+
+    let hint_dialog = null;
+    let cleanup_hint = function () { hint_dialog = null; };
+    HINT_BUTTON = new menu.ButtonMenu(
+        "Hint",
+        function () {
+            if (hint_dialog == null) {
+                // Create a dialog
+                hint_dialog = new menu.TextInputDialog(
+                    (
+                        "Search for a word:"
+                    ),
+                    cleanup_hint,
+                    [
+                        {
+                            "text": "OK",
+                            "action": function (menu, value) {
+                                console.log(menu, value)
+                                cleanup_hint()
+                            }
+                        },
+                        {
+                            "text": "Cancel",
+                            "action": "cancel"
+                        }
+                    ]
+                );
+            } else {
+                // Remove the existing dialog
+                hint_dialog.cancel();
+            }
+        },
+        "right"
+    );
 
 
     // set up event handlers
