@@ -61,7 +61,7 @@ export function new_avatar(base_image_name, anim_names) {
  * @return The filename for the avatar's static image including the "/images/"
  *    at the beginning in string format.
  */
-function get_static_img_src(base_image_name) {
+export function get_static_img_src(base_image_name) {
     return "../../images/" + base_image_name + ".svg";
 }
 
@@ -79,7 +79,7 @@ function get_static_img_src(base_image_name) {
  * @return The string filename for the avatar's animation including the "/images/"
  *    at the beginning.
  */
-function get_anim_img_src(base_image_name, anim) {
+export function get_anim_img_src(base_image_name, anim) {
     return "../../images/" + base_image_name + "_" + anim + ".svg";
 }
 
@@ -151,10 +151,23 @@ export function set_avatar_position(left, top) {
     AVATAR.style.top = top + "px";
 }
 
-export function play_static_img(current_player) {
-    AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
+/**
+ * Changes a given player's avatar to its static image.
+ *
+ * @param the_player The player whose avatar will be changed.
+ */
+export function play_static_img(the_player) {
+    AVATAR.setAttribute("data", the_player.avatar.static_img_src); 
 }
 
-export function play_animation(current_player, anim) {
-    AVATAR.setAttribute("data", current_player.avatar.animation_srcs[anim]); 
+/**
+ * Changes a given player's avatar to its animated image.
+ *
+ * @param the_player The player whose avatar will be changed.
+ * @param anim A string with the animation the avatar will be switched to.
+ *    For example, "jump" or "walk". Make sure the avatar has the corresponding
+ *    animation file.
+ */
+export function play_animation(the_player, anim) {
+    AVATAR.setAttribute("data", the_player.avatar.animation_srcs[anim]); 
 }

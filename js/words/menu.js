@@ -9,6 +9,7 @@ import * as draw from "./draw.js";
 import * as colors from "./colors.js";
 import * as dict from "./dict.js";
 import * as player from "./player.js";
+import * as avatar from "./avatar.js";
 
 // TODO: Import this when that becomes possible (see locale.js).
 // import * as locale from "./locale.js";
@@ -441,15 +442,9 @@ Dialog.prototype.cancel = function () {
 };
 
 /**
- * TODO: Change documentation!
- * A StartMenu pops up and shows the given text, along with one or more
- * buttons that the user can click on. The entire dialog is also
- * clickable, and results in a default cancel action.
- * The 'buttons' argument should be a list of objects that have 'text'
- * and 'action' properties. Only one of the actions will be triggered.
- *
- * TODO: Does tap-to-cancel interfere with the buttons too much on
- * mobile?
+ * A StartMenu pops up and shows the given text, along with the avatar images to
+ * choose from. This menu might need to be adjusted later to show things other
+ * than which avatar to choose from.
  *
  * @param text A string containing the text to be displayed in the dialog
  *     box. May contain HTML code (so be careful about user-generated
@@ -463,11 +458,23 @@ Dialog.prototype.cancel = function () {
  *     menu. The action may also be undefined, in which case the menu is
  *     simply closed when the button is pressed without any further
  *     action.
+ * @param avatar_names An array of string base names for each avatar available.
+ *     For example, an avatar could have the base name "avatar" with filenames
+ *     "avatar.svg" and "avatar_jump.svg".
+ * @param the_player The player object who is currently playing the game.
  * @param pos The position of this menu (see BaseMenu).
  * @param classes CSS classes for this menu (see BaseMenu).
  * @param style Extra style code for this menu (see BaseMenu).
  */
-export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, style) {
+export function StartMenu(
+    text, 
+    buttons, 
+    avatar_names, 
+    the_player, 
+    pos, 
+    classes, 
+    style
+) {
     BaseMenu.call(this, pos, classes, style);
     this.element.classList.add("start_menu");
     this.element.classList.add("passive");
@@ -475,7 +482,7 @@ export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, 
     // Save args as attributes
     this.text = text;
     this.buttons = buttons;
-    this.avatar_imgs = avatar_imgs;
+    this.avatar_names = avatar_names;
 
     // Create HTML elements + event handlers
 
@@ -488,6 +495,10 @@ export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, 
     let buttons_area = document.createElement("div");
     this.element.appendChild(buttons_area);
 
+    // Save "this" for use in the image area and handler functions
+    let the_menu = this;
+
+    // Create a div HTML element for adding avatar images onto
     let img_area = document.createElement("div");
     img_area.classList.add("img_area");
 
@@ -495,35 +506,36 @@ export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, 
     let grid_columns_string = "";
 
     // The divs for avatar images
-    for(let img_src of avatar_imgs){
+    for(let base_name of avatar_names){
+        // add a column for every avatar
         grid_columns_string += "1fr ";
 
         let img_div = document.createElement("div");
 
+        // create a button to go inside of img_div
         let img_button = document.createElement("button");
         img_button.classList.add("img_button");
-        img_button.setAttribute("type", "button");
-        console.log("menu", the_player);
-        img_button.onclick = function(the_player) {player.set_avatar(the_player);}
 
+        // when button is clicked, it sets the avatar and removes the menu
+        img_button.onclick = function() {
+            player.set_avatar(the_player, base_name);
+            the_menu.remove();
+        }
+        
+        // create an img element to go inside the button element
         let shown_img = document.createElement("img");
-        shown_img.setAttribute("src", img_src);
+        shown_img.setAttribute("src", avatar.get_static_img_src(base_name));
 
+        // append the elements created into their respective areas
         img_button.appendChild(shown_img);
         img_div.appendChild(img_button);
         img_area.appendChild(img_div);
     }
+
     // add the images to the menu so that each of them are evenly spaced
     img_area.style.gridTemplateColumns = grid_columns_string;
+
     this.element.appendChild(img_area);
-
-    // Save "this" for use in handler functions
-    let the_menu = this;
-
-    // Note: these must happen during bubbling, not capturing, or else
-    // the buttons will never receive events.
-    // this.element.addEventListener("touchend", canceller);
-    // this.element.addEventListener("click", canceller);
 
     // The buttons themselves
     for (let button of this.buttons) {
@@ -556,15 +568,6 @@ export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, 
 }
 StartMenu.prototype = Object.create(BaseMenu.prototype);
 StartMenu.prototype.constructor = StartMenu;
-
-/**
- * Cancels the dialog as if the cancel action had been taken by the user.
- * Triggers the cancel function if there is one.
-Dialog.prototype.cancel = function () {
-    this.cancel_action();
-    this.remove();
-};
-*/
 
 /**
  * A ToggleMenu is a persistent button that can be tapped to toggle

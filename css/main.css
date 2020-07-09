@@ -291,7 +291,7 @@ details.menu[open] summary .losed {
 }
 
 .avatar:hover {
-    /*opacity: 0;*/
+    opacity: 0;
 }
 
 .slot {
