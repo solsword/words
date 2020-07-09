@@ -66,12 +66,13 @@ export var QUEST_INSTRUCTIONS = {
  *     position (a 2-element x/y tile coordinate array). The player will
  *     be transported to that position in that dimension when claiming
  *     the quest reward.
- * return: No associated value. In quiz mode, indicates the completion of
- *     a quiz. When a quest is associated with a pocket dimension,
- *     indicates that the player should be transported back to their
- *     previous location outside of that dimension. In other cases,
+ * return: No associated value. When a quest is associated with a pocket
+ *     dimension, indicates that the player should be transported back to
+ *     their previous location outside of that dimension. In other cases,
  *     transports the player to their most-recent history location if
  *     they have one. TODO: really that?!?
+ * finish_quiz: No associated value. Indicates that the player has
+ *     completed a quiz, and the end-of-quiz dialog should be displayed.
  */
 export var REWARD_TYPES = [
     "exp",
@@ -79,6 +80,7 @@ export var REWARD_TYPES = [
     "refresh",
     "portal",
     "return",
+    "finish_quiz",
 ];
 
 /**
@@ -646,7 +648,9 @@ export function is_complete(quest) {
 /**
  * Tests whether a quest's bonus condition has been met. This will always
  * return false if the quest's completion condition has not been met,
- * even if the bonus condition has technically been satisfied.
+ * even if the bonus condition has technically been satisfied. Note that
+ * if there are no bonus goals this returns false even if the target has
+ * been completed, not true.
  *
  * @param quest The quest to test.
  * @return True if the bonus condition has been met; false otherwise.
@@ -657,6 +661,9 @@ export function completed_bonus(quest) {
     }
 
     if (quest.type == "hunt") {
+        if (quest.bonus.length == 0) {
+            return false;
+        }
         for (let hint of quest.bonus) {
             if (!quest.progress[hint]) {
                 return false;
@@ -664,6 +671,9 @@ export function completed_bonus(quest) {
         }
         return true;
     } else if (quest.type == "big") {
+        if (quest.bonus == undefined) {
+            return false;
+        }
         let [size_req, n_req] = quest.bonus;
         let found = 0;
         for (let idx in quest.progress) { // skips empty slots
@@ -676,18 +686,22 @@ export function completed_bonus(quest) {
         }
         return false;
     } else if (quest.type == "glyphs") {
-        for (let g of Object.keys(quest.bonus)) {
+        let keys = Object.keys(quest.bonus);
+        if (keys.length == 0) {
+            return false;
+        }
+        for (let g of keys) {
             if (!quest.progress[g] || quest.progress[g] < quest.target[g]) {
                 return false;
             }
         }
         return true;
     } else if (quest.type == "encircle") {
-        return quest.progress >= quest.bonus;
+        return quest.progress >= quest.bonus && quest.bonus > 0;
     } else if (quest.type == "stretch") {
-        return quest.progress >= quest.bonus;
+        return quest.progress >= quest.bonus && quest.bonus > 0;
     } else if (quest.type == "branch") {
-        return quest.progress >= quest.bonus;
+        return quest.progress >= quest.bonus && quest.bonus > 0;
     } else {
         throw ("Unknown quest type '" + quest.type + "'.");
     }
@@ -703,7 +717,8 @@ export function completed_bonus(quest) {
  * @param claim_function The function to run when the quest is complete
  *     and the player wants to claim the reward. Will be attached to the
  *     element's completion indicator and activated by display_status
- *     only when the quest is complete.
+ *     only when the quest is complete. It will be given the quest object
+ *     as an argument.
  */
 export function construct_quest_element(quest, claim_function) {
     quest.element = document.createElement("details");

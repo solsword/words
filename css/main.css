@@ -199,6 +199,7 @@ details.menu[open] summary .losed {
     text-align: center;
     min-width: var(--menu-size);
     min-height: var(--menu-size);
+    white-space: nowrap;
 }
 
 .menu a:link, .menu a:visited {

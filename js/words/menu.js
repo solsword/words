@@ -14,7 +14,15 @@ import * as player from "./player.js";
 // import * as locale from "./locale.js";
 /* global locale */
 
-// An array containing all menu objects.
+/**
+ * How many milliseconds to wait before re-trying to load words for a
+ * words list.
+ */
+export const WORDMENU_LOAD_BACKOFF = 50;
+
+/**
+ * An array containing all menu objects.
+ */
 export var ALL_MENUS = [];
 
 /**
@@ -382,14 +390,13 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
 
     // Create handler for all taps on the menu
     let canceller = function (e) {
-        the_menu.cancel_action();
-        the_menu.remove();
+        the_menu.cancel();
         e.stopPropagation();
     };
     // Note: these must happen during bubbling, not capturing, or else
     // the buttons will never receive events.
-    this.element.addEventListener("touchend", canceller);
-    this.element.addEventListener("click", canceller);
+    // this.element.addEventListener("touchend", canceller);
+    // this.element.addEventListener("click", canceller);
 
     // The buttons themselves
     for (let button of this.buttons) {
@@ -402,7 +409,7 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
         } else if (button.action) {
             // jshint -W083
             handler = function (e) {
-                button.action();
+                button.action(the_menu, ...the_menu.callback_args());
                 the_menu.remove();
                 e.stopPropagation();
             };
@@ -428,10 +435,62 @@ Dialog.prototype.constructor = Dialog;
  * Triggers the cancel function if there is one.
  */
 Dialog.prototype.cancel = function () {
-    this.cancel_action();
+    this.cancel_action(this, ...this.callback_args());
     this.remove();
 };
 
+Dialog.prototype.callback_args = function () {
+    
+   return [];
+}
+
+
+/**
+ * A Dialog pops up and shows the given text and a text box, along with two
+ * buttons that the user can click on. The entire dialog is also
+ * clickable, and results in a default cancel action.
+ * The 'buttons' argument should be a list of objects that have 'text'
+ * and 'action' properties. Only one of the actions will be triggered.
+ *
+ * @param text A string containing the text to be displayed in the dialog
+ *     box. May contain HTML code (so be careful about user-generated
+ *     strings which appear in the text).
+ * @param cancel (optional) A function to be called (without arguments)
+ *     when the user cancels the dialog without selecting any of the
+ *     buttons. If left undefined, nothing extra happens when the user
+ *     cancels the menu.
+ * @param buttons An array of button objects, each of which must have
+ *     'text' and 'action' properties. The button text (may be HTML) will
+ *     be put in the button, and when a button is clicked, its action
+ *     function will be called (without arguments), and then the menu
+ *     will be removed. The action may be the string "cancel" instead of
+ *     a function which will end up calling the cancel function for the
+ *     menu. The action may also be undefined, in which case the menu is
+ *     simply closed when the button is pressed without any further
+ *     action.
+ * @param pos The position of this menu (see BaseMenu).
+ * @param classes CSS classes for this menu (see BaseMenu).
+ * @param style Extra style code for this menu (see BaseMenu).
+
+ * This function is a dialog that includes the text box
+ */
+ export function TextInputDialog(text, cancel, buttons, pos, classes, style) {
+     Dialog.call(this, text, cancel, buttons, pos, classes, style); //copy the dialog function
+     let text_input = document.createElement("input");
+     text_input.setAttribute("type","text");
+     this.element.insertBefore(text_input, this.element.children[1]);//the middle child is the text box
+ }
+
+TextInputDialog.prototype = Object.create(Dialog.prototype);
+TextInputDialog.prototype.constructor = TextInputDialog;
+
+TextInputDialog.prototype.get_input_value = function () {
+    let input = this.element.children[1]; //middle child: input/output
+    return input.value; //gets what the user typed in
+}
+TextInputDialog.prototype.callback_args = function () {
+   return [this.get_input_value()];
+}
 
 /**
  * A ToggleMenu is a persistent button that can be tapped to toggle
@@ -794,10 +853,19 @@ QuestList.prototype.update = function () {
  */
 export function WordList(agent, url_template, pos, classes, style) {
     this.player = agent;
+    let recent = player.recent_words(this.player);
+    if (recent == undefined) {
+        recent = [];
+        window.setTimeout(
+            eventually_load_wordlist,
+            WORDMENU_LOAD_BACKOFF,
+            this
+        );
+    }
     ItemList.call(
         this,
         'Words',
-        player.recent_words(this.player),
+        recent,
         create_link_list_constructor(
             function (entry) {
                 let [dom, glyphs, word, when] = entry;
@@ -841,6 +909,23 @@ export function WordList(agent, url_template, pos, classes, style) {
 
 WordList.prototype = Object.create(ItemList.prototype);
 WordList.prototype.constructor = WordList;
+
+/**
+ * Ensures that the real items for a word list are eventually loaded
+ * even if initially the player's recent words are unavailable.
+ */
+function eventually_load_wordlist(menu) {
+    let recent = player.recent_words(menu.player);
+    if (recent == undefined) {
+        window.setTimeout(
+            eventually_load_wordlist,
+            WORDMENU_LOAD_BACKOFF,
+            menu
+        );
+    } else {
+        menu.replace_items(recent);
+    }
+}
 
 /**
  * Swaps out the player whose words list is to be displayed.
