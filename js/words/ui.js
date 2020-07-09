@@ -462,6 +462,15 @@ export var COMMANDS = {
                 []
             );
         }
+    },
+    "H": function(){
+
+        let paths = find_paths("PEA");
+        let first_letters = paths.map(path => path[0].pos);
+        animate_lines(first_letters,
+            [ CTX.cwidth/2, 0 ], 
+            { "color": "#0f6" }, animate.SECOND);
+
     }
 };
 
@@ -1663,9 +1672,10 @@ export function draw_frame(now) {
     // tiles etc. only if available
     if (cdk != undefined) {
         let cd = dimensions.key__dim(cdk);
-
+    //    console.log(cd, "cd");
         // Tiles
         let visible_tiles = draw.visible_tile_list(cd, CTX);
+    //    console.log(visible_tiles,"tiles");
         if (!draw.draw_tiles(cd, CTX, visible_tiles)) {
             if (DO_REDRAW != null) {
                 DO_REDRAW = Math.min(DO_REDRAW, MISSING_TILE_RETRY);
@@ -1884,4 +1894,105 @@ export function find_swipe_head(index) {
         }
     }
     return null;
+}
+
+
+// the function returns all the glyphs visible
+
+export function get_glyph(){
+
+        // get current dimension
+        let cdk = get_current_dimkey();
+        // tiles etc. only if available
+        console.log(cdk);
+        if (cdk != undefined) {
+            let cd = dimensions.key__dim(cdk);
+
+            // Tiles
+            let visible_tiles = draw.visible_tile_list(cd, CTX);
+            console.log(visible_tiles,"visible tile");
+            return visible_tiles;
+        }
+
+
+    }
+
+export function map_tiles(tile_array){
+    let result = {};
+    for(let tile of tile_array){
+        let key = grid.coords__key(tile.pos);
+        result[key] = tile;
+    }
+    return result;
+}
+
+
+export function revise_posibilities(next_letter,tile_map,collected_posibilities){
+
+    let result = [];
+    for (let path of collected_posibilities){
+        let last_tile = path[path.length-1];
+        for(let d = 0; d<grid.N_DIRECTIONS; d++){
+            let nb = grid.neighbor(last_tile.pos, d);
+            let nb_tile = tile_map[grid.coords__key(nb)];
+            if(
+                nb_tile
+             && next_letter == nb_tile.glyph
+             && !path.includes(nb_tile)
+            ){
+                result.push(path.concat([nb_tile]));
+            }
+        }
+
+    }
+    return result;
+}
+
+
+export function find_paths(word){
+    let visible_tiles = get_glyph();
+    let tile_map = map_tiles(visible_tiles);
+    let foundWord = [];
+    let possiblities = [];
+    console.log(visible_tiles.length);
+    for (let tile of visible_tiles){
+
+        console.log(tile.glyph, "visible_tiles[i].glyph");
+        console.log(word[0]);
+        if (word[0] == tile.glyph){
+            possiblities.push([tile]);
+        }
+
+    }
+    for (let letter of word.slice(1)){
+        possiblities = revise_posibilities(letter, tile_map, possiblities);
+    }
+    console.log(possiblities);
+    return possiblities;
+}
+
+
+
+export function animate_lines(path, destination, style, duration){
+    let lines = [];
+    for (let gp of path) {
+        if (typeof gp[0] != "string") {
+            var wp = grid.world_pos(gp);
+            var vp = draw.view_pos(CTX, wp);
+            lines.push(
+                new animate.MotionLine(
+                    duration,
+                    undefined,
+                    vp,
+                    destination,
+                    style
+                )
+            );
+        }
+    }
+    let result = new animate.AnimGroup(lines, function(){});
+    animate.activate_animation(result);
+
+DO_REDRAW = 0;
+return result;
 }
