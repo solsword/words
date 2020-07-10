@@ -125,6 +125,7 @@ var POCKET_LAYOUT_CACHE_SIZE = 128;
 var DOMAIN_COMBOS = {
     "English": [ "adj", "adv", "noun", "verb", "stop" ]
 };
+// TODO: Allow words found in combo domains to appear in a common list!?!
 
 /**
  * All possible basic paths through a single half-socket.
@@ -272,7 +273,7 @@ for (var socket = 0; socket < grid.COMBINED_SOCKETS; ++socket) {
  *
  * @param domain_or_combo A string naming either a domain or a combo.
  *
- * @return An array of the names of all domains in that group or combo.
+ * @return An array of all domains in the given group or combo.
  */
 export function domains_list(domain_or_combo) {
     if (DOMAIN_COMBOS.hasOwnProperty(domain_or_combo)) {
@@ -2120,7 +2121,9 @@ export function pick_word(domains, arp, seed, only_socketable) {
     let lesser_counttable = [];
     domains.forEach(function (d) {
         if (only_socketable) {
-            let socketable_count = d.short_count_sums[d.short_count_sums.length - 1];
+            let socketable_count = d.short_count_sums[
+                d.short_count_sums.length - 1
+            ];
             greater_counttable.push(socketable_count);
             grand_total += socketable_count;
             let socketable_entries = d.normlength.length;
@@ -2218,9 +2221,129 @@ export function pick_word(domains, arp, seed, only_socketable) {
     }
 }
 
+
 /**
  * Alias for pick_word with only_socketable set to true.
  */
+
+
+//  /**
+//   * Given a word from the given domain object (not name) list and a seed
+//   * returns its corresponding assignment position (assignment grid x/y and
+//   * assignment index)
+//   * If only_socketable is given as true, only socketable
+//   * words will be used.
+//   *
+//   * @param domains An array of domain objects (not names).
+//   * @param arp A 3-element assignment region position containing
+//   *     assignment region x/y coordinates and a socket index within that
+//   *     region.
+//   * @param seed An integer seed that determines the outcome.
+//   * @param only_socketable (optional) If given as true, only words that
+//   *     fit in a standard socket will be eligible for selection.
+//   *
+//   * @return a domain entry, which is a [glyphs, word, frequency] triple.
+//   */
+// export function invert_pick_word(domains, arp, only_socketable,word, seed){
+//     let any_missing = false;
+//     let grand_total = 0;
+//     let lesser_total = 0;
+//     let greater_counttable = [];
+//     let lesser_counttable = [];
+//
+//
+//
+//     let r = sghash(seed, arp);
+//
+//     let idx = anarchy.cohort_shuffle(
+//         arp[2],
+//         grid.ASSIGNMENT_REGION_TOTAL_SOCKETS,
+//         r
+//     );
+//     r = anarchy.lfsr(r);
+//
+//
+//     domains.foreach(function(d){
+//
+//         // find where the word is (what domain)
+//
+//     }
+// );
+//
+//
+//     for(i = 0; i<word.length-1;i++){
+//         var firstGlyph = word[0];
+//         var currentGlyph = word[i+1];
+//
+//
+//
+//         if (idx < lesser_total) { // one of the per-entry assignments
+//             let ct_idx = 0;
+//             // Figure out which domain we're in using our counttable:
+//             for (ct_idx = 0; ct_idx < lesser_counttable.length; ++ct_idx) {
+//                 let here = lesser_counttable[ct_idx];
+//                 if (idx < here) {
+//                     break;
+//                 }
+//                 idx -= here;
+//             }
+//             let dom;
+//             if (ct_idx == lesser_counttable.length) {
+//                 if (WARNINGS) {
+//                     console.warn(
+//                         "Warning: lesser counttable loop failed to break!"
+//                     );
+//                 }
+//                 ct_idx = lesser_counttable.length - 1;
+//                 dom = domains[ct_idx];
+//                 if (only_socketable) {
+//                     idx %= dom.normlength.length;
+//                 } else {
+//                     idx %= dom.entries.length;
+//                 }
+//             } else {
+//                 dom = domains[ct_idx];
+//             }
+//             // all words get equal representation
+//             if (only_socketable) {
+//                 return dom.entries[dom.normlength[idx]];
+//             } else {
+//                 return dom.entries[idx];
+//             }
+//         } else { // one of the per-count assignments
+//             idx -= lesser_total;
+//             idx %= grand_total;
+//             // Figure out which domain we're in using our counttable:
+//             let ct_idx = 0;
+//             for (ct_idx = 0; ct_idx < greater_counttable.length; ++ct_idx) {
+//                 let here = greater_counttable[ct_idx];
+//                 if (idx < here) {
+//                     break;
+//                 }
+//                 idx -= here;
+//             }
+//             let dom;
+//             if (ct_idx == greater_counttable.length) {
+//                 if (WARNINGS) {
+//                     console.warn(
+//                         "Warning: greater counttable loop failed to break!"
+//                     );
+//                 }
+//                 ct_idx = greater_counttable.length - 1;
+//                 dom = domains[ct_idx];
+//             } else {
+//                 dom = domains[ct_idx];
+//             }
+//             // representation according to frequency
+//             if (only_socketable) {
+//                 return dict.unrolled_short_word(idx, dom);
+//             } else {
+//                 return dict.unrolled_word(idx, dom);
+//             }
+//         }
+//
+//     }
+// }
 export function pick_short_word(domains, arp, seed) {
     return pick_word(domains, arp, seed, true);
 }
@@ -2442,7 +2565,6 @@ export function generate_full_supertile(dimension, sgp, world_seed) {
     }
 
     // First, embed any socketed words
-    // TODO: pass in ultratile context here!
     let socket_count = embed_socketed_words(result);
     if (socket_count == undefined) {
         return undefined;
@@ -3736,9 +3858,8 @@ export function merge_glyph_tricounts(gs1, gs2) {
         } else {
             result[g] = {};
             for (let gg of Object.keys(gs2[g])) {
-                result[g][gg] = {};
                 for (let ggg of Object.keys(gs2[g][gg])) {
-                    result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
+                    result[g][gg][gg] = gs2[g][gg][ggg] / gs2_total;
                 }
             }
         }
