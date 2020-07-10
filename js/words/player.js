@@ -386,10 +386,19 @@ export function current_input_player() {
     return CURRENT_PLAYERS[INPUT_PLAYER_ID];
 }
 
-export function set_avatar(the_player) {
-    console.log("player", current_input_player());
-    current_input_player().avatar = avatar.new_avatar("yellow_avatar", "jump");
-    console.log("clicked", the_player.avatar);
+/**
+ * Sets the avatar of the given player. Right now, this only includes a 
+ * "jump" animation. TODO: add other animations like walking animations
+ * 
+ * @param the_player The player whose avatar is going to be changed.
+ * @param base_name A string containing the base name of the avatar files.
+ *    For example, an avatar's static image might have the filename
+ *    "avatar.svg", and its jump animation might have a filename of 
+ *    "avatar_jump.svg".
+ */
+export function set_avatar(the_player, base_name) {
+    the_player.avatar = avatar.new_avatar(base_name, ["jump"]);
+    avatar.play_static_img(the_player);
 }
 
 /**

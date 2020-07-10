@@ -321,8 +321,10 @@ export function find_word(dimkey, match, path) {
         widx,
         glyphs
     );
-    avatar.play_animation(who, "jump_css");
-    // avatar.play_static_img(who);
+    // play the avatar's jump animation when the player completes a word
+    if(who.avatar.animation_srcs["jump"]) {
+        avatar.play_animation(who, "jump");
+    }
 
     // Update the quests list.
     if (QUEST_MENU) {
@@ -1076,6 +1078,7 @@ function handle_movement(ctx, e) {
         SCROLL_REFERENT = vpos.slice();
 
         place_viewport([CTX.viewport_center[0] - dx, CTX.viewport_center[1] + dy]);
+        place_avatar();
 
         DO_REDRAW = 0;
     } else if (SWIPING && SELECTION_PATH.length > 0) {
@@ -1222,15 +1225,10 @@ export function init(starting_dimension) {
     // Set up the player
     setup_player(starting_dimension.seed); // TODO: Different seed?
 
-    console.log("ui.js", player.current_input_player.avatar);
-
     // Display the current player's avatar
     avatar.init_avatar(player.current_input_player()); 
     rescale_avatar();
     place_avatar([0, 0]);
-
-    // TODO: debugging 
-    // START_MENU.hide();
 
     // Unlock initial tiles
     // TODO: Better/different here?
@@ -2196,25 +2194,31 @@ export function setup_player(seed) {
         // TODO: Give the user a menu to select which player to load...
         the_player = player.load_player(stored[0], quest_claimed);
     } else {
+        // make a new player and set its avatar
         the_player = player.new_player(1829812^seed);
+
+        // TODO: add a way to put avatars into the start menu
+        // rather than hard-coding them here
         pick_avatar(["yellow_avatar", "avatar",], the_player);
     }
 
     player.set_input_player(the_player);
-    console.log(player.current_input_player());
 }
 
+/**
+ * Open a menu for the user to choose their avatar
+ *
+ * @param base_name_list An array of string containing the base names for
+ *    each available avatar. For example, an avatar with the base name
+ *    "avatar" might have filenames "avatar.svg" and "avatar_jump.svg"
+ * @param the_player The player object who is currently playing the game
+ */
 function pick_avatar(base_name_list, the_player){
-    let src_list = [];
-    for(let name of base_name_list) {
-        src_list.push("../../images/" + name + ".svg");
-    }
-
     START_MENU = new menu.StartMenu(
-        "Pick an avatar!",
-        [],
-        src_list,
-        the_player,
-        "center",
+        "Pick an avatar!", // text of start menu
+        [], // buttons of start menu
+        base_name_list, // the list of base names
+        the_player, // the player
+        "center", // the location of this menu on the screen
     );   
 }
