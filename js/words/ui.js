@@ -2048,7 +2048,7 @@ export function setup_player(seed) {
 
         // TODO: add a way to put avatars into the start menu
         // rather than hard-coding them here
-        pick_avatar(["yellow_avatar", "avatar",], the_player);
+        pick_avatar(["yellow_avatar", "avatar", "purple_avatar"], the_player);
     }
 
     player.set_input_player(the_player);
