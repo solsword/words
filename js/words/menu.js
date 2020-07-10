@@ -391,14 +391,13 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
 
     // Create handler for all taps on the menu
     let canceller = function (e) {
-        the_menu.cancel_action();
-        the_menu.remove();
+        the_menu.cancel();
         e.stopPropagation();
     };
     // Note: these must happen during bubbling, not capturing, or else
     // the buttons will never receive events.
-    this.element.addEventListener("touchend", canceller);
-    this.element.addEventListener("click", canceller);
+    // this.element.addEventListener("touchend", canceller);
+    // this.element.addEventListener("click", canceller);
 
     // The buttons themselves
     for (let button of this.buttons) {
@@ -411,7 +410,7 @@ export function Dialog(text, cancel, buttons, pos, classes, style) {
         } else if (button.action) {
             // jshint -W083
             handler = function (e) {
-                button.action();
+                button.action(the_menu, ...the_menu.callback_args());
                 the_menu.remove();
                 e.stopPropagation();
             };
@@ -437,9 +436,14 @@ Dialog.prototype.constructor = Dialog;
  * Triggers the cancel function if there is one.
  */
 Dialog.prototype.cancel = function () {
-    this.cancel_action();
+    this.cancel_action(this, ...this.callback_args());
     this.remove();
 };
+
+Dialog.prototype.callback_args = function () {
+
+   return [];
+}
 
 /**
  * A StartMenu pops up and shows the given text, along with the avatar images to

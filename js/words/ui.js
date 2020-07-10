@@ -231,6 +231,7 @@ export var CURRENT_GLYPHS_BUTTON = null;
 export var SLOTS_MENU = null;
 export var BACK_BUTTON = null;
 export var START_MENU = null;
+export var HINT_BUTTON = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -1490,9 +1491,7 @@ export function init(starting_dimension) {
         },
         "bottom"
     );
-
-
-
+    
     // set up event handlers
     let down_handler = function (e) {
         // If this event targets a menu, skip it
