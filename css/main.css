@@ -52,6 +52,7 @@ body {
     height: 95vh;
     margin: 0;
     z-index: 20; /* above the canvas */
+    pointer-events: none;
 }
 
 .menu_area {
@@ -125,6 +126,7 @@ body {
 .menu {
     /* TODO: Color matching with canvas colors! */
     z-index: 25; /* All menus must be above any menu_areas */
+    position: relative; /* Make z-index work */
     border: 3pt solid #0af;
     color: #0af;
     border-radius: 6pt;
@@ -137,6 +139,7 @@ body {
     text-align: center;
     min-width: var(--menu-size);
     min-height: var(--menu-size);
+    pointer-events: auto;
 }
 
 .menu.passive, .menu .passive {
@@ -225,6 +228,25 @@ details.menu[open] summary .losed {
     overflow: auto;
 }
 
+.menu.start_menu {
+    max-width: 70vw;
+    max-height: 40.5vh;
+    overflow: auto;
+}
+
+.img_button {
+    margin: 10px;
+    min-width: 10vw;
+    background-color: Transparent;
+    outline: none;
+    border: none;
+}
+
+.img_area {
+    display: grid;
+    overflow: auto;
+}
+
 .menu.clear_selection {
     background-color: #310;
     border-color: #732;
@@ -234,7 +256,7 @@ details.menu[open] summary .losed {
 .scroll {
     min-height: 1em;
     border-radius: 6pt;
-    overflow: scroll;
+    overflow: auto;
     max-height: 60vh;
     max-width: 50vw;
 }
@@ -244,6 +266,32 @@ details.menu[open] summary .losed {
     padding: 4pt;
     border-radius: 6pt;
     border: 1pt solid #68f;
+}
+
+/* ---------------------------------- *
+ * Avatar areas and the avatar system *
+ * ---------------------------------- */
+
+#avatar_div {
+    position: absolute;
+    z-index: 18; /* above the canvas and below menu system */
+    left: 2.5vw;
+    top: 2.5vh;
+    width: 95vw;
+    height: 95vh;
+    margin: 0;
+    overflow: hidden;
+    border:2pt solid rgba(0, 0, 0, 0);
+    box-sizing: border-box;
+    padding: 0;
+}
+
+.avatar {
+    position: absolute;
+}
+
+.avatar:hover {
+    /*opacity: 0;*/
 }
 
 .slot {

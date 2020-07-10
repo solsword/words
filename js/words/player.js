@@ -6,6 +6,7 @@
 "use strict";
 
 import * as anarchy from "../anarchy.mjs";
+import * as avatar from "./avatar.js";
 import * as content from "./content.js";
 import * as dimensions from "./dimensions.js";
 import * as generate from "./generate.js";
@@ -228,6 +229,14 @@ export function enable_saves() {
  *     playtime: A number indicating how many seconds (& fractions of a
  *         second) of in-game time have elapsed while this player was
  *         active.
+ *     avatar: A sub-object with the following keys:
+ *         static_img_src: The filename of the avatar's static image within
+ *             the images folder in the format "../../images/<filename>.svg" 
+ *             where <filename> is the name of the file.
+ *         animation_srcs: A list containing the filenames of the avatar's
+ *             animations within the images folder in the format 
+ *             "../../images/<filename>.svg" where <filename> is the
+ *             name of each file.
  *     personal_words: An array of two-element arrays that contain a
  *         glyph-sequence string and a word string for words that the
  *         player supplies themselves.
@@ -353,6 +362,7 @@ export function reset_player(agent) {
     agent.personal_words = [];
     agent.quests = { "active": [], "completed": [] };
     agent.glyphs_mastered = {};
+    agent.avatar = avatar.new_avatar("avatar", ["jump_css"]);
 
     // Make sure that we save the player
     save_player(agent);
@@ -374,6 +384,12 @@ export function set_input_player(agent) {
  */
 export function current_input_player() {
     return CURRENT_PLAYERS[INPUT_PLAYER_ID];
+}
+
+export function set_avatar(the_player) {
+    console.log("player", current_input_player());
+    current_input_player().avatar = avatar.new_avatar("yellow_avatar", "jump");
+    console.log("clicked", the_player.avatar);
 }
 
 /**

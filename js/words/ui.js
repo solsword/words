@@ -15,6 +15,7 @@ import * as animate from "./animate.js";
 import * as utils from "./utils.js";
 import * as quests from "./quests.js";
 import * as player from "./player.js";
+import * as avatar from "./avatar.js";
 import * as env from "./env.js";
 import * as anarchy from "../anarchy.mjs";
 
@@ -40,8 +41,8 @@ export var MODES = [
  * The current game mode.
  * TODO: Toggle this!
  */
-// export var MODE = "free";
-export var MODE = "quiz";
+export var MODE = "normal";
+// export var MODE = "quiz";
 
 /**
  * Sets the mode value.
@@ -230,6 +231,7 @@ export var CURRENT_GLYPHS_BUTTON = null;
 export var SLOTS_MENU = null;
 export var BACK_BUTTON = null;
 export var HINT_BUTTON = null;
+export var START_MENU = null;
 
 /**
  * How many frames to wait before requesting a redraw when an ititial
@@ -248,6 +250,11 @@ var LOADING_RETRY = 10;
  * A fixed array of supertiles for grid testing.
  */
 var GRID_TEST_DATA;
+
+/**
+ * Last recorded grid position of the avatar
+ */
+var LAST_AVATAR_POSITION = [0, 0];
 
 /**
  * Tests whether a certain DOM node has another node as an ancestor or
@@ -314,6 +321,8 @@ export function find_word(dimkey, match, path) {
         widx,
         glyphs
     );
+    avatar.play_animation(who, "jump_css");
+    // avatar.play_static_img(who);
 
     // Update the quests list.
     if (QUEST_MENU) {
@@ -332,6 +341,8 @@ export function find_word(dimkey, match, path) {
 export function zoom_in() {
     CTX.viewport_scale *= 1.25;
     DO_REDRAW = 0;
+    rescale_avatar();
+    replace_avatar();
 }
 
 /**
@@ -340,6 +351,8 @@ export function zoom_in() {
 export function zoom_out() {
     CTX.viewport_scale *= 1 / 1.25;
     DO_REDRAW = 0;
+    rescale_avatar();
+    replace_avatar();
 }
 
 /**
@@ -349,8 +362,7 @@ export function zoom_out() {
  */
 export function home_view() {
     let wpos = grid.world_pos([0, 0]);
-    CTX.viewport_center[0] = wpos[0];
-    CTX.viewport_center[1] = wpos[1];
+    place_viewport(wpos);
     DO_REDRAW = 0;
 }
 
@@ -377,9 +389,9 @@ export function warp_to(coordinates, dimkey, unlock_tiles) {
         unlock_tiles
     );
     let wpos = grid.world_pos(coordinates);
-    CTX.viewport_center[0] = wpos[0];
-    CTX.viewport_center[1] = wpos[1];
+    place_viewport(wpos);
     DO_REDRAW = 0;
+    place_avatar(coordinates);
 }
 
 /**
@@ -426,8 +438,7 @@ export var COMMANDS = {
         let lp = player.current_input_player().position.pos;
         if (lp) {
             var wpos = grid.world_pos(lp);
-            CTX.viewport_center[0] = wpos[0];
-            CTX.viewport_center[1] = wpos[1];
+            place_viewport(wpos);
             DO_REDRAW = 0;
         }
     },
@@ -460,6 +471,9 @@ export var COMMANDS = {
             if (removed[0] == "slots") {
                 // deselect that letter from the slots menu
                 SLOTS_MENU._deselect(removed[1], true);
+            }
+            if (SELECTION_PATH.length > 0) {
+                place_avatar(SELECTION_PATH[SELECTION_PATH.length - 1]);
             }
         }
         DO_REDRAW = 0;
@@ -729,7 +743,20 @@ export function canvas_position_of_event(e) {
 }
 
 /**
- * function for determining which kind of "click" an event is, including
+ * Converts from viewport coordinates to html coordinates
+ *
+ * @param vpos_coord A 2-element array with viewport x/y coordinates
+ *
+ * @return A 2-element array with html x/y coordinates
+ */
+export function vpos__hpos(vpos_coord) {
+    var client_x = vpos_coord[0] * CTX.bounds.width / CTX.cwidth;
+    var client_y = vpos_coord[1] * CTX.bounds.height / CTX.cheight;
+    return [client_x, client_y];
+}
+
+/**
+ * Function for determining which kind of "click" an event is, including
  * touch events.
  *
  * @param e a touch or click event.
@@ -788,6 +815,7 @@ export function update_current_glyphs() {
     var glyphs = [];
     let cdk = get_current_dimkey();
     let cd = dimensions.key__dim(cdk);
+    let last_pos;
     for (let gp_or_index of SELECTION_PATH) {
         let g;
         if (typeof gp_or_index[0] == "string") {
@@ -807,8 +835,12 @@ export function update_current_glyphs() {
                 );
                 g = "?";
             }
+            last_pos = gp_or_index;
         }
         glyphs.push(g);
+    }
+    if(last_pos){
+        place_avatar(last_pos);
     }
     CURRENT_GLYPHS_BUTTON.set_glyphs(glyphs);
 }
@@ -1043,8 +1075,8 @@ function handle_movement(ctx, e) {
 
         SCROLL_REFERENT = vpos.slice();
 
-        CTX.viewport_center[0] -= dx;
-        CTX.viewport_center[1] += dy;
+        place_viewport([CTX.viewport_center[0] - dx, CTX.viewport_center[1] + dy]);
+
         DO_REDRAW = 0;
     } else if (SWIPING && SELECTION_PATH.length > 0) {
         // swiping w/ primary button or one finger
@@ -1118,8 +1150,8 @@ function handle_wheel(ctx, e) {
         dy *= PIXELS_PER_LINE * LINES_PER_PAGE;
     }
 
-    CTX.viewport_center[0] += dx;
-    CTX.viewport_center[1] -= dy;
+    place_viewport([CTX.viewport_center[0] + dx, CTX.viewport_center[1] - dy]);
+
     DO_REDRAW = 0;
 }
 
@@ -1181,14 +1213,24 @@ export function init(starting_dimension) {
     // Grab handle for the menus node
     MENUS_NODE = document.getElementById("menus");
 
-    // Set up the player
-    setup_player(starting_dimension.seed); // TODO: Different seed?
-
     // Set up the canvas
     let canvas = setup_canvas();
 
     // Initialize the menu system
     menu.init_menus([canvas.width, canvas.height]);
+
+    // Set up the player
+    setup_player(starting_dimension.seed); // TODO: Different seed?
+
+    console.log("ui.js", player.current_input_player.avatar);
+
+    // Display the current player's avatar
+    avatar.init_avatar(player.current_input_player()); 
+    rescale_avatar();
+    place_avatar([0, 0]);
+
+    // TODO: debugging 
+    // START_MENU.hide();
 
     // Unlock initial tiles
     // TODO: Better/different here?
@@ -1629,7 +1671,6 @@ export function init_test(starting_dimension, supertiles) {
     });
 }
 
-
 /**
  * Tests whether the given position is selected by a current swipe.
  *
@@ -1852,6 +1893,48 @@ export function make_test_animator(supertiles) {
     return animate_grid_test;
 }
 
+/**
+ * Places avatar into world using html coordinates. Updates the
+ * LAST_AVATAR_POSITION with this new position.
+ *
+ * @param gpos A 2-element array with tile grid x/y coordinates
+ */
+function place_avatar(gpos) {
+    // convert from grid coordinates to html coordinates
+    let wp = grid.world_pos(gpos);
+    let vp = draw.view_pos(CTX, wp);
+    let hp = vpos__hpos(vp);
+
+    // save the position in the LAST_AVATAR_POSITION and update avatar position
+    LAST_AVATAR_POSITION = gpos;
+    avatar.set_avatar_position(hp[0], hp[1]);
+}
+
+/**
+ * Rescales the avatar to a position that fits the canvas
+ */
+function rescale_avatar(){
+    avatar.set_avatar_size(CTX.viewport_scale * grid.GRID_SIZE, CTX.viewport_scale * grid.GRID_SIZE);
+}
+
+/**
+ * Puts the avatar at the last position it remembers (used when the page
+ * is zoomed in or out so that the avatar scales with it).
+ */
+function replace_avatar(){
+    place_avatar(LAST_AVATAR_POSITION);
+}
+
+/**
+ * Resets the viewport and re-intializes the avatar's position.
+ * 
+ * @param wpos A 2-element array with world x/y coordinates
+ */
+function place_viewport(wpos) {
+    CTX.viewport_center[0] = wpos[0];
+    CTX.viewport_center[1] = wpos[1];
+    replace_avatar();
+}
 
 /**
 * Adds a glyph from a source other than the main board to the current
@@ -2103,7 +2186,10 @@ export function grant_quest(quest) {
  */
 export function setup_player(seed) {
     // Check for stored players:
-    let stored = player.stored_players();
+
+    // TODO: Debugging and temporarily set stored to []
+    // let stored = player.stored_players();
+    let stored = [];
 
     let the_player;
     if (stored.length > 0 && MODE == "normal") {
@@ -2111,7 +2197,24 @@ export function setup_player(seed) {
         the_player = player.load_player(stored[0], quest_claimed);
     } else {
         the_player = player.new_player(1829812^seed);
+        pick_avatar(["yellow_avatar", "avatar",], the_player);
     }
 
     player.set_input_player(the_player);
+    console.log(player.current_input_player());
+}
+
+function pick_avatar(base_name_list, the_player){
+    let src_list = [];
+    for(let name of base_name_list) {
+        src_list.push("../../images/" + name + ".svg");
+    }
+
+    START_MENU = new menu.StartMenu(
+        "Pick an avatar!",
+        [],
+        src_list,
+        the_player,
+        "center",
+    );   
 }

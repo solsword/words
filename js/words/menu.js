@@ -445,6 +445,132 @@ Dialog.prototype.callback_args = function () {
 }
 
 /**
+ * TODO: Change documentation!
+ * A StartMenu pops up and shows the given text, along with one or more
+ * buttons that the user can click on. The entire dialog is also
+ * clickable, and results in a default cancel action.
+ * The 'buttons' argument should be a list of objects that have 'text'
+ * and 'action' properties. Only one of the actions will be triggered.
+ *
+ * TODO: Does tap-to-cancel interfere with the buttons too much on
+ * mobile?
+ *
+ * @param text A string containing the text to be displayed in the dialog
+ *     box. May contain HTML code (so be careful about user-generated
+ *     strings which appear in the text).
+ * @param buttons An array of button objects, each of which must have
+ *     'text' and 'action' properties. The button text (may be HTML) will
+ *     be put in the button, and when a button is clicked, its action
+ *     function will be called (without arguments), and then the menu
+ *     will be removed. The action may be the string "cancel" instead of
+ *     a function which will end up calling the cancel function for the
+ *     menu. The action may also be undefined, in which case the menu is
+ *     simply closed when the button is pressed without any further
+ *     action.
+ * @param pos The position of this menu (see BaseMenu).
+ * @param classes CSS classes for this menu (see BaseMenu).
+ * @param style Extra style code for this menu (see BaseMenu).
+ */
+export function StartMenu(text, buttons, avatar_imgs, the_player, pos, classes, style) {
+    BaseMenu.call(this, pos, classes, style);
+    this.element.classList.add("start_menu");
+    this.element.classList.add("passive");
+
+    // Save args as attributes
+    this.text = text;
+    this.buttons = buttons;
+    this.avatar_imgs = avatar_imgs;
+
+    // Create HTML elements + event handlers
+
+    // The paragraph of text
+    let text_block = document.createElement("div");
+    text_block.innerHTML = text;
+    this.element.appendChild(text_block);
+
+    // The buttons div
+    let buttons_area = document.createElement("div");
+    this.element.appendChild(buttons_area);
+
+    let img_area = document.createElement("div");
+    img_area.classList.add("img_area");
+
+    // keep track of how many images there are to evenly space them
+    let grid_columns_string = "";
+
+    // The divs for avatar images
+    for(let img_src of avatar_imgs){
+        grid_columns_string += "1fr ";
+
+        let img_div = document.createElement("div");
+
+        let img_button = document.createElement("button");
+        img_button.classList.add("img_button");
+        img_button.setAttribute("type", "button");
+        console.log("menu", the_player);
+        img_button.onclick = function(the_player) {player.set_avatar(the_player);}
+
+        let shown_img = document.createElement("img");
+        shown_img.setAttribute("src", img_src);
+
+        img_button.appendChild(shown_img);
+        img_div.appendChild(img_button);
+        img_area.appendChild(img_div);
+    }
+    // add the images to the menu so that each of them are evenly spaced
+    img_area.style.gridTemplateColumns = grid_columns_string;
+    this.element.appendChild(img_area);
+
+    // Save "this" for use in handler functions
+    let the_menu = this;
+
+    // Note: these must happen during bubbling, not capturing, or else
+    // the buttons will never receive events.
+    // this.element.addEventListener("touchend", canceller);
+    // this.element.addEventListener("click", canceller);
+
+    // The buttons themselves
+    for (let button of this.buttons) {
+        let b = document.createElement("a");
+        b.classList.add("button");
+        b.innerHTML = button.text;
+        let handler;
+        if (button.action == "cancel") {
+        //    handler = canceller;
+        } else if (button.action) {
+            // jshint -W083
+            handler = function (e) {
+                button.action();
+                the_menu.remove();
+                e.stopPropagation();
+            };
+        } else {
+            handler = function (e) {
+                the_menu.remove();
+                e.stopPropagation();
+            };
+            // jshint +W083
+        }
+        // Note: these must happen during capturing and must stop event
+        // propagation, or the cancel handler will also trigger.
+        b.addEventListener("touchend", handler, { "capture": true });
+        b.addEventListener("click", handler, { "capture": true });
+        buttons_area.appendChild(b);
+    }
+}
+StartMenu.prototype = Object.create(BaseMenu.prototype);
+StartMenu.prototype.constructor = StartMenu;
+
+/**
+ * Cancels the dialog as if the cancel action had been taken by the user.
+ * Triggers the cancel function if there is one.
+Dialog.prototype.cancel = function () {
+    this.cancel_action();
+    this.remove();
+};
+*/
+
+/**
  * A ToggleMenu is a persistent button that can be tapped to toggle
  * between on and off states, calling the on_action or off_action
  * function each time it transitions. The button starts in the "off"
