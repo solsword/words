@@ -1415,7 +1415,7 @@ export function init(starting_dimension) {
           + " on the right to list target words, and click the check that"
           + " appears there once you have found them all to move on. To"
           + " find a word, select it by dragging your mouse or finger"
-          + " acros the letters, and then press SPACE or click on the"
+          + " across the letters, and then press SPACE or click on the"
           + " word that appears at the bottom of the screen. Double-tap"
           + " or use backspace to delete part of a selection, or use"
           + " ESCAPE to clear your selection."
@@ -1909,7 +1909,7 @@ export function quest_claimed(quest) {
                         }
                     },
                     {
-                        "text": "Scrambe the board",
+                        "text": "Scramble the board",
                         "action": function() {
                             let seed = anarchy.scramble_seed(
                                 env.get_environment().seed

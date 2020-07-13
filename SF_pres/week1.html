@@ -2,6 +2,7 @@
 <html lang="en" dir="ltr">
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="week1.css">
         <title>First Round of Coding</title>
     </head>
@@ -11,13 +12,22 @@
         <section class ="abstract">
             <h2 class= "heading"> Abstract</h2>
             <p>
-                Words is a word-finding game that uses incremental and reversible  pseudo-random number generation to create an indefinite board of letters for the player to explore. Although still at an early stage of development, the game demonstrates novel PCG techniques and has potential applications in language pedagogy. As part of the project, we are also attempting to explore procedural rhetorics which offer alternatives to the standard rhetorics of capitalist accumulation and colonialist domination prevalent in most popular games. This summer we added features to the Words game through two two-week development sprints.
+Words is a word-finding game that uses incremental and reversible  pseudo-random number generation to create an indefinite board of letters for the player to explore. Although still at an early stage of development, the game demonstrates novel PCG techniques and has potential applications in language pedagogy. As part of the project, we are also attempting to explore procedural rhetorics which offer alternatives to the standard rhetorics of capitalist accumulation and colonialist domination prevalent in most popular games. This summer we added features to the Words game through two two-week development sprints.
+            </p>
+            <p>
 For the first two weeks of the program, we worked on implementing the glyph menu and a quiz mode. In the previous version of the game, in order to match a word, the player had to only use letters from the grid. The glyph menu enables the player to use extra letters from a list to build a word. In a case where the player is struggling and finds most of a word but it is missing a letter or two, this feature allows the user to complete the word using letters available from the glyphs menu. As of right now, the user cannot add or remove letters from this menu, however, in the future, this mechanism could allow the user to collect letters and also use them up.
+            </p>
+            <p>
 The original Words game randomly places words from large word lists in languages including Chinese, Japanese, Turkish, and English onto an indefinite board. With such capabilities, it could be a useful tool for language learning. To strengthen this use-case, we built a quiz mode feature, which allows players to upload a custom word list and create a link to a version of the game that uses those words. In quiz mode, after finding all of the words from the custom list, the player can either reshuffle the same words on a new board, or upload a new word list. While the original Words game has an indefinite board, this feature creates a finite board that includes all of the given words, with some random words added to fill in blank space. This feature could potentially be useful for vocabulary review because the player can practice finding and spelling specific words. In the future, players will hopefully be able to add definitions as well so that they can test their understanding of the words.
+          </p>
 
+          <p>
 Advisor Name: Peter Mawhorter
+          </p>
 
+          <p>
 Advisor Department: Computer Science
+          </p>
 
 Funding Source(s): Amabel Boyce James '74 Fund for Summer Research in the Sciences, Barbara Peterson Ruhlman '54 Fund for Interdisciplinary Studies, Janina A. Longtine '76 Endowed Fund for Summer Research in the Natural Sciences, Ronald E. McNair Scholars Program/Barbara Peterson Ruhlman '54 Fund for Interdisciplinary Studies
 
@@ -31,9 +41,64 @@ Funding Source(s): Amabel Boyce James '74 Fund for Summer Research in the Scienc
 
         </section>
         <section class = "Staci">
-            <h2 class="heading">The Quiz Mode</h2>
-            <p></p>
-
+            <h2 class="heading">Quiz Mode</h2>
+            <h5 style="margin:0;" class="heading">Designed by Katherine Avila and Anastacia Castro</h5>
+            <p>If you would like to use this feature, we have a game initialized with a demo word list linked <a href="../index.html#mode=quiz,words=science`definition%25201~computer`definition%25202~coding`definition%25203~html`definition%25204~css`definition%25205~javascript`definition%25206,domain=English">here</a>. You can also upload your own file into the quiz mode at this link: <a href="../start_quiz.html">Start Quiz</a>.
+            </p>
+            <div class="quiz_img_grid">
+              <img src="images/start_quiz.JPG">
+              <img src="images/quiz_demo_img.JPG">
+            </div>
+            <h3 class="heading">What is quiz mode?</h3>
+            <p>
+            In quiz mode, a user can upload a custom word list on a separate page from Words. 
+            First, the user must create a text file. The format for putting words into the file is described on the "Start Quiz" page linked above.
+            Once they have their text file ready, they can choose which 'domain' that their text file falls under. 
+            Currently, our program supports English, Japanese (ひらがな), Turkish (türk), Chinese idioms (成语), and Arabic (عربى).
+            Then, our program generates a link that encodes the words (and their definitions, if applicable) so that Words knows which words to use in the custom version of the game.
+            The traditional Words game is an indefinite board, but this feature creates a finite board that includes the words it is given in addition to a few other randomized words.
+            Right now, our game does not have the capability to use the definitions, but we hope that someone will add that into a future version of the game.
+            </p>
+            <p>
+            Once the game is created, the user can view the words that they need to find under the "Quests" menu.
+            As they find each word, the word will be marked with a check in that menu.
+            Users can also find other words that are randomly created as they play, but they do not count towards completing the quest.
+            After finding all of the words, the user can open the "Quests" menu and click the check next to the quest that shows the quest is completed.
+            Then, a dialog box appears to ask the user if they would like to start a new game or scramble the words of the current game to play again.
+            Creating a new game will take the user back to the "Start Quiz" page.
+            Choosing to scramble the words again changes the randomized seed used to create the game. 
+            </p>
+            <p>
+            Seeds are related to how the game is randomized.
+            Words is dependent on another code library built by Peter Mawhorter called "anarchy."
+            The point of that library is to create a way for randomized decisions to happen.
+            The process that computers use to generate random numbers is actually mathematically based, so they are not as random as they appear. 
+            Each seed describes the pattern used to generate the random numbers.
+            That is why each time you play the game with the same set of words, they will end up in the same place when you use the same seed.
+            </p>
+            <h3 class="heading">How was quiz mode created?</h3>
+            <p>
+            For reference, HTML, CSS, and JavaScript are the three main programming languages behind every website you see. 
+            HTML (Hypertext Markup Language) creates the bare bones of every website. It can be used to add text, images, and videos, among other things, and it differentiates various sections of each website.
+            CSS (Cascading Style Sheets) styles the HTML so that it looks more attractive. It can change colors, fonts, and sizes of objects, as well as shape the design in many other way.
+            JavaScript mostly deals with how the user interacts with a webpage. It runs code as you click buttons and scroll around a webpage.
+            </p>
+            <p>
+            To create our feature, we first had to create an HTML document for the user to upload their word list.
+            Then, we used JavaScript to take the input given by the user (the domain and file) and transform it into something that Words could use.
+            We decided the best way to do this was by creating a link because it's a simple way to pass information between different websites.
+            </p>
+            <p>
+            Once the user clicks the link, they get taken to Words which is where we take the information from the link to create a new game. 
+            Words already had the capability to create a custom dimension, so once we broke down the information from the URL, we put the words from the given word list into the property of the custom dimension that held its word list.
+            </p>
+            <p>
+            Here, we found that some words from our uploaded word list were not recognized as valid words by the program, so we had to change that rule in the part of the code that validates words.
+            </p>
+            <h3 class="heading">Future Work</h3>
+            <p>
+            This feature can hopefully be useful for vocabulary review where someone uploads their word list and then can practice finding and spelling the words that they need to review.
+            </p>
         </section>
 
     </body>

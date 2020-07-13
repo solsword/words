@@ -1,6 +1,8 @@
 body{
     display: block;
-    margin: 75px;
+    /* possibly change this so it's responsive? */
+    /* margin: 75px; */
+    margin: 5vw;
     background: #fff8bf;
     font-family: "Times New Roman";
 }
@@ -28,6 +30,13 @@ h1{
     background-color: white;
 }
 
+.heading{
+    font-family: sans-serif;
+}
+
+/*-------------------*/
+/* Quiz mode section */
+/*-------------------*/
 .Staci{
     border: 0.5px solid black;
     padding-left: 20px;
@@ -37,6 +46,25 @@ h1{
 
 }
 
-.heading{
-    font-family: sans-serif;
+.quiz_img_grid {
+    display: grid;
+    grid-template-columns: 54% 42%;
+    grid-gap: 2%;
+    max-width: 100%;
+    overflow: hidden;
+    height: 45vh;
+}
+
+.quiz_img_grid img{
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: cover;
+    object-position: 0 0;
+}
+
+@media screen and (max-width: 768px) {
+    .quiz_img_grid {
+        grid-template-columns: auto;
+        height: auto;
+    }
 }
