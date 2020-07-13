@@ -1,0 +1,42 @@
+body{
+    display: block;
+    margin: 75px;
+    background: #fff8bf;
+    font-family: "Times New Roman";
+}
+
+h1{
+    font-size: 50px;
+    text-align: center;
+
+}
+
+.abstract{
+    border: 0.5px solid black;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin:10px;
+    background-color: white;
+
+}
+
+.Farida{
+    border: 0.5px solid black;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin:10px;
+    background-color: white;
+}
+
+.Staci{
+    border: 0.5px solid black;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin:10px;
+    background-color: white;
+
+}
+
+.heading{
+    font-family: sans-serif;
+}
