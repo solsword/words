@@ -1676,6 +1676,10 @@ export function draw_swipe(ctx, gplist, method, color) {
             break;
         }
     }
+    if (typeof last_pos[0] == "string") {
+        last_pos = undefined;
+    }
+
     if (method == "highlight" && last_pos) {
         let lhc = color || colors.scheme_color("ui", "highlight");
         draw_highlight(ctx, last_pos, lhc);
@@ -1692,11 +1696,15 @@ export function draw_swipe(ctx, gplist, method, color) {
             break;
         }
     }
+    if (typeof first_pos[0] == "string") {
+        first_pos = undefined;
+    }
 
     // Draw line:
     if (
         (method == "highlight" || method == "line")
-        && gplist.length > 1
+     && gplist.length > 1
+     && first_pos
     ) {
         ctx.strokeStyle = color || colors.scheme_color("ui", "trail");
         ctx.fillStyle = ctx.strokeStyle;

@@ -450,6 +450,7 @@ export var COMMANDS = {
         DO_REDRAW = 0;
     },
     // resets the player's activity & stats
+    /* TODO: Re-unlock a starting position?
     "R": function (e) {
         player.reset_player(player.current_input_player());
         if (QUEST_MENU) {
@@ -460,6 +461,7 @@ export var COMMANDS = {
         }
         DO_REDRAW = 0;
     },
+    */
     // home and 0 reset the view to center 0, 0
     "0": home_view,
     "Home": home_view,
@@ -500,11 +502,14 @@ export var COMMANDS = {
     },
     "H": function(){
 
-        let paths = find_paths("PEA");
+        let paths = find_visible_paths("PEA");
         let first_letters = paths.map(path => path[0].pos);
-        animate_lines(first_letters,
+        animate_lines(
+            first_letters,
             [ CTX.cwidth/2, 0 ],
-            { "color": "#0f6" }, animate.SECOND);
+            { "color": "#0f6" },
+            animate.SECOND
+        );
 
     }
 };
@@ -1467,17 +1472,21 @@ export function init(starting_dimension) {
           + " acros the letters, and then press SPACE or click on the"
           + " word that appears at the bottom of the screen. Double-tap"
           + " or use backspace to delete part of a selection, or use"
-          + " ESCAPE to clear your selection."
+          + " ESCAPE to clear your selection. Note: Your progress will"
+          + " not be saved."
         );
     } else {
         about_text = (
             "This is Words, version 0.2. Select words and tap the"
-          + " word that appears below, or press SPACE. You can scroll to"
-          + " see more of the grid. Use the ⊗ at the bottom-left or"
-          + " ESCAPE to clear the selection, or double-tap to remove a"
-          + " glyph. Review words with the 'Words' button on the"
-          + " right-hand side. The 🏠 button takes you back to the"
-          + " start."
+          + " word that appears below, or press SPACE. Words must"
+          + " overlap with an existing match, and only the most recent"
+          + " three matches remain active. You can scroll to see more of"
+          + " the grid. Use the ⊗ at the bottom-left or ESCAPE to clear"
+          + " the selection, or double-tap to remove a glyph. Review"
+          + " words with the 'Words' button on the right-hand side. The"
+          + " 🏠 button takes you back to the start. Your progress will"
+          + " be saved when you match a word, and will be loaded"
+          + " automatically if you refresh the page."
         );
     }
 
@@ -1517,14 +1526,28 @@ export function init(starting_dimension) {
                         {
                             "text": "OK",
                             "action": function (menu, value) {
-                                console.log(menu, value);
-                                let paths = find_paths(value);
+                                let cdk = get_current_dimkey();
+                                let cd;
+                                if (cdk != undefined) {
+                                    cd = dimensions.key__dim(cdk);
+                                }
+                                let search = value;
+                                if (cd != undefined) {
+                                    search = generate.contextual_case(
+                                        cd.domain,
+                                        value
+                                    );
+                                }
+                                let paths = find_visible_paths(search);
                                 let first_letters = paths.map(
                                     path => path[0].pos
                                 );
-                                animate_lines(first_letters,
+                                animate_lines(
+                                    first_letters,
                                     [ CTX.cwidth/2, 0 ],
-                                    { "color": "#0f6" }, animate.SECOND);
+                                    { "color": "#0f6" },
+                                    animate.SECOND
+                                );
 
 
                                 cleanup_hint();
@@ -2010,27 +2033,38 @@ export function find_swipe_head(index) {
 }
 
 
-// the function returns all the glyphs visible
+/**
+ * Fetches a list of all of the visible tiles.
+ * See draw.visible_tile_list and get_current_dimkey.
+ *
+ * @return An array containing a tile entry for each tile in the current
+ *     dimension. An empty array if there is no current dimension.
+ */
+export function get_visible_tiles() {
+    // get current dimension
+    let cdk = get_current_dimkey();
+    // tiles etc. only if available
+    if (cdk != undefined) {
+        let cd = dimensions.key__dim(cdk);
 
-export function get_glyph(){
-
-        // get current dimension
-        let cdk = get_current_dimkey();
-        // tiles etc. only if available
-        console.log(cdk);
-        if (cdk != undefined) {
-            let cd = dimensions.key__dim(cdk);
-
-            // Tiles
-            let visible_tiles = draw.visible_tile_list(cd, CTX);
-            console.log(visible_tiles,"visible tile");
-            return visible_tiles;
-        }
-
-
+        // Tiles
+        return draw.visible_tile_list(cd, CTX);
     }
+    return [];
+}
 
-export function map_tiles(tile_array){
+/**
+ * Takes an array of tiles (like that returned by get_visible_tiles) and
+ * returns an object whose keys are the coordinates of the tiles and
+ * whose values are the tiles.
+ *
+ * @param tile_array An array of tile objects, which must have "pos"
+ *     attributes holding 2-element x/y grid position arrays. No two
+ *     tiles should share the same position.
+ * @return An object mapping tile positions (encoded as strings using
+ *     grid.coords__key) to tiles.
+ */
+export function map_tiles(tile_array) {
     let result = {};
     for(let tile of tile_array){
         let key = grid.coords__key(tile.pos);
@@ -2040,17 +2074,43 @@ export function map_tiles(tile_array){
 }
 
 
-export function revise_posibilities(next_letter,tile_map,collected_posibilities){
-
+/**
+ * Takes an array of matches-so-far and returns a new array of matches
+ * where each match-so-far has been extended by adding the given glyph.
+ *
+ * @param next_glyph A one-character string specifying the glyph that
+ *     must appear next when looking for matches.
+ * @param tile_map A tile map, as produced by map_tiles. Only matches
+ *     within this map will be discovered.
+ * @param collected_possibilities An array of possible paths, where each
+ *     possibility is an array of tile objects (they *must* be the same
+ *     tile objects that are in the tile map, not clones). The specified
+ *     next glyph will be searched for at positions adjacent to the last
+ *     glyph of each of these paths, and a copy of each path that
+ *     includes the extra glyph will be added to the result for each
+ *     adjacent copy of the glyph being sought.
+ *
+ * @return A new array in the same format as the collected_possibilities,
+ *     where each path is exactly one tile longer. This new array may
+ *     contain more possibilities or fewer possibilities, or even none if
+ *     none of the input possibilities are adjacent to any copies of the
+ *     required next glyph. Note that paths which double-back on
+ *     themselves are excluded.
+ */
+export function revise_possibilities(
+    next_glyph,
+    tile_map,
+    collected_possibilities
+) {
     let result = [];
-    for (let path of collected_posibilities){
+    for (let path of collected_possibilities){
         let last_tile = path[path.length-1];
         for(let d = 0; d<grid.N_DIRECTIONS; d++){
             let nb = grid.neighbor(last_tile.pos, d);
             let nb_tile = tile_map[grid.coords__key(nb)];
             if(
                 nb_tile
-             && next_letter == nb_tile.glyph
+             && next_glyph == nb_tile.glyph
              && !path.includes(nb_tile)
             ){
                 result.push(path.concat([nb_tile]));
@@ -2062,33 +2122,52 @@ export function revise_posibilities(next_letter,tile_map,collected_posibilities)
 }
 
 
-export function find_paths(word){
-    let visible_tiles = get_glyph();
+/**
+ * Finds all visible tile paths which spell out the given word.
+ *
+ * @param word A string specifying the glyph sequence to search for.
+ *
+ * @return An array of tile paths, in the same format as returned by
+ *     revise_possibilities. Note that unlike many other things that are
+ *     called paths, the entries in each path are tile objects, NOT
+ *     2-element x/y grid coordinate arrays.
+ */
+export function find_visible_paths(word){
+    let visible_tiles = get_visible_tiles();
     let tile_map = map_tiles(visible_tiles);
     let foundWord = [];
     let possiblities = [];
-    console.log(visible_tiles.length);
     for (let tile of visible_tiles){
 
-        console.log(tile.glyph, "visible_tiles[i].glyph");
-        console.log(word[0]);
         if (word[0] == tile.glyph){
             possiblities.push([tile]);
         }
 
     }
     for (let letter of word.slice(1)){
-        possiblities = revise_posibilities(letter, tile_map, possiblities);
+        possiblities = revise_possibilities(letter, tile_map, possiblities);
     }
-    console.log(possiblities);
     return possiblities;
 }
 
 
 
-export function animate_lines(path, destination, style, duration){
+/**
+ * A function which creates a grouped animation to draw lines from each
+ * of the given starting positions to the given destination.
+ *
+ * @param start_positions An array of 2-element x/y tile coordinate
+ *     positions. One line will be drawn from the center of each.
+ * @param destination A 2-element x/y canvas coordinate position for the
+ * destination of the lines being drawn.
+ * @param style A style object specifying how to draw the lines; see
+ *     animate.MotionLine.
+ * @param duration How long the lines should persist for. You should use
+ *     a constant from the animation module like animation.MOMENT.
+ */
+export function animate_lines(start_positions, destination, style, duration) {
     let lines = [];
-    for (let gp of path) {
+    for (let gp of start_positions) {
         if (typeof gp[0] != "string") {
             var wp = grid.world_pos(gp);
             var vp = draw.view_pos(CTX, wp);
@@ -2106,9 +2185,10 @@ export function animate_lines(path, destination, style, duration){
     let result = new animate.AnimGroup(lines, function(){});
     animate.activate_animation(result);
 
-DO_REDRAW = 0;
-return result;
+    DO_REDRAW = 0;
+    return result;
 }
+
 /**
  * A quest claim function which updates the QUEST_MENU, and if we're in
  * quiz mode, checks for a "finish_quiz" reward and presents the
@@ -2185,9 +2265,7 @@ export function grant_quest(quest) {
 export function setup_player(seed) {
     // Check for stored players:
 
-    // TODO: Debugging and temporarily set stored to []
-    // let stored = player.stored_players();
-    let stored = [];
+    let stored = player.stored_players();
 
     let the_player;
     if (stored.length > 0 && MODE == "normal") {

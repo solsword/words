@@ -1,6 +1,6 @@
 // generate.js
 // Generates hex grid supertiles for word puzzling.
-/* global console */
+/* global console, locale */
 
 "use strict";
 
@@ -10,6 +10,11 @@ import * as grid from "./grid.js";
 import * as dimensions from "./dimensions.js";
 import * as caching from "./caching.js";
 import * as active from "./active.js";
+
+/*
+ * TODO: This when possible
+import * as locale from "./locale.js";
+*/
 
 /**
  * Whether or not to issue warnings to the console.
@@ -1536,6 +1541,8 @@ export function ultratile_context(domain_name, ugp, seed) {
     // Note: Order doesn't matter here, as these will be assigned to random
     // supertiles within the ultratile.
     let elem_queue = [];
+    /*
+     * TODO: Re-enable active elements!
     for (let i = 0; i < richness; ++i) {
         if (i < links) {
             elem_queue.push("🔗");
@@ -1552,6 +1559,7 @@ export function ultratile_context(domain_name, ugp, seed) {
             elem_queue.push(res);
         }
     }
+    */
 
     // Fill in 3/5 of all remaining supertiles with color sources:
     for (
@@ -4210,4 +4218,44 @@ export function overlength_per_assignment_region(dom_or_combo) {
  */
 export function superlong_ratio(domain) {
     return domain.superlong.length / domain.entries.length;
+}
+
+/**
+ * Uses the given domain name to determine whether words should be
+ * treated as case-sensitive or not, and returns either the given word
+ * as-is if case should be respected, or an uppercase version if not. If
+ * the relevant domain(s) aren't yet loaded, the word is returned as-is.
+ *
+ * @param dom_name The name of the domain to use to determine case
+ *     sensitivity.
+ * @param word The word to process (a string).
+ *
+ * @return A string which is either the same as the input word or an
+ *     uppercase version for case-insensitive contexts.
+ */
+export function contextual_case(dom_name, word) {
+    let dom_names = domains_list(dom_name);
+    let is_case_sensitive = false;
+    let only_locale = undefined;
+    for (let name of dom_names) {
+        //if any domain is case sensitive, we won't uppercase
+        let dom = dict.lookup_domain(name);
+        if (dom == undefined) {
+            continue;
+        }
+        // unloaded domains
+        if (only_locale == undefined) {
+            only_locale = dom.locale;
+        }
+        if (dom.cased || dom.locale != only_locale) {
+            is_case_sensitive = true;
+            break;
+        }
+    }
+
+    if (only_locale != undefined && !is_case_sensitive) {
+        return locale.lc_upper(word, only_locale);
+    } else {
+        return word;
+    }
 }

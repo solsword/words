@@ -288,10 +288,13 @@ details.menu[open] summary .losed {
 
 .avatar {
     position: absolute;
+    pointer-events: none;
+    opacity: 0.75; /* TODO: work on avatar placement */
 }
 
+/* TODO: Get rid of this? No effect since pointer events are off */
 .avatar:hover {
-    opacity: 0;
+    opacity: 0.5;
 }
 
 .slot {
