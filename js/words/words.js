@@ -79,10 +79,16 @@ function finish_setup(mode, domname, seed, wordlist) {
     // Set the global MODE variable in ui.js
     ui.set_mode(mode);
 
+    console.log(wordlist);
+    if(wordlist[0].includes('~')){
+      wordlist = wordlist[0].split('~');
+    }
+    console.log("wl", wordlist);
     // Sort out words vs. definitions
     let words = [];
     let definitions = [];
     for (let word of wordlist) {
+        console.log("word", word);
         if (word.includes('`')) {
             let [just_word, definition] = word.split('`');
             words.push(just_word);
@@ -93,6 +99,7 @@ function finish_setup(mode, domname, seed, wordlist) {
         }
     }
 
+    console.log(words);
     // Construct a starting dimension based on the mode
     let starting_dimension;
     if (mode == "quiz") {
