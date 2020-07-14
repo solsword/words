@@ -1212,12 +1212,14 @@ export function event_targets_a_menu(e) {
  * Sets up the UI components, including attaching the various event
  * handlers and initiating the first call to draw_frame.
  *
+ * @param fresh Whether to ignore stored data & create a new player.
+ *     TODO: Player select menu...
  * @param starting_dimension A dimension object that the game should
  *     start out in.
  *
  * TODO: use a player to define starting location instead?
  */
-export function init(starting_dimension) {
+export function init(fresh, starting_dimension) {
     // Grab handle for the menus node
     MENUS_NODE = document.getElementById("menus");
 
@@ -1228,7 +1230,7 @@ export function init(starting_dimension) {
     menu.init_menus([canvas.width, canvas.height]);
 
     // Set up the player
-    setup_player(starting_dimension.seed); // TODO: Different seed?
+    setup_player(fresh, starting_dimension.seed); // TODO: Different seed?
 
     // Display the current player's avatar
     avatar.init_avatar(player.current_input_player()); 
@@ -2260,20 +2262,26 @@ export function grant_quest(quest) {
  * or by loading a player from local storage. This function calls
  * player.set_input_player with the player that it loads or creates.
  *
+ * @param fresh Whether to ignore stored players or not.
  * @param seed A seed value used if a new player needs to be created.
  */
-export function setup_player(seed) {
+export function setup_player(fresh, seed) {
     // Check for stored players:
 
     let stored = player.stored_players();
 
     let the_player;
-    if (stored.length > 0 && MODE == "normal") {
+    if (stored.length > 0 && MODE == "normal" && !fresh) {
         // TODO: Give the user a menu to select which player to load...
         the_player = player.load_player(stored[0], quest_claimed);
     } else {
         // make a new player and set its avatar
         the_player = player.new_player(1829812^seed);
+
+        if (MODE == "quiz") {
+            // Disable saving of progress
+            player.disable_saves();
+        }
 
         // TODO: add a way to put avatars into the start menu
         // rather than hard-coding them here

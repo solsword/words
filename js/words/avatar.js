@@ -93,7 +93,12 @@ export function init_avatar(current_player) {
     AVATAR = document.createElement("object");
     AVATAR.classList.add("avatar");
     AVATAR.setAttribute("type", "image/svg+xml"); 
-    AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
+    if (current_player && current_player.avatar) {
+        AVATAR.setAttribute("data", current_player.avatar.static_img_src); 
+        // Otherwise, we probably need to wait for the player to be set
+        // up, so we'll skip the data attribute for now and hope someone
+        // puts it in later.
+    }
 
     /*
     // load the svg object and get the svg

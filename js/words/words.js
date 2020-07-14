@@ -24,10 +24,9 @@ export function start_game() {
     // figure out context
     let env_vars = env.get_environment();
 
-    let emode = env_vars.mode;
-    if (!emode) {
-        emode = "normal";
-    }
+    let efresh = env_vars.fresh || false;
+
+    let emode = env_vars.mode || "normal";
 
     let edom = env_vars.domain;
     if (!edom || !dimensions.MULTIPLANAR_DOMAINS.includes(edom)) {
@@ -52,7 +51,7 @@ export function start_game() {
     } else {
         // In other modes, we can ignore the words list and just get
         // things started immediately
-        finish_setup(emode, edom, eseed, []);
+        finish_setup(efresh, emode, edom, eseed, []);
     }
 }
 
@@ -62,6 +61,7 @@ export function start_game() {
  * list), this function finishes the setup process by creating an
  * appropriate starting domain and calling ui.init.
  *
+ * @param fresh Whether to ignore stored data & create a new player.
  * @param mode A string specifying the mode (must be one of ui.MODES).
  * @param domname Used to know what full domain the user wants to match
  *     words from besides just their words uploaded. A string naming a
@@ -70,7 +70,7 @@ export function start_game() {
  * @param wordlist List of string of words that the user uploaded. This
  *     should be a list of strings which contain
  */
-function finish_setup(mode, domname, seed, wordlist) {
+function finish_setup(fresh, mode, domname, seed, wordlist) {
     if (!ui.MODES.includes(mode)) {
         console.warn("Unknown mode '" + mode + "' defaults to 'normal'");
         mode = "normal";
@@ -123,7 +123,7 @@ function finish_setup(mode, domname, seed, wordlist) {
     }
 
     // Start the game
-    ui.init(starting_dimension);
+    ui.init(fresh, starting_dimension);
 }
 
 /**
