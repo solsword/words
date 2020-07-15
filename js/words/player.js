@@ -1248,6 +1248,24 @@ export function save_player(agent) {
 }
 
 /**
+ * Clears all saved player data. In general this should be used for
+ * debugging only!
+ */
+export function clear_saves() {
+    let storage = window.localStorage;
+    let pks = [];
+    for (let i = 0; i < storage.length; ++i) {
+        let k = storage.key(i);
+        if (k.startsWith("P:")) {
+            pks.push(k);
+        }
+    }
+    for (let player_key of pks) {
+        storage.removeItem(player_key);
+    }
+}
+
+/**
  * Lists stored players that can be loaded from local storage.
  *
  * @return An array of player IDs, possibly empty.

@@ -225,6 +225,7 @@ export var ABOUT_BUTTON = null;
 export var HOME_BUTTON = null;
 export var ZOOM_IN_BUTTON = null;
 export var ZOOM_OUT_BUTTON = null;
+export var OPTIONS_BUTTON = null;
 export var CLEAR_SELECTION_BUTTON = null;
 export var RESET_ENERGY_BUTTON = null;
 export var CURRENT_GLYPHS_BUTTON = null;
@@ -1433,6 +1434,104 @@ export function init(fresh, starting_dimension) {
         "top"
     );
 
+    let options_dialog = null;
+    let cleanup_options = function () { options_dialog = null; };
+    OPTIONS_BUTTON = new menu.ButtonMenu(
+        "Options",
+        function () {
+            if (options_dialog == null) {
+                // Create a dialog
+                // TODO: A real options menu w/ lots of different widgets
+                options_dialog = new menu.Dialog(
+                    "Choose an option...",
+                    cleanup_options,
+                    [
+                        {
+                            "text": "Change avatar",
+                            "action": function () {
+                                let the_player = player.current_input_player();
+                                pick_avatar(
+                                    ["yellow_avatar", "avatar","purple_avatar"],
+                                    the_player
+                                );
+                                cleanup_options();
+                            }
+                        },
+                        { // TODO: Better UI around this (confirm at least)
+                            "text": "Delete ALL saved data",
+                            "action": function () {
+                                player.clear_saves();
+                                cleanup_options();
+                            }
+                        },
+                        { "text": "Cancel", "action": cleanup_options }
+                    ]
+                );
+            } else {
+                // Remove the existing dialog
+                options_dialog.cancel();
+            }
+        },
+        "top"
+    );
+
+    let hint_dialog = null;
+    let cleanup_hint = function () { hint_dialog = null; };
+    HINT_BUTTON = new menu.ButtonMenu(
+        "Hint",
+        function () {
+            if (hint_dialog == null) {
+                // Create a dialog
+                hint_dialog = new menu.TextInputDialog(
+                    (
+                        "Search for a word:"
+                    ),
+                    cleanup_hint,
+                    [
+                        {
+                            "text": "OK",
+                            "action": function (menu, value) {
+                                let cdk = get_current_dimkey();
+                                let cd;
+                                if (cdk != undefined) {
+                                    cd = dimensions.key__dim(cdk);
+                                }
+                                let search = value;
+                                if (cd != undefined) {
+                                    search = generate.contextual_case(
+                                        cd.domain,
+                                        value
+                                    );
+                                }
+                                let paths = find_visible_paths(search);
+                                let first_letters = paths.map(
+                                    path => path[0].pos
+                                );
+                                animate_lines(
+                                    first_letters,
+                                    [ CTX.cwidth/2, 0 ],
+                                    { "color": "#0f6" },
+                                    animate.SECOND
+                                );
+
+
+                                cleanup_hint();
+                            }
+                        },
+                        {
+                            "text": "Cancel",
+                            "action": "cancel"
+                        }
+                    ]
+                );
+            } else {
+                // Remove the existing dialog
+                hint_dialog.cancel();
+            }
+        },
+        "top"
+    );
+
     ZOOM_OUT_BUTTON = new menu.ButtonMenu(
         "–",
         zoom_out,
@@ -1510,63 +1609,6 @@ export function init(fresh, starting_dimension) {
             }
         },
         "bottom"
-    );
-
-    let hint_dialog = null;
-    let cleanup_hint = function () { hint_dialog = null; };
-    HINT_BUTTON = new menu.ButtonMenu(
-        "Hint",
-        function () {
-            if (hint_dialog == null) {
-                // Create a dialog
-                hint_dialog = new menu.TextInputDialog(
-                    (
-                        "Search for a word:"
-                    ),
-                    cleanup_hint,
-                    [
-                        {
-                            "text": "OK",
-                            "action": function (menu, value) {
-                                let cdk = get_current_dimkey();
-                                let cd;
-                                if (cdk != undefined) {
-                                    cd = dimensions.key__dim(cdk);
-                                }
-                                let search = value;
-                                if (cd != undefined) {
-                                    search = generate.contextual_case(
-                                        cd.domain,
-                                        value
-                                    );
-                                }
-                                let paths = find_visible_paths(search);
-                                let first_letters = paths.map(
-                                    path => path[0].pos
-                                );
-                                animate_lines(
-                                    first_letters,
-                                    [ CTX.cwidth/2, 0 ],
-                                    { "color": "#0f6" },
-                                    animate.SECOND
-                                );
-
-
-                                cleanup_hint();
-                            }
-                        },
-                        {
-                            "text": "Cancel",
-                            "action": "cancel"
-                        }
-                    ]
-                );
-            } else {
-                // Remove the existing dialog
-                hint_dialog.cancel();
-            }
-        },
-        "right"
     );
 
     // set up event handlers
