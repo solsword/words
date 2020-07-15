@@ -3846,28 +3846,18 @@ export function merge_glyph_tricounts(gs1, gs2) {
         }
     }
     for (let g of Object.keys(gs2)) {
-        if (result.hasOwnProperty(g)) {
-            for (let gg of Object.keys(gs2[g])) {
-                if (result[g].hasOwnProperty(gg)) {
-                    for (let ggg of Object.keys(gs2[g][gg])) {
-                        if (result[g][gg].hasOwnProperty(ggg)) {
-                            result[g][gg][ggg] += gs2[g][gg][ggg] / gs2_total;
-                        } else {
-                            result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
-                        }
-                    }
-                } else {
-                    result[g][gg] = {};
-                    for (let ggg of Object.keys(gs2[g][gg])) {
-                        result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
-                    }
-                }
-            }
-        } else {
+        if (!result.hasOwnProperty(g)) {
             result[g] = {};
-            for (let gg of Object.keys(gs2[g])) {
-                for (let ggg of Object.keys(gs2[g][gg])) {
-                    result[g][gg][gg] = gs2[g][gg][ggg] / gs2_total;
+        }
+        for (let gg of Object.keys(gs2[g])) {
+            if (!result[g].hasOwnProperty(gg)) {
+                result[g][gg] = {};
+            }
+            for (let ggg of Object.keys(gs2[g][gg])) {
+                if (result[g][gg].hasOwnProperty(ggg)) {
+                    result[g][gg][ggg] += gs2[g][gg][ggg] / gs2_total;
+                } else {
+                    result[g][gg][ggg] = gs2[g][gg][ggg] / gs2_total;
                 }
             }
         }

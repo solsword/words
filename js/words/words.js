@@ -46,7 +46,7 @@ export function start_game() {
         determine_wordlist(
             edom,
             ewords,
-            function (wl) { finish_setup(emode, edom, eseed, wl); }
+            function (wl) { finish_setup(efresh, emode, edom, eseed, wl); }
         );
     } else {
         // In other modes, we can ignore the words list and just get
