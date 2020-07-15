@@ -21,12 +21,12 @@ export var AVATAR;
  *
  * @return An avatar object with the following fields:
  *    
- *    static_img_src: The filename of the avatar's static image within the images
- *        folder in the format "../../images/<filename>.svg" where <filename>
+ *    static_img_src: The filename of the avatar's static image within the
+ *        images folder in the format "images/<filename>.svg" where <filename>
  *        is the name of the file.    
  *
  *    animation_srcs: A list containing the filenames of the avatar's animations
- *        within the images folder in the format "../../images/<filename>.svg"
+ *        within the images folder in the format "images/<filename>.svg"
  *        where <filename> is the name of each file.
  */ 
 export function new_avatar(base_image_name, anim_names) {
@@ -58,11 +58,11 @@ export function new_avatar(base_image_name, anim_names) {
  *    be the static image and "my_avatar_jump.svg" could be an animation
  *    of the avatar.
  * 
- * @return The filename for the avatar's static image including the "/images/"
+ * @return The filename for the avatar's static image including the "images/"
  *    at the beginning in string format.
  */
 export function get_static_img_src(base_image_name) {
-    return "../../images/" + base_image_name + ".svg";
+    return "images/" + base_image_name + ".svg";
 }
 
 /**
@@ -76,11 +76,11 @@ export function get_static_img_src(base_image_name) {
  * @param anim The string name of the avatar's animation. This must also be 
  *    part of the image's filename.
  * 
- * @return The string filename for the avatar's animation including the "/images/"
+ * @return The string filename for the avatar's animation including the "images/"
  *    at the beginning.
  */
 export function get_anim_img_src(base_image_name, anim) {
-    return "../../images/" + base_image_name + "_" + anim + ".svg";
+    return "images/" + base_image_name + "_" + anim + ".svg";
 }
 
 /**
