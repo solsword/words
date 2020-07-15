@@ -1232,6 +1232,7 @@ GlyphsMenu.prototype.animate_flash = function() {
         this.fade_color = undefined;
         // put back the original border color & width
         this.element.style.borderColor = this.orig_border_color;
+        // TODO: Fix this property!
         this.element.style.borderWidth = this.orig_border_width;
     } else {
         // interpolate back towards original color

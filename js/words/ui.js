@@ -1407,7 +1407,7 @@ export function init(fresh, starting_dimension) {
                                 "action": function () {
                                     cleanup_back();
                                     // go back to the quiz builder page
-                                    window.location.assign("/start_quiz.html");
+                                    window.location.assign("./start_quiz.html");
                                 }
                             },
                             { "text": "Cancel", "action": cleanup_back }
@@ -2262,7 +2262,7 @@ export function quest_claimed(quest) {
                         "text": "Build a new quiz",
                         "action": function () {
                             // go back to the quiz builder page
-                            window.location.assign("/start_quiz.html");
+                            window.location.assign("./start_quiz.html");
                         }
                     },
                     {
