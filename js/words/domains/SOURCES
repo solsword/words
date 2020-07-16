@@ -11,7 +11,7 @@ Wikipedia (Wiktionary) (see LICENSE-wikipedia):
   かんたんなひらがな.lst
 
 Japanese w/ Hiragana from https://github.com/birtles/rikaichamp/tree/master/data/dict.dat (unlicensced)
-  ひらがな.lst
+  かな.lst
 
 Classic Arabic word list (see LICENSE-classic-arabic):
   اللغة_العربية_الفصحى.lst: https://sourceforge.net/projects/classical-arabic-corpus/

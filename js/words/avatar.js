@@ -80,6 +80,7 @@ export function get_static_img_src(base_image_name) {
  *    at the beginning.
  */
 export function get_anim_img_src(base_image_name, anim) {
+    console.log("GAIS", "images/" + base_image_name + "_" + anim + ".svg");
     return "images/" + base_image_name + "_" + anim + ".svg";
 }
 

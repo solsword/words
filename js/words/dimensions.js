@@ -18,11 +18,10 @@ export var MULTIPLANAR_CONNECTIONS = 64;
  */
 export var MULTIPLANAR_DOMAINS = [
     "English",
+    "かな",
     "成语",
     "عربى",
-    //"かんたんなひらがな", // DEBUG TODO
-    "ひらがな",
-    "türk",
+    "Türk",
     //"اللغة_العربية_الفصحى", //Too large for demo
 ];
 
