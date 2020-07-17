@@ -1373,7 +1373,7 @@ export function init(fresh, starting_dimension) {
     // Adding slots menu, the contents are currently predetermined.
     // TODO: How to add/remove glyphs based on player progression
     SLOTS_MENU = new menu.SlotsMenu(
-        ["A", "E", "I", "O", "U"],
+        ["A", "E", "I"],
         function (menu, index) { // select function
             splice_glyph("slots", index);
         },
