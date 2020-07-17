@@ -362,7 +362,7 @@ export function reset_player(agent) {
     agent.personal_words = [];
     agent.quests = { "active": [], "completed": [] };
     agent.glyphs_mastered = {};
-    agent.avatar = avatar.new_avatar("avatar", ["jump_css"]);
+    agent.avatar = avatar.new_avatar("avatar", ["jump"]);
 
     // Make sure that we save the player
     save_player(agent);
